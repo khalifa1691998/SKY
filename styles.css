@@ -1,0 +1,276 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --dark-sidebar: #0f172a;
+  --dark-sidebar-hover: #1e293b;
+  --bg-light: #f8fafc;
+  --font-family: 'Cairo', sans-serif;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-light);
+  direction: rtl;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Glassmorphism utility */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+}
+
+.glass-sidebar {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Custom animations */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.animate-pulse-warning {
+  animation: pulse-ring 2s infinite;
+}
+
+.tab-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom form inputs style */
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.5rem;
+}
+
+/* Custom status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-success {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.badge-warning {
+  background-color: #fef9c3;
+  color: #a16207;
+}
+
+.badge-danger {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-info {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+/* Custom timeline styles */
+.timeline-item::after {
+  content: '';
+  position: absolute;
+  top: 1.25rem;
+  bottom: -1.25rem;
+  right: 1.25rem;
+  width: 2px;
+  background-color: #e2e8f0;
+}
+
+.timeline-item:last-child::after {
+  display: none;
+}
+
+/* ================= SMOOTH GLOBAL TRANSITIONS ================= */
+/* انتقال سلس للألوان والخلفيات في كل حاجة في الموقع (تبديل تابات، هوفر، دارك مود) */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+  transition-duration: 0.2s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* استثناء عناصر الأيقونات المتحركة والسبينر عشان الانتقال الجديد ميأثرش على أنيميشن الدوران بتاعها */
+@keyframes ph-spin-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.ph-spin {
+  display: inline-block;
+  animation: ph-spin-rotate 0.8s linear infinite;
+  transition: none;
+}
+
+/* ================= ICONS (Phosphor) ================= */
+/* سمك خط موحد وأنيق للأيقونات في كل الموقع، أقرب لأسلوب SF Symbols بتاع Apple */
+[class^="ph-"], [class*=" ph-"] {
+  line-height: 1;
+  vertical-align: -0.1em;
+}
+
+/* أنيميشن ظهور سلس لمحتوى أي تاب لما يتفتح */
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tab-fade-in {
+  animation: tabFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ================= DARK MODE (الوضع الليلي) ================= */
+/* منطقة المحتوى الرئيسي بس (مش السايدبار، هو أصلاً غامق بتصميمه) */
+.dark body {
+  background-color: #0b1220;
+}
+
+.dark .bg-white { background-color: #131c2e; }
+.dark .bg-slate-50 { background-color: #0e1626; }
+.dark .bg-slate-100 { background-color: #1c2740; }
+.dark .bg-slate-200 { background-color: #29344d; }
+
+.dark .text-slate-800 { color: #e5e9f2; }
+.dark .text-slate-700 { color: #cbd5e1; }
+.dark .text-slate-600 { color: #a6b2c5; }
+.dark .text-slate-500 { color: #8a95a8; }
+.dark .text-slate-400 { color: #6b7690; }
+
+.dark .border-slate-100 { border-color: #22304a; }
+.dark .border-slate-200 { border-color: #2c3a58; }
+.dark .divide-slate-100 > * + * { border-color: #22304a; }
+
+.dark .hover\:bg-slate-50:hover { background-color: #1c2740; }
+.dark .hover\:bg-slate-100:hover { background-color: #29344d; }
+.dark .hover\:bg-slate-200:hover { background-color: #334165; }
+
+.dark .glass-card {
+  background: rgba(19, 28, 46, 0.9);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.dark .form-input {
+  background-color: #0e1626;
+  border-color: #2c3a58;
+  color: #e5e9f2;
+}
+.dark .form-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+.dark .form-label { color: #cbd5e1; }
+
+.dark .badge-success { background-color: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
+.dark .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+.dark .badge-danger { background-color: rgba(244, 63, 94, 0.15); color: #fda4af; }
+.dark .badge-info { background-color: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+
+.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.12); }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12); }
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.12); }
+.dark .bg-sky-50 { background-color: rgba(14, 165, 233, 0.12); }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.18); }
+.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.18); }
+.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.18); }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.18); }
+
+.dark .text-indigo-700, .dark .text-indigo-600 { color: #a5b4fc; }
+.dark .text-emerald-700, .dark .text-emerald-600 { color: #6ee7b7; }
+.dark .text-amber-700, .dark .text-amber-600 { color: #fcd34d; }
+.dark .text-rose-700, .dark .text-rose-600 { color: #fda4af; }
+.dark .text-blue-700, .dark .text-blue-600 { color: #93c5fd; }
+.dark .text-sky-700, .dark .text-sky-600 { color: #7dd3fc; }
+
+.dark .border-indigo-100 { border-color: rgba(99, 102, 241, 0.25); }
+.dark .border-emerald-100 { border-color: rgba(16, 185, 129, 0.25); }
+.dark .border-amber-100 { border-color: rgba(245, 158, 11, 0.25); }
+.dark .border-rose-100 { border-color: rgba(244, 63, 94, 0.25); }
+
+.dark .timeline-item::after { background-color: #2c3a58; }
+
+.dark ::-webkit-scrollbar-thumb { background: #334165; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #475a85; }
+
+/* تحسين مظهر المودالات (النوافذ المنبثقة) في الوضع الليلي */
+.dark .shadow-sm, .dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ================= لمسة احترافية إضافية (تفاعل الأزرار + التركيز) ================= */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, [role="button"], .badge, a[onclick] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid rgba(79, 70, 229, 0.5);
+  outline-offset: 2px;
+}

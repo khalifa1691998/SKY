@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>شركة SKY - نظام إدارة الأقساط والخزينة المتكامل</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind config for Arabic Cairo Font and colors -->
+  <script>
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              cairo: ['Cairo', 'sans-serif'],
+            },
+            colors: {
+              skyDark: {
+                950: '#020617',
+                900: '#0f172a',
+                800: '#1e293b',
+                700: '#334155',
+              },
+              skyBrand: {
+                DEFAULT: '#4f46e5',
+                hover: '#4338ca',
+              }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons -->
+  <!-- Phosphor Icons (نمط أيقونات نظيف واحترافي أقرب لأسلوب Apple) -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Embedded Styles -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
+    
+    :root {
+      --font-family: 'Cairo', sans-serif;
+    }
+    
+    body {
+      font-family: var(--font-family);
+      direction: rtl;
+      overflow-x: hidden;
+    }
+    
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    /* Glassmorphism */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+    }
+    .dark .glass-card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .glass-sidebar {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border-left: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Animations */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .animate-pulse-warning { animation: pulse-ring 2s infinite; }
+    
+    /* Forms */
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      background-color: #ffffff;
+      color: #0f172a;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+    }
+    .dark .form-input {
+      background-color: #0f172a;
+      border-color: #334155;
+      color: #f8fafc;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+    .dark .form-input:focus {
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.4);
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 0.5rem;
+    }
+    .dark .form-label {
+      color: #cbd5e1;
+    }
+    
+    /* Timeline */
+    .timeline-item::after {
+      content: '';
+      position: absolute;
+      top: 1.25rem;
+      bottom: -1.25rem;
+      right: 1.25rem;
+      width: 2px;
+      background-color: #e2e8f0;
+    }
+    .dark .timeline-item::after { background-color: #334155; }
+    .timeline-item:last-child::after { display: none; }
+    
+    /* GLOBAL DARK MODE OVERRIDES */
+    .dark .text-slate-900, 
+    .dark .text-slate-800, 
+    .dark .text-slate-700 {
+      color: #f8fafc !important;
+    }
+    .dark .text-slate-600, 
+    .dark .text-slate-500 {
+      color: #cbd5e1 !important;
+    }
+    .dark .bg-white {
+      background-color: #0f172a !important;
+    }
+    .dark .bg-slate-50 {
+      background-color: #020617 !important;
+    }
+    .dark .bg-slate-100 {
+      background-color: #1e293b !important;
+    }
+    .dark .border-slate-100, 
+    .dark .border-slate-200 {
+      border-color: #334155 !important;
+    }
+    .dark table th {
+      background-color: #1e293b !important;
+      color: #cbd5e1 !important;
+      border-color: #334155 !important;
+    }
+    .dark table td {
+      border-color: #334155 !important;
+    }
+
+    /* ======= MOBILE SIDEBAR ======= */
+    @media (max-width: 768px) {
+      /* Sidebar becomes a fixed overlay on mobile */
+      aside#app-sidebar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 40;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+      }
+      aside#app-sidebar.sidebar-open {
+        transform: translateX(0);
+      }
+      /* Overlay backdrop */
+      #sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 39;
+        backdrop-filter: blur(2px);
+      }
+      #sidebar-backdrop.visible {
+        display: block;
+      }
+      /* Mobile top bar */
+      #mobile-topbar {
+        display: flex;
+      }
+    }
+    @media (min-width: 769px) {
+      #mobile-topbar { display: none; }
+      #sidebar-backdrop { display: none !important; }
+      aside#app-sidebar {
+        position: sticky;
+        top: 0;
+        transform: none !important;
+      }
+    }
+
+    /* Tables scrollable on mobile */
+    .table-scroll-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .table-scroll-wrapper table {
+      min-width: 700px;
+    }
+  </style>
+
+</head>
+<body class="font-cairo bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- ================= LOGIN SCREEN OVERLAY ================= -->
+  <div id="login-overlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50 px-4 py-12">
+    <div class="bg-white/10 backdrop-blur-md border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden text-center text-white">
+      <div class="mb-6 flex flex-col items-center">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-650 bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-4 animate-bounce">
+          <i class="ph ph-cloud-lightning text-3xl text-white"></i>
+        </div>
+        <h2 class="text-2xl font-black text-indigo-400">شركة SKY للتقسيط</h2>
+        <p class="text-xs text-slate-400 mt-1">نظام إدارة الأقساط والخزينة المتكامل</p>
+      </div>
+
+      <div class="space-y-4 text-right text-slate-800">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-2" for="login-username-input">اسم المستخدم</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <i class="ph ph-user"></i>
+            </span>
+            <input type="text" id="login-username-input" class="w-full py-3 pr-10 pl-4 bg-slate-950/40 border border-slate-700/50 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500 transition-all" placeholder="أدخل اسم المستخدم">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-2" for="login-password-input">كلمة المرور</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <i class="ph ph-lock"></i>
+            </span>
+            <input type="password" id="login-password-input" class="w-full py-3 pr-10 pl-4 bg-slate-950/40 border border-slate-700/50 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500 transition-all" placeholder="أدخل كلمة المرور">
+          </div>
+        </div>
+
+        <div id="login-error-msg" class="hidden text-rose-400 text-xs font-bold bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-center">
+          ❌ خطأ في اسم المستخدم أو كلمة المرور!
+        </div>
+
+        <button id="login-submit-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-all duration-200 shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 mt-6">
+          <i class="ph ph-sign-in"></i>
+          <span>تسجيل الدخول</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile sidebar backdrop -->
+  <div id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
+  <!-- Mobile top bar (visible only on small screens) -->
+  <div id="mobile-topbar" class="hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 text-white px-4 py-3 items-center justify-between shadow-lg" style="direction:rtl">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+        <i class="ph ph-cloud-lightning text-sm text-white"></i>
+      </div>
+      <span id="mobile-company-name" class="font-bold text-indigo-400 text-sm">شركة SKY</span>
+    </div>
+    <button id="mobile-menu-btn" class="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-slate-700 transition-colors" onclick="openMobileSidebar()">
+      <i class="ph ph-list text-xl"></i>
+    </button>
+  </div>
+
+  <!-- ================= APP WRAPPER ================= -->
+  <div id="app-wrapper" class="hidden min-h-screen flex flex-col md:flex-row w-full" style="padding-top:0">
+
+    <!-- Sidebar (Right Theme - RTL Layout) -->
+    <aside id="app-sidebar" class="md:w-80 glass-sidebar text-white flex flex-col h-screen md:sticky md:top-0">
+    <!-- Brand / Logo -->
+    <div class="p-5 border-b border-skyDark-700 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div id="company-logo-container" class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 overflow-hidden">
+          <i id="company-logo-icon" class="ph ph-cloud-lightning text-xl text-white"></i>
+          <img id="company-logo-img" class="w-full h-full object-cover hidden" src="" alt="شعار الشركة">
+        </div>
+        <div>
+          <h1 id="company-name-display" class="text-xl font-bold tracking-wider text-indigo-400">شركة SKY</h1>
+          <p class="text-xs text-slate-400">نظام إدارة الأقساط والخزينة</p>
+        </div>
+      </div>
+      <button class="text-slate-400 hover:text-white" onclick="closeMobileSidebar()" title="إغلاق القائمة">
+        <i class="ph ph-x text-xl"></i>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto" id="sidebar-menu">
+      <a href="#" data-tab="dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold transition-all duration-200 shadow-lg shadow-indigo-600/20 active-tab-btn">
+        <i class="ph ph-chart-line text-lg w-5"></i>
+        <span>لوحة القيادة</span>
+      </a>
+      <a href="#" data-tab="clients" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-users text-lg w-5"></i>
+        <span>العملاء والضامنين</span>
+      </a>
+      <a href="#" data-tab="inventory" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-stack text-lg w-5"></i>
+        <span>المخزون والأجهزة</span>
+      </a>
+      <a href="#" data-tab="contracts" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-signature text-lg w-5"></i>
+        <span>العقود والمبيعات</span>
+      </a>
+      <a href="#" data-tab="collections" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-hand-coins text-lg w-5"></i>
+        <span>التحصيلات</span>
+      </a>
+      <a href="#" data-tab="treasury" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-lock-key text-lg w-5"></i>
+        <span>الخزينة</span>
+      </a>
+      <a href="#" data-tab="users" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-user-gear text-lg w-5"></i>
+        <span>إدارة المستخدمين</span>
+      </a>
+      <a href="#" data-tab="settings" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-sliders text-lg w-5"></i>
+        <span>إعدادات النظام</span>
+      </a>
+    </nav>
+
+    <!-- Bottom User Bar -->
+    <div class="p-4 border-t border-skyDark-700 bg-skyDark-950 flex flex-col gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-indigo-400 border border-slate-600">
+          K
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold truncate" id="current-user-display">Khalifa (ADMIN)</p>
+          <p class="text-xs text-indigo-400 font-bold">المشرف العام</p>
+        </div>
+      </div>
+      <button id="logout-btn" class="w-full py-2 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200">
+        <i class="ph ph-sign-out"></i>
+        <span>تسجيل الخروج</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto dark:bg-skyDark-950 transition-colors duration-300 pt-14 md:pt-0">
+    <!-- Top Header -->
+    <header class="p-6 bg-white dark:bg-skyDark-900 border-b border-slate-100 dark:border-skyDark-800 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-300">
+      <div>
+        <h2 class="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+          أهلاً بك، <span id="header-username">Khalifa</span> 👋
+        </h2>
+        <p id="header-company-subtitle" class="text-sm text-slate-500 dark:text-slate-400 mt-1">تتابع الآن لوحة التحكم المالية الموحدة والرقابة الإدارية الذكية لمبيعات التقسيط وحسابات الأمانة لدى شركة SKY.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button id="theme-toggle-btn" class="p-2 rounded-xl bg-slate-100 dark:bg-skyDark-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-skyDark-700 transition-colors" title="تبديل الوضع الليلي/النهاري">
+          <i id="theme-toggle-icon" class="ph ph-moon"></i>
+        </button>
+        <span id="header-sync-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200"></span>
+        <span id="header-role-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50">
+          <span class="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-ping"></span>
+          الوصول: رئيسي (ADMIN)
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
+          أمن النظام ونزاهة التدقيق مفعلان 🔒
+        </span>
+      </div>
+    </header>
+
+    <!-- Main Dynamic Section -->
+    <div class="p-6 space-y-6 flex-1" id="main-content-tabs">
+
+      <!-- ================= TAB: DASHBOARD ================= -->
+      <section id="tab-dashboard" class="space-y-6">
+        <!-- KPI Cards Grid (8 metrics) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <!-- 1. Available Treasury Balance -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">رصيد الخزينة المتاح</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-treasury-balance">0.00 ج.م</h3>
+              </div>
+              <div class="p-3 bg-emerald-50 text-emerald-500 rounded-xl">
+                <i class="ph ph-lock-key text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 flex items-center gap-1 text-xs text-emerald-600">
+              <i class="ph ph-circle text-[8px] animate-pulse"></i>
+              <span>مؤمن بالكامل</span>
+            </div>
+          </div>
+
+          <!-- 2. Total Sales -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">إجمالي المبيعات</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-total-sales">0.00 ج.م</h3>
+              </div>
+              <div class="p-3 bg-indigo-50 text-indigo-500 rounded-xl">
+                <i class="ph ph-shopping-cart text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-xs text-slate-400">
+              <span>عقود وبيعات مباشرة</span>
+            </div>
+          </div>
+
+          <!-- 3. Active Collections -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">إجمالي التحصيلات الفعالة</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-active-collections">0.00 ج.م</h3>
+              </div>
+              <div class="p-3 bg-blue-50 text-blue-500 rounded-xl">
+                <i class="ph ph-receipt text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-xs text-slate-400">
+              <span>تتضمن تحصيلات عهد معتمدة</span>
+            </div>
+          </div>
+
+          <!-- 4. Total Expenses -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">إجمالي المصروفات</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-total-expenses">0.00 ج.م</h3>
+              </div>
+              <div class="p-3 bg-rose-50 text-rose-500 rounded-xl">
+                <i class="ph ph-trend-down text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-xs text-rose-600">
+              <span>نثريات ومشتريات بضائع</span>
+            </div>
+          </div>
+
+          <!-- 5. Total Overdue Installments -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1" id="kpi-overdue-container">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">إجمالي الأقساط المتأخرة</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-overdue-installments">0.00 ج.م</h3>
+              </div>
+              <div class="p-3 bg-amber-50 text-amber-500 rounded-xl" id="kpi-overdue-icon-bg">
+                <i class="ph ph-warning-circle text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-xs text-amber-600 flex items-center gap-1" id="kpi-overdue-alert-text">
+              <span>خارج فترة السماح المحددة</span>
+            </div>
+          </div>
+
+          <!-- 6. Working Capital in Inventory -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">رأس المال العامل بالمخزون</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-inventory-capital">0.00 ج.م</h3>
+              </div>
+              <div class="p-3 bg-teal-50 text-teal-500 rounded-xl">
+                <i class="ph ph-cube text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-xs text-slate-400">
+              <span>قيمة البضاعة المتوفرة بالتكلفة</span>
+            </div>
+          </div>
+
+          <!-- 7. Expected Remaining Profits -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">مجموع الأرباح المتبقية المتوقعة</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-expected-profits">0.00 ج.م</h3>
+              </div>
+              <div class="p-3 bg-purple-50 text-purple-500 rounded-xl">
+                <i class="ph ph-hand-coins text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-xs text-slate-400">
+              <span>أرباح معلقة بانتظار التحصيل</span>
+            </div>
+          </div>
+
+          <!-- 8. Bad Debt Rate -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">معدل الديون المتعثرة</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-bad-debt-rate">0%</h3>
+              </div>
+              <div class="p-3 bg-red-50 text-red-500 rounded-xl">
+                <i class="ph ph-warning text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div class="bg-red-500 h-1.5 rounded-full transition-all duration-500" id="kpi-bad-debt-bar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Bottom Split Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-10 gap-6">
+          <!-- Right Side: Chart (60% width) -->
+          <div class="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="font-bold text-slate-800 text-lg">التمثيل البياني لأصول الأنشطة والأرباح</h3>
+              <div class="flex gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-indigo-500 inline-block align-middle"></span>
+                <span class="text-xs text-slate-500">المبيعات</span>
+                <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block align-middle ml-2"></span>
+                <span class="text-xs text-slate-500">التحصيلات</span>
+              </div>
+            </div>
+            <div class="flex-1 min-h-[300px]">
+              <canvas id="financialTrendChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Left Side: Audit Log Timeline (40% width) -->
+          <div class="lg:col-span-4 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="font-bold text-slate-800 text-lg">سجل التدقيق والمتابعة الأمني</h3>
+              <span class="text-xs text-slate-400">آخر 5 عمليات</span>
+            </div>
+            <div class="flex-1 space-y-4 overflow-y-auto max-h-[350px] pr-2" id="dashboard-audit-timeline">
+              <!-- Dynamically populated vertical timeline -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: CLIENTS & GUARANTORS ================= -->
+      <section id="tab-clients" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">العملاء والضامنين</h3>
+            <p class="text-sm text-slate-500">إدارة وتعديل بيانات العملاء وسجلاتهم والضامنين المرتبطين بهم.</p>
+          </div>
+          <button onclick="openAddClientModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-600/20 transition-all duration-200 flex items-center gap-2">
+            <i class="ph ph-user-plus"></i>
+            <span>إضافة عميل جديد</span>
+          </button>
+        </div>
+
+        <!-- Search and filters -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div class="relative w-full sm:w-80">
+            <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <i class="ph ph-magnifying-glass"></i>
+            </span>
+            <input type="text" id="client-search-input" placeholder="ابحث باسم العميل أو الرقم القومي..." class="form-input pr-10">
+          </div>
+          <div class="text-sm text-slate-500">
+            إجمالي العملاء المسجلين: <span class="font-bold text-slate-800" id="total-clients-count">0</span>
+          </div>
+        </div>
+
+        <!-- Clients Table Container -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
+                  <th class="p-4">اسم العميل</th>
+                  <th class="p-4">الرقم القومي</th>
+                  <th class="p-4">الهاتف</th>
+                  <th class="p-4">الضامن</th>
+                  <th class="p-4">صلة القرابة</th>
+                  <th class="p-4">الموقع الجغرافي</th>
+                  <th class="p-4 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="clients-table-body" class="text-sm divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+          <div id="clients-empty-state" class="p-12 text-center text-slate-400 hidden">
+            <i class="ph ph-user-minus text-4xl mb-3"></i>
+            <p>لا يوجد عملاء مسجلين حالياً.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: INVENTORY & DEVICES ================= -->
+      <section id="tab-inventory" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">المخزون والأجهزة والأصناف</h3>
+            <p class="text-sm text-slate-500">إدارة البضائع، الأصناف، الأسعار والتجار الشركاء.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="openModal('add-brand-modal')" class="px-4 py-2 bg-slate-850 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-tag"></i>
+              <span>+ صنف جديد</span>
+            </button>
+            <button onclick="openModal('add-supplier-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-handshake"></i>
+              <span>تسجيل تاجر / مورد</span>
+            </button>
+            <button onclick="openModal('add-device-modal')" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-600/20 transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-laptop"></i>
+              <span>إضافة قطعة للمخزن</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inventory Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+            <div class="p-3 rounded-lg bg-indigo-50 text-indigo-600"><i class="ph ph-stack"></i></div>
+            <div>
+              <p class="text-xs text-slate-500">إجمالي الأنواع</p>
+              <p class="font-bold text-slate-800" id="inv-total-count">0</p>
+            </div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+            <div class="p-3 rounded-lg bg-emerald-50 text-emerald-600"><i class="ph ph-check-circle"></i></div>
+            <div>
+              <p class="text-xs text-slate-500">إجمالي القطع المتاحة</p>
+              <p class="font-bold text-slate-800" id="inv-available-count">0</p>
+            </div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+            <div class="p-3 rounded-lg bg-rose-50 text-rose-600"><i class="ph ph-currency-dollar"></i></div>
+            <div>
+              <p class="text-xs text-slate-500">القطع المباعة (قسط/كاش)</p>
+              <p class="font-bold text-slate-800" id="inv-sold-count">0</p>
+            </div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+            <div class="p-3 rounded-lg bg-amber-50 text-amber-600"><i class="ph ph-truck"></i></div>
+            <div>
+              <p class="text-xs text-slate-500">الموردين المسجلين</p>
+              <p class="font-bold text-slate-800" id="inv-suppliers-count">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <input type="text" id="inventory-search" placeholder="ابحث باسم الجهاز..." class="form-input sm:w-64">
+          </div>
+          <div class="text-xs text-slate-400">
+            ملاحظة: يتم تجميع الأجهزة المتطابقة لعرض كمياتها وتفاصيلها.
+          </div>
+        </div>
+
+        <!-- Inventory Table -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
+                  <th class="p-4">الصنف/الماركة</th>
+                  <th class="p-4">اسم الموديل</th>
+                  <th class="p-4">التاجر / المورد</th>
+                  <th class="p-4">سعر الشراء</th>
+                  <th class="p-4">سعر البيع</th>
+                  <th class="p-4">الكمية (متاح/كلي)</th>
+                  <th class="p-4">السيريالات المتوفرة</th>
+                  <th class="p-4 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-table-body" class="text-sm divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+          <div id="inventory-empty-state" class="p-12 text-center text-slate-400 hidden">
+            <i class="ph ph-package text-4xl mb-3"></i>
+            <p>لا توجد أجهزة متوفرة في المخزون.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: CONTRACTS & SALES ================= -->
+      <section id="tab-contracts" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">العقود والمبيعات</h3>
+            <p class="text-sm text-slate-500">تخطيط العقود، جدولة الأقساط، وتتبع المبيعات الجارية لشركة SKY.</p>
+          </div>
+          <button onclick="openAddContractModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-600/20 transition-all duration-200 flex items-center gap-2">
+            <i class="ph ph-file-text"></i>
+            <span>إنشاء عقد تقسيط جديد</span>
+          </button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <input type="text" id="contract-search-input" placeholder="ابحث باسم العميل أو رقم العقد..." class="form-input sm:w-80">
+          <div class="text-sm text-slate-500">
+            العقود الفعالة: <span class="font-bold text-indigo-600" id="total-contracts-count">0</span>
+          </div>
+        </div>
+
+        <!-- Contracts Table -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
+                  <th class="p-4">رقم العقد</th>
+                  <th class="p-4">العميل</th>
+                  <th class="p-4">الهاتف</th>
+                  <th class="p-4">المحصل المسند</th>
+                  <th class="p-4">الجهاز</th>
+                  <th class="p-4">إجمالي العقد</th>
+                  <th class="p-4">القسط الشهري</th>
+                  <th class="p-4">تاريخ البدء</th>
+                  <th class="p-4">المدفوع / الإجمالي</th>
+                  <th class="p-4 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="contracts-table-body" class="text-sm divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+          <div id="contracts-empty-state" class="p-12 text-center text-slate-400 hidden">
+            <i class="ph ph-file-xls text-4xl mb-3"></i>
+            <p>لا توجد عقود مسجلة.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: COLLECTIONS ================= -->
+      <section id="tab-collections" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">تحصيل الأقساط والمتابعة</h3>
+            <p class="text-sm text-slate-500">إدارة الأقساط المستحقة، إرسال تذكيرات وإنذارات واتساب، وتحصيل مبالغ الأقساط.</p>
+          </div>
+          <button id="btn-bulk-whatsapp" onclick="openBulkWhatsappModal()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-600/20 transition-all duration-200 flex items-center gap-2">
+            <i class="ph ph-whatsapp-logo"></i>
+            <span>إرسال رسائل جماعية للعملاء</span>
+          </button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <input type="text" id="collection-search-input" placeholder="ابحث باسم العميل أو الهاتف..." class="form-input sm:w-64">
+            <select id="collection-filter-month" class="form-input sm:w-48">
+              <!-- Dynamically populated with months -->
+            </select>
+            <select id="collection-filter-status" class="form-input sm:w-40">
+              <option value="all">كل الحالات</option>
+              <option value="pending">بانتظار الاستحقاق</option>
+              <option value="overdue">متأخر</option>
+              <option value="paid">تم السداد</option>
+            </select>
+          </div>
+          <div class="text-xs text-slate-400">
+            انقر على كارت العميل لعرض أقساطه التفصيلية وسدادها.
+          </div>
+        </div>
+
+        <!-- Installments List (Grouped by Client) -->
+        <div class="space-y-4" id="collections-cards-list">
+          <!-- Dynamically populated client collection cards -->
+        </div>
+
+        <div id="collections-empty-state" class="p-12 text-center bg-white rounded-2xl border border-slate-100 text-slate-400 hidden">
+          <i class="ph ph-check-circle text-4xl mb-3 text-emerald-500"></i>
+          <p>لا توجد أقساط مستحقة للمطابقة مع الفلاتر المحددة.</p>
+        </div>
+      </section>
+
+      <!-- ================= TAB: TREASURY ================= -->
+      <section id="tab-treasury" class="space-y-6 hidden">
+        <div>
+          <h3 class="text-xl font-bold text-slate-800">الخزينة والحسابات</h3>
+          <p class="text-sm text-slate-500">مراقبة السيولة النقدية، المصروفات، وتأكيد عهد المحصلين في شركة SKY.</p>
+        </div>
+
+        <!-- Balances Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-36">
+            <div>
+              <p class="text-xs text-slate-400 font-semibold">حالة الخزينة الرئيسية</p>
+              <h4 class="text-3xl font-extrabold mt-3 text-indigo-400" id="treasury-balance-card">0.00 ج.م</h4>
+            </div>
+            <p class="text-xs text-slate-400">السيولة المتاحة للاستخدام والدفع والإنفاق</p>
+          </div>
+
+          <div class="bg-indigo-900/90 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-36">
+            <div>
+              <p class="text-xs text-indigo-200 font-semibold">عهد المحصلين المعلقة</p>
+              <h4 class="text-3xl font-extrabold mt-3 text-amber-400" id="treasury-pending-custody">0.00 ج.م</h4>
+            </div>
+            <p class="text-xs text-indigo-200">مبالغ تم تحصيلها وبانتظار اعتماد الأدمن</p>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col justify-center gap-3">
+            <button onclick="openModal('expense-modal')" class="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2">
+              <i class="ph ph-receipt"></i>
+              <span>سند صرف مصروفات الخارج</span>
+            </button>
+            <button onclick="openModal('deposit-modal')" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2">
+              <i class="ph ph-trend-up"></i>
+              <span>إيداع / زيادة رأس المال</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Collectors Custody Approval Section -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+          <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
+            <i class="ph ph-user-check text-indigo-600"></i>
+            <span>مراجعة وتأكيد عهد المحصلين</span>
+          </h4>
+          
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-semibold">
+                  <th class="p-3">المحصل</th>
+                  <th class="p-3">العميل</th>
+                  <th class="p-3">العقد</th>
+                  <th class="p-3">المبلغ المستلم</th>
+                  <th class="p-3">تاريخ التحصيل</th>
+                  <th class="p-3 text-center">الإجراء</th>
+                </tr>
+              </thead>
+              <tbody id="collector-approvals-table-body" class="text-xs divide-y divide-slate-100">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div id="collector-approvals-empty" class="p-6 text-center text-slate-400 text-sm">
+            لا توجد عهد محصلين معلقة للمراجعة والاعتماد حالياً.
+          </div>
+        </div>
+
+        <!-- Transaction Logs Table -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <h4 class="font-bold text-slate-800 text-lg">سجل وحركة المقبوضات والمدفوعات الفعلي</h4>
+            <button onclick="exportTransactionsCSV()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5">
+              <i class="ph ph-file-csv"></i>
+              <span>تصدير الكشف (CSV)</span>
+            </button>
+          </div>
+
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-600 text-sm font-semibold">
+                  <th class="p-4">التاريخ والوقت</th>
+                  <th class="p-4">النوع التقييدي</th>
+                  <th class="p-4">البيان والشرح التفصيلي للحركة</th>
+                  <th class="p-4">المبلغ الفعلي المورد بالخزينة</th>
+                  <th class="p-4 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="treasury-transactions-body" class="text-sm divide-y divide-slate-100">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: USER MANAGEMENT ================= -->
+      <section id="tab-users" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">إدارة المستخدمين والمحصلين</h3>
+            <p class="text-sm text-slate-500">إدارة حسابات النظام والمحصلين الميدانيين وصلاحياتهم.</p>
+          </div>
+          <button onclick="openModal('add-user-modal')" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-600/20 transition-all duration-200 flex items-center gap-2">
+            <i class="ph ph-shield-check"></i>
+            <span>إضافة مستخدم / محصل جديد</span>
+          </button>
+        </div>
+
+        <!-- Users Table -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
+                  <th class="p-4">الاسم بالكامل</th>
+                  <th class="p-4">اسم المستخدم (Username)</th>
+                  <th class="p-4">الهاتف</th>
+                  <th class="p-4">الدور / الصلاحية</th>
+                  <th class="p-4">المنطقة الجغرافية</th>
+                  <th class="p-4 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body" class="text-sm divide-y divide-slate-100">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: SYSTEM SETTINGS ================= -->
+      <section id="tab-settings" class="space-y-6 hidden">
+        <div>
+          <h3 class="text-xl font-bold text-slate-800">إعدادات النظام والربط البرمجي</h3>
+          <p class="text-sm text-slate-500">ضبط إعدادات التقسيط، وهوية الشركة، وقوالب رسائل الواتساب.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Company Identity & Server Config -->
+          <div class="space-y-6">
+            <!-- Company settings -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
+                <i class="ph ph-building-office text-indigo-600 mr-1"></i>
+                هوية وبيانات الشركة
+              </h4>
+              <div class="space-y-3">
+                <div>
+                  <label class="form-label" for="setting-company-name">اسم الشركة / النظام</label>
+                  <input type="text" id="setting-company-name" class="form-input" placeholder="شركة SKY">
+                </div>
+                <div>
+                  <label class="form-label">لوجو الشركة (رابط صورة أو تحميل)</label>
+                  <div class="flex gap-2">
+                    <input type="text" id="setting-company-logo-url" class="form-input flex-1" placeholder="https://example.com/logo.png">
+                    <label class="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200">
+                      <i class="ph ph-upload-simple"></i>
+                      <span>رفع</span>
+                      <input type="file" id="setting-company-logo-file" accept="image/*" class="hidden">
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Firebase & Connection settings -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
+                <i class="ph ph-cloud text-indigo-600 mr-1"></i>
+                إعدادات الاتصال السحابي (Firebase)
+              </h4>
+              <div class="space-y-3">
+                <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-700">
+                  <i class="ph ph-info mr-1"></i>
+                  يتم الآن الاعتماد على <strong>Firebase</strong> كقاعدة بيانات سحابية آمنة. (يتم ضبط مفاتيح الربط برمجياً في ملف <code>firebase-config.js</code>).
+                </div>
+                <div class="flex items-center gap-3 mt-3">
+                  <input type="checkbox" id="setting-offline-mode" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                  <label for="setting-offline-mode" class="text-sm font-semibold text-slate-700">تفعيل وضع المحاكاة دون اتصال (Offline Mock Mode للتجربة المحلية)</label>
+                </div>
+                <button id="btn-save-settings" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 mt-2">
+                  حفظ إعدادات النظام
+                </button>
+                <div class="flex flex-wrap items-center gap-2 mt-2">
+                  <span id="sync-status-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200"></span>
+                </div>
+                <div id="connection-status-msg" class="text-sm font-medium mt-2"></div>
+              </div>
+            </div>
+
+            <!-- Security & Authentication (Admin only) -->
+            <div class="admin-only bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
+                <i class="ph ph-shield-check text-indigo-600 mr-1"></i>
+                الأمان والمصادقة (Firebase Authentication)
+              </h4>
+              <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-xs text-emerald-700">
+                <i class="ph ph-lock mr-1"></i>
+                تسجيل الدخول للنظام يعتمد الآن بالكامل على <strong>Firebase Authentication</strong> الحقيقي، ولم تعد كلمات المرور تُخزَّن كنص صريح في قاعدة البيانات لأي مستخدم جديد.
+              </div>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                إذا كان لديك مستخدمون قدامى (من قبل تفعيل هذا التحديث) لا يزالون بكلمة مرور نصية قديمة، اضغط الزرار بالأسفل مرة واحدة لترحيلهم تلقائياً لحسابات Firebase Authentication آمنة وحذف كلمات مرورهم القديمة نهائياً من قاعدة البيانات.
+              </p>
+              <button onclick="migrateUsersToFirebaseAuth()" class="px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-lg text-xs font-semibold transition-all duration-200">
+                <i class="ph ph-arrows-clockwise mr-1"></i> ترحيل المستخدمين القدام إلى Firebase Authentication
+              </button>
+            </div>
+          </div>
+
+          <!-- WhatsApp Templates Editor & Data controls -->
+          <div class="space-y-6">
+            <!-- Templates Editor -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
+                <i class="ph ph-whatsapp-logo text-emerald-600 mr-1"></i>
+                قوالب رسائل الواتساب الافتراضية
+              </h4>
+              <div class="space-y-3 text-xs">
+                <div>
+                  <label class="form-label font-bold text-slate-700">1. قالب تذكير السداد (قبل الاستحقاق)</label>
+                  <textarea id="template-reminder" rows="3" class="form-input text-xs"></textarea>
+                </div>
+                <div>
+                  <label class="form-label font-bold text-slate-700">2. قالب إنذار العميل (عند التأخير والمخالفة)</label>
+                  <textarea id="template-warning" rows="3" class="form-input text-xs"></textarea>
+                </div>
+                <div>
+                  <label class="form-label font-bold text-slate-700">3. قالب رسالة السداد (شكر وإثبات دفع)</label>
+                  <textarea id="template-receipt" rows="3" class="form-input text-xs"></textarea>
+                </div>
+                <div class="text-[10px] text-slate-400 leading-relaxed">
+                  الرموز المتاحة للاستبدال الآلي:
+                  <br><code class="bg-slate-100 px-1 rounded">{{الاسم}}</code> العميل | <code class="bg-slate-100 px-1 rounded">{{القسط}}</code> القسط | <code class="bg-slate-100 px-1 rounded">{{التاريخ}}</code> تاريخ الاستحقاق | <code class="bg-slate-100 px-1 rounded">{{العقد}}</code> رقم العقد | <code class="bg-slate-100 px-1 rounded">{{الغرامة}}</code> الغرامة | <code class="bg-slate-100 px-1 rounded">{{المطلوب}}</code> إجمالي المستحق | <code class="bg-slate-100 px-1 rounded">{{الإيصال}}</code> رقم إيصال الدفع | <code class="bg-slate-100 px-1 rounded">{{الضامن}}</code> اسم الضامن
+                </div>
+              </div>
+            </div>
+
+            <!-- Database Controls -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
+                <i class="ph ph-database text-indigo-600 mr-1"></i>
+                التحكم في البيانات المحلية
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                <button id="btn-seed-data" class="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-semibold transition-all duration-200">
+                  حقن بيانات تجريبية (Seed)
+                </button>
+                <button id="btn-clear-db" class="px-4 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-semibold transition-all duration-200">
+                  مسح البيانات المحلية
+                </button>
+                <button id="btn-export-json" class="px-4 py-2 bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold transition-all duration-200">
+                  تصدير نسخة احتياطية
+                </button>
+              </div>
+
+              <!-- Backup & Restore Card -->
+              <div class="mt-3 p-4 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl space-y-3">
+                <h5 class="font-bold text-indigo-800 text-sm flex items-center gap-2">
+                  <i class="ph ph-shield-check text-indigo-600"></i>
+                  النسخ الاحتياطي والاسترجاع (Backup & Restore)
+                </h5>
+                <p class="text-xs text-indigo-600 leading-relaxed">
+                  احفظ نسخة احتياطية كاملة من جميع بياناتك (العملاء، المخزون، العقود، الأقساط، الخزينة) في ملف JSON على جهازك، واسترجعها في أي وقت بضغطة واحدة.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button onclick="exportBackup()" class="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-indigo-200">
+                    <i class="ph ph-download-simple"></i>
+                    💾 حفظ نسخة احتياطية الآن
+                  </button>
+                  <button onclick="triggerRestoreBackup()" class="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-amber-200">
+                    <i class="ph ph-upload-simple"></i>
+                    🔄 استرجاع من نسخة احتياطية
+                  </button>
+                  <button onclick="exportExcelBackup()" class="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-emerald-200">
+                    <i class="ph ph-file-xls"></i>
+                    📊 تصدير نسخة Excel منظمة
+                  </button>
+                </div>
+                <div class="text-[10px] text-indigo-400 flex items-center gap-1">
+                  <i class="ph ph-info"></i>
+                  ملف الـ JSON للاسترجاع الكامل في النظام، أما ملف الـ Excel فهو للمراجعة والأرشفة والطباعة (لا يُستخدم للاسترجاع داخل النظام).
+                </div>
+                <div class="text-[10px] text-indigo-400 flex items-center gap-1">
+                  <i class="ph ph-info"></i>
+                  يُنصح بأخذ نسخة احتياطية قبل أي تعديلات كبيرة أو تحديثات على النظام.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div> <!-- End of app-wrapper -->
+
+  <!-- Hidden file input for backup restore -->
+  <input type="file" id="backup-restore-file-input" accept=".json,application/json" class="hidden" onchange="handleRestoreFileSelected(event)">
+
+  <!-- MODAL: Backup Restore Confirmation -->
+  <div id="backup-restore-confirm-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 text-center">
+      <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <i class="ph ph-warning text-3xl text-amber-500"></i>
+      </div>
+      <h4 class="font-black text-slate-800 text-xl mb-2">تحذير: استرجاع نسخة احتياطية</h4>
+      <p class="text-sm text-slate-600 leading-relaxed mb-2">
+        ستقوم بتحميل واستبدال جميع البيانات الحالية (العملاء، المخزون، العقود، الأقساط) بالبيانات الموجودة في ملف النسخة الاحتياطية.
+      </p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-right">
+        <p class="text-xs text-amber-700 font-bold">
+          <i class="ph ph-info ml-1"></i>
+          البيانات الحالية لن تُمسح تلقائياً من السيرفر (PHP/SQLite) وإنما من الذاكرة المحلية فقط. إعدادات الاتصال ستظل كما هي.
+        </p>
+      </div>
+      <p class="text-sm font-bold text-slate-700 mb-4">هل أنت متأكد أنك تريد المتابعة؟</p>
+      <div class="flex gap-3 justify-center">
+        <button onclick="confirmRestoreBackup()" class="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-sm transition-all duration-200">
+          <i class="ph ph-upload-simple ml-1"></i> نعم، اختر ملف الاسترجاع
+        </button>
+        <button onclick="document.getElementById('backup-restore-confirm-modal').classList.add('hidden')" class="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-all duration-200">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODALS SECTION ================= -->
+
+  <!-- MODAL: ADD / EDIT CLIENT (DUAL COLUMN - CUSTOM DESIGNED) -->
+  <div id="add-client-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <i class="ph ph-user-plus text-indigo-600"></i>
+          <span id="client-modal-title">إضافة عميل وضامن جديد للمبيعات</span>
+        </h3>
+        <button type="button" onclick="closeModal('add-client-modal')" class="text-slate-400 hover:text-slate-600 transition-colors">
+          <i class="ph ph-x text-xl"></i>
+        </button>
+      </div>
+      <!-- Modal Body (Dual Column Form) -->
+      <form id="add-client-form" class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- Hidden input for Edit ID -->
+        <input type="hidden" id="client-edit-id">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          <!-- Column 1: Client Data (بيانات العميل) -->
+          <div class="space-y-4">
+            <h4 class="font-bold text-indigo-600 border-b border-slate-100 pb-2 text-md flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+              بيانات العميل الأساسية
+            </h4>
+            
+            <div>
+              <label class="form-label">الاسم الرباعي</label>
+              <input type="text" id="client-fullname" required class="form-input" placeholder="أدخل الاسم رباعي للعميل">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">الرقم القومي</label>
+                <input type="text" id="client-national-id" required pattern="\d{14}" title="يجب إدخال 14 رقم بالكامل" class="form-input" placeholder="14 رقماً بالكامل">
+              </div>
+              <div>
+                <label class="form-label">رقم الهاتف</label>
+                <input type="tel" id="client-phone" required class="form-input" placeholder="01xxxxxxxxx">
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label">العنوان بالتفصيل</label>
+              <textarea id="client-address" required rows="2" class="form-input" placeholder="المدينة، الحي، الشارع، علامات مميزة"></textarea>
+            </div>
+
+            <div>
+              <label class="form-label">رابط الموقع (Location URL)</label>
+              <input type="url" id="client-location-url" class="form-input" placeholder="https://maps.google.com/...">
+            </div>
+
+            <!-- Documents -->
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+              <span class="text-xs font-bold text-slate-500">المستندات والصور (العميل):</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Doc 1: Client National ID Image -->
+                <div class="border border-dashed border-slate-300 rounded-lg p-3 text-center bg-white relative">
+                  <p class="text-xs font-semibold text-indigo-600 mb-1">صورة بطاقة الرقم القومي</p>
+                  <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-md hover:bg-indigo-100">
+                    <i class="ph ph-camera"></i>
+                    <span>تحميل الصورة</span>
+                    <input type="file" id="client-card-img" accept="image/*" class="hidden">
+                  </label>
+                  <div id="client-card-img-status" class="text-[10px] text-slate-400 mt-1 truncate">لم يتم الرفع</div>
+                  <!-- Preview Box -->
+                  <div id="client-card-img-preview-box" class="hidden mt-2 p-1.5 bg-slate-100 rounded flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700 truncate w-24">صورة البطاقة</span>
+                    <div class="flex gap-1">
+                      <button type="button" onclick="viewDocument('client-card-img')" class="p-1 text-indigo-600 hover:bg-indigo-200 rounded"><i class="ph ph-eye"></i></button>
+                      <button type="button" onclick="removeDocument('client-card-img')" class="p-1 text-rose-600 hover:bg-rose-200 rounded"><i class="ph ph-trash"></i></button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Doc 2: Client Contract Image -->
+                <div class="border border-dashed border-slate-300 rounded-lg p-3 text-center bg-white relative">
+                  <p class="text-xs font-semibold text-indigo-600 mb-1">صورة العقد الموقع</p>
+                  <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-md hover:bg-indigo-100">
+                    <i class="ph ph-upload-simple"></i>
+                    <span>تحميل المستند</span>
+                    <input type="file" id="client-contract-img" accept="image/*" class="hidden">
+                  </label>
+                  <div id="client-contract-img-status" class="text-[10px] text-slate-400 mt-1 truncate">لم يتم الرفع</div>
+                  <!-- Preview Box -->
+                  <div id="client-contract-img-preview-box" class="hidden mt-2 p-1.5 bg-slate-100 rounded flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700 truncate w-24">صورة العقد</span>
+                    <div class="flex gap-1">
+                      <button type="button" onclick="viewDocument('client-contract-img')" class="p-1 text-indigo-600 hover:bg-indigo-200 rounded"><i class="ph ph-eye"></i></button>
+                      <button type="button" onclick="removeDocument('client-contract-img')" class="p-1 text-rose-600 hover:bg-rose-200 rounded"><i class="ph ph-trash"></i></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Guarantor Data (بيانات الضامن) -->
+          <div class="space-y-4">
+            <h4 class="font-bold text-emerald-600 border-b border-slate-100 pb-2 text-md flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+              بيانات الضامن المتضامن
+            </h4>
+            
+            <div>
+              <label class="form-label">الاسم الرباعي للضامن</label>
+              <input type="text" id="guarantor-fullname" required class="form-input" placeholder="أدخل الاسم رباعي للضامن">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">الرقم القومي للضامن</label>
+                <input type="text" id="guarantor-national-id" required pattern="\d{14}" class="form-input" placeholder="14 رقماً بالكامل">
+              </div>
+              <div>
+                <label class="form-label">رقم هاتف الضامن</label>
+                <input type="tel" id="guarantor-phone" required class="form-input" placeholder="01xxxxxxxxx">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">صلة القرابة</label>
+                <input type="text" id="guarantor-relation" required class="form-input" placeholder="أخ، صديق، عم، إلخ">
+              </div>
+              <div>
+                <label class="form-label">جهة العمل</label>
+                <input type="text" id="guarantor-job" required class="form-input" placeholder="المهنة ومكان العمل للضامن">
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label">عنوان الضامن بالتفصيل</label>
+              <textarea id="guarantor-address" required rows="2" class="form-input" placeholder="أدخل عنوان سكن الضامن بالكامل"></textarea>
+            </div>
+
+            <!-- Guarantor Documents -->
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+              <span class="text-xs font-bold text-slate-500">المستندات والصور (الضامن):</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Doc 3: Guarantor National ID Image -->
+                <div class="border border-dashed border-slate-300 rounded-lg p-3 text-center bg-white relative">
+                  <p class="text-xs font-semibold text-emerald-600 mb-1">صورة بطاقة الضامن</p>
+                  <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-md hover:bg-emerald-100">
+                    <i class="ph ph-camera"></i>
+                    <span>تحميل الصورة</span>
+                    <input type="file" id="guarantor-card-img" accept="image/*" class="hidden">
+                  </label>
+                  <div id="guarantor-card-img-status" class="text-[10px] text-slate-400 mt-1 truncate">لم يتم الرفع</div>
+                  <!-- Preview Box -->
+                  <div id="guarantor-card-img-preview-box" class="hidden mt-2 p-1.5 bg-slate-100 rounded flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700 truncate w-24">بطاقة الضامن</span>
+                    <div class="flex gap-1">
+                      <button type="button" onclick="viewDocument('guarantor-card-img')" class="p-1 text-indigo-600 hover:bg-indigo-200 rounded"><i class="ph ph-eye"></i></button>
+                      <button type="button" onclick="removeDocument('guarantor-card-img')" class="p-1 text-rose-600 hover:bg-rose-200 rounded"><i class="ph ph-trash"></i></button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Doc 4: Guarantor Contract Image -->
+                <div class="border border-dashed border-slate-300 rounded-lg p-3 text-center bg-white relative">
+                  <p class="text-xs font-semibold text-emerald-600 mb-1">صورة عقد الضامن الموقع</p>
+                  <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-md hover:bg-emerald-100">
+                    <i class="ph ph-upload-simple"></i>
+                    <span>تحميل المستند</span>
+                    <input type="file" id="guarantor-contract-img" accept="image/*" class="hidden">
+                  </label>
+                  <div id="guarantor-contract-img-status" class="text-[10px] text-slate-400 mt-1 truncate">لم يتم الرفع</div>
+                  <!-- Preview Box -->
+                  <div id="guarantor-contract-img-preview-box" class="hidden mt-2 p-1.5 bg-slate-100 rounded flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700 truncate w-24">عقد الضامن</span>
+                    <div class="flex gap-1">
+                      <button type="button" onclick="viewDocument('guarantor-contract-img')" class="p-1 text-indigo-600 hover:bg-indigo-200 rounded"><i class="ph ph-eye"></i></button>
+                      <button type="button" onclick="removeDocument('guarantor-contract-img')" class="p-1 text-rose-600 hover:bg-rose-200 rounded"><i class="ph ph-trash"></i></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="pt-6 border-t border-slate-100 flex justify-end gap-3">
+          <button type="button" onclick="closeModal('add-client-modal')" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-sm transition-colors">
+            إلغاء
+          </button>
+          <button type="submit" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm shadow-md transition-colors">
+            حفظ البيانات
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD BRAND (صنف جديد) -->
+  <div id="add-brand-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">إضافة صنف / ماركة جديدة</h4>
+        <button type="button" onclick="closeModal('add-brand-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="add-brand-form" class="space-y-4">
+        <div>
+          <label class="form-label">اسم الماركة / الصنف</label>
+          <input type="text" id="brand-name" required class="form-input" placeholder="مثال: Oppo, Samsung, iPhone">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('add-brand-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ الصنف</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD SUPPLIER / MERCHANT -->
+  <div id="add-supplier-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">تسجيل تاجر / مورد جديد</h4>
+        <button type="button" onclick="closeModal('add-supplier-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="add-supplier-form" class="space-y-4">
+        <div>
+          <label class="form-label">اسم التاجر / الشركة الموردة</label>
+          <input type="text" id="supplier-name" required class="form-input" placeholder="مثال: شركة الهدى للاستيراد">
+        </div>
+        <div>
+          <label class="form-label">رقم الهاتف</label>
+          <input type="tel" id="supplier-phone" required class="form-input" placeholder="01xxxxxxxxx">
+        </div>
+        <div>
+          <label class="form-label">ملاحظات / البضاعة الموردة</label>
+          <input type="text" id="supplier-notes" class="form-input" placeholder="اكتب ملاحظات إضافية...">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('add-supplier-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ التاجر</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD DEVICE TO INVENTORY -->
+  <div id="add-device-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">إضافة قطعة جديدة للمخزن</h4>
+        <button type="button" onclick="closeModal('add-device-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="add-device-form" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">الصنف / الماركة</label>
+            <select id="device-brand-select" required class="form-input">
+              <!-- Dynamically populated from brands -->
+            </select>
+          </div>
+          <div>
+            <label class="form-label">اسم الموديل والتفاصيل</label>
+            <input type="text" id="device-name" required class="form-input" placeholder="مثال: A3x 128/4">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">الرقم التسلسلي للجهاز (Serial Number)</label>
+          <input type="text" id="device-serial" required class="form-input" placeholder="مثال: SN-100201 (يمكن إدخال سيريالات متعددة مفصولة بفاصلة لزيادة الكمية)">
+          <p class="text-[10px] text-slate-400 mt-1">مثال لإدخال كمية: SN-123, SN-124, SN-125</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">سعر الشراء للقطعة (التكلفة)</label>
+            <input type="number" id="device-cost" required min="1" class="form-input" placeholder="قيمة الشراء ج.م">
+          </div>
+          <div>
+            <label class="form-label">سعر البيع الافتراضي للقطعة</label>
+            <input type="number" id="device-price" required min="1" class="form-input" placeholder="قيمة البيع ج.م">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">التاجر / المورد المشتري منه</label>
+          <select id="device-supplier" required class="form-input">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('add-device-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">إضافة للمخزن</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CASH SALE -->
+  <div id="cash-sale-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">بيع كاش مباشر (دفع نقدي فوري)</h4>
+        <button type="button" onclick="closeModal('cash-sale-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="p-3 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-semibold mb-4" id="cash-sale-device-info"></div>
+      <form id="cash-sale-form" class="space-y-4">
+        <input type="hidden" id="cash-sale-brand-model">
+        <div>
+          <label class="form-label">اسم المشتري (العميل الكاش)</label>
+          <input type="text" id="cash-client-name" required class="form-input" placeholder="أدخل اسم العميل ثلاثي">
+        </div>
+        <div>
+          <label class="form-label">رقم الهاتف</label>
+          <input type="tel" id="cash-client-phone" required class="form-input" placeholder="01xxxxxxxxx">
+        </div>
+        <div>
+          <label class="form-label">سعر البيع الفعلي (الكاش)</label>
+          <input type="number" id="cash-sale-price" required min="1" class="form-input">
+          <p class="text-[10px] text-slate-400 mt-1">ملاحظة: سيتم إضافة هذا المبلغ فوراً لحساب الخزينة الرئيسية وتغيير حالة القطعة لمباعة كاش.</p>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('cash-sale-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد عملية البيع الكاش</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD CONTRACT -->
+  <div id="add-contract-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i class="ph ph-file-text text-indigo-600"></i>
+          <span>إنشاء عقد بيع وتقسيط جديد</span>
+        </h3>
+        <button type="button" onclick="closeModal('add-contract-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="add-contract-form" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">اختر العميل المشتري</label>
+            <select id="contract-client-select" required class="form-input">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div>
+            <label class="form-label">اختر الجهاز المطلوب من المخزن</label>
+            <select id="contract-device-select" required class="form-input">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+        </div>
+
+        <div class="p-4 bg-slate-50 dark:bg-skyDark-900/50 rounded-xl border border-slate-100 dark:border-skyDark-800 space-y-4">
+          <span class="text-xs font-bold text-slate-500 dark:text-slate-400">إعدادات الفائدة والمقدم:</span>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div>
+              <label class="form-label">نوع الزيادة (الفائدة)</label>
+              <select id="contract-interest-type" class="form-input">
+                <option value="none">بدون زيادة (سعر الكاش)</option>
+                <option value="percent">نسبة مئوية (%)</option>
+                <option value="fixed">مبلغ ثابت (ج.م)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">قيمة الزيادة</label>
+              <input type="number" id="contract-interest-value" min="0" step="0.01" value="0" class="form-input" disabled>
+            </div>
+            <div>
+              <label class="form-label">مقدم العقد</label>
+              <input type="number" id="contract-down-payment" required min="0" value="0" class="form-input">
+            </div>
+            <div>
+              <label class="form-label">فترة التقسيط (شهور)</label>
+              <input type="number" id="contract-duration" required min="1" max="60" value="12" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+          <span class="text-xs font-bold text-slate-500">إعدادات غرامة التأخير اليومية:</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="form-label">نوع الغرامة</label>
+              <select id="contract-fine-type" class="form-input">
+                <option value="flat">مبلغ مالي ثابت يومياً (ج.م)</option>
+                <option value="percent">نسبة مئوية من قيمة القسط (%)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">قيمة الغرامة اليومية</label>
+              <input type="number" id="contract-fine-value" required min="0" step="0.01" value="10" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="form-label">المحصل المسند</label>
+            <select id="contract-collector-select" required class="form-input">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div>
+            <label class="form-label">تاريخ بدء العقد</label>
+            <input type="date" id="contract-start-date" required class="form-input">
+          </div>
+          <div>
+            <label class="form-label">فترة السماح (أيام)</label>
+            <input type="number" id="contract-grace-days" required min="0" value="5" class="form-input">
+          </div>
+        </div>
+
+        <!-- Calculations Review Box -->
+        <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-indigo-950 dark:text-indigo-100">
+          <div>
+            <span class="text-xs font-semibold block text-indigo-700 dark:text-indigo-400">سعر الكاش:</span>
+            <span class="text-base font-bold" id="calc-cash-price">0 ج.م</span>
+          </div>
+          <div>
+            <span class="text-xs font-semibold block text-indigo-700 dark:text-indigo-400">إجمالي بعد الفائدة:</span>
+            <span class="text-base font-bold text-rose-600 dark:text-rose-400" id="calc-total-price">0 ج.م</span>
+          </div>
+          <div>
+            <span class="text-xs font-semibold block text-indigo-700 dark:text-indigo-400">المتبقي للتقسيط:</span>
+            <span class="text-base font-bold text-amber-600 dark:text-amber-400" id="calc-remaining-amount">0 ج.م</span>
+          </div>
+          <div class="text-left border-r border-indigo-200 dark:border-indigo-800 pr-4">
+            <span class="text-xs font-semibold block text-indigo-700 dark:text-indigo-400">القسط الشهري:</span>
+            <span class="text-xl font-black text-indigo-600 dark:text-indigo-300" id="calc-monthly-installment">0 ج.م</span>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('add-contract-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">اعتماد العقد والبيع</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD USER / COLLECTOR -->
+  <div id="add-user-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg" id="user-modal-title">إضافة مستخدم جديد للنظام</h4>
+        <button type="button" onclick="closeModal('add-user-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="add-user-form" class="space-y-4">
+        <input type="hidden" id="user-edit-id">
+        <div>
+          <label class="form-label">الاسم بالكامل</label>
+          <input type="text" id="user-fullname" required class="form-input" placeholder="الاسم ثلاثي أو رباعي">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">اسم المستخدم (Username للدخول)</label>
+            <input type="text" id="user-username" required class="form-input" placeholder="english_username">
+            <p class="text-[10px] text-slate-400 mt-1">لا يمكن تغييره لاحقاً بعد الإنشاء (مرتبط بحساب Firebase الآمن).</p>
+          </div>
+          <div>
+            <label class="form-label">رقم الهاتف</label>
+            <input type="tel" id="user-phone" required class="form-input" placeholder="01xxxxxxxxx">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">كلمة المرور (الباسورد)</label>
+            <input type="password" id="user-password" required minlength="6" class="form-input" placeholder="6 أحرف على الأقل">
+          </div>
+          <div>
+            <label class="form-label">الصلاحية / الدور في النظام</label>
+            <select id="user-role" required class="form-input">
+              <option value="COLLECTOR">محصل خارجي ميداني</option>
+              <option value="STAFF">موظف إدخال بيانات</option>
+              <option value="ADMIN">مدير النظام (Admin)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">المنطقة الجغرافية التابعة للمحصل</label>
+          <input type="text" id="user-area" class="form-input" placeholder="مثال: دمنهور، البحيرة، إلخ">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('add-user-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ المستخدم</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EXPENSE OUT (سند صرف مصروفات الخارج) -->
+  <div id="expense-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">سند صرف مصروفات إدارية / تشغيلية</h4>
+        <button type="button" onclick="closeModal('expense-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="expense-form" class="space-y-4">
+        <div>
+          <label class="form-label">المبلغ المصروف (ج.م)</label>
+          <input type="number" id="expense-amount" required min="1" class="form-input" placeholder="0.00">
+        </div>
+        <div>
+          <label class="form-label">نوع المصروف</label>
+          <select id="expense-category" required class="form-input">
+            <option value="ايجار">إيجار المقر</option>
+            <option value="رواتب">رواتب ومستحقات موظفين</option>
+            <option value="كهرباء_ومياه">فواتير ومرافق عمومیة</option>
+            <option value="بضائع">شراء دفعة بضائع وتوريدات</option>
+            <option value="نثريات">نثريات وضيافة ومصروفات صغيرة</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">البيان والشرح بالتفصيل</label>
+          <textarea id="expense-notes" required rows="2" class="form-input" placeholder="اكتب سب وسند صرف المبلغ بالتفصيل..."></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('expense-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد وصرف المبلغ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DEPOSIT / CAPITAL INCREMENT -->
+  <div id="deposit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">سند إيداع نقدي / زيادة رأس المال</h4>
+        <button type="button" onclick="closeModal('deposit-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="deposit-form" class="space-y-4">
+        <div>
+          <label class="form-label">المبلغ المودع بالخزينة (ج.م)</label>
+          <input type="number" id="deposit-amount" required min="1" class="form-input" placeholder="0.00">
+        </div>
+        <div>
+          <label class="form-label">البيان والمصدر</label>
+          <input type="text" id="deposit-notes" required class="form-input" placeholder="مثال: زيادة رأس المال النقدي من الشركاء">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('deposit-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد الإيداع بالخزينة</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: WHATSAPP EDIT TEMPLATE BEFORE SENDING -->
+  <div id="whatsapp-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <i class="ph ph-whatsapp-logo text-emerald-600 text-xl"></i>
+          <span>مراجعة وتعديل نص الرسالة قبل الإرسال</span>
+        </h4>
+        <button type="button" onclick="closeModal('whatsapp-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="form-label">العميل المستلم</label>
+          <input type="text" id="wa-recipient-name" readonly class="form-input bg-slate-50 text-slate-500 font-semibold">
+        </div>
+        <div>
+          <label class="form-label">رقم الهاتف للعميل</label>
+          <input type="text" id="wa-recipient-phone" readonly class="form-input bg-slate-50 text-slate-500 font-semibold">
+        </div>
+        <div>
+          <label class="form-label">محتوى رسالة الواتس اب (تستطيع التعديل والإضافة عليها)</label>
+          <textarea id="wa-message-text" rows="8" class="form-input text-sm focus:border-emerald-500 focus:ring-emerald-200"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('whatsapp-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button onclick="sendPreparedWhatsapp()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md flex items-center gap-2">
+            <i class="ph ph-whatsapp-logo"></i>
+            <span>إرسال الآن للعميل</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: BULK WHATSAPP STATUS (BULK SENDING) -->
+  <div id="bulk-whatsapp-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <i class="ph ph-whatsapp-logo text-emerald-600 text-xl"></i>
+          <span>إرسال رسائل جماعية للعملاء</span>
+        </h4>
+        <button type="button" onclick="closeModal('bulk-whatsapp-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-950">
+          تتيح لك هذه الميزة إرسال تذكيرات سداد جماعية لجميع العملاء الذين لديهم أقساط مستحقة الدفع في الشهر المختار.
+        </div>
+        <div>
+          <label class="form-label">الشهر المستهدف للرسائل</label>
+          <select id="bulk-wa-month-select" class="form-input">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <div>
+          <label class="form-label">نوع الرسالة الجماعية</label>
+          <select id="bulk-wa-type-select" class="form-input">
+            <option value="reminder">تذكير بموعد السداد القادم</option>
+            <option value="warning">إنذار بالمتأخرات وتراكم الغرامة</option>
+          </select>
+        </div>
+        <div class="border-t border-slate-100 pt-3">
+          <p class="text-xs font-bold text-slate-500 mb-2">قائمة العملاء المستهدفين للشهر المختار:</p>
+          <div class="max-h-44 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-2 bg-slate-50 text-xs" id="bulk-wa-clients-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('bulk-whatsapp-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button id="btn-start-bulk-wa" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md flex items-center gap-2">
+            <i class="ph ph-paper-plane-tilt"></i>
+            <span>بدء الإرسال الجماعي</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: IMAGE PREVIEW MODAL -->
+  <div id="image-preview-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="relative max-w-3xl w-full flex flex-col items-center">
+      <button type="button" onclick="closeModal('image-preview-modal')" class="absolute -top-10 left-0 text-white text-3xl hover:text-slate-300">
+        <i class="ph ph-x"></i>
+      </button>
+      <div class="bg-white p-3 rounded-2xl shadow-2xl max-h-[80vh] overflow-hidden flex items-center justify-center">
+        <img id="preview-modal-img" class="max-w-full max-h-[75vh] object-contain rounded-lg" src="" alt="معاينة المستند">
+      </div>
+      <div id="preview-modal-title" class="text-white mt-3 text-sm font-bold"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT INVENTORY ITEM -->
+  <div id="edit-inventory-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">تعديل أسعار وبيانات الصنف</h4>
+        <button type="button" onclick="closeModal('edit-inventory-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="edit-inventory-form" onsubmit="event.preventDefault(); saveInventoryEdit();" class="space-y-4">
+        <input type="hidden" id="edit-inv-brand">
+        <input type="hidden" id="edit-inv-name">
+        <div>
+          <label class="form-label">سعر الشراء للقطعة (التكلفة)</label>
+          <input type="number" id="edit-inv-cost" required min="1" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">سعر البيع الافتراضي للقطعة</label>
+          <input type="number" id="edit-inv-price" required min="1" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">التاجر / المورد</label>
+          <input type="text" id="edit-inv-supplier" class="form-input" placeholder="اسم المورد">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('edit-inventory-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ التغييرات</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT CONTRACT -->
+  <div id="edit-contract-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">تعديل بيانات العقد</h4>
+        <button type="button" onclick="closeModal('edit-contract-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="edit-contract-form" onsubmit="event.preventDefault(); saveContractEdit();" class="space-y-4">
+        <input type="hidden" id="edit-contract-id">
+        <div>
+          <label class="form-label">المحصل المسند لمتابعة العقد</label>
+          <input type="text" id="edit-contract-collector" class="form-input" placeholder="اسم المحصل">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">فترة السماح (أيام)</label>
+            <input type="number" id="edit-contract-grace" required min="0" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">قيمة الغرامة اليومية</label>
+            <input type="number" id="edit-contract-fine-value" required min="0" step="0.01" class="form-input">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">نوع الغرامة</label>
+          <select id="edit-contract-fine-type" class="form-input">
+            <option value="flat">مبلغ مالي ثابت يومياً (ج.م)</option>
+            <option value="percent">نسبة مئوية من قيمة القسط (%)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">حالة العقد</label>
+          <select id="edit-contract-status" class="form-input">
+            <option value="active">نشط ومستمر</option>
+            <option value="completed">مكتمل ومسدد بالكامل</option>
+            <option value="suspended">موقوف مؤقتاً</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('edit-contract-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ التغييرات</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT TRANSACTION -->
+  <div id="edit-transaction-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">تعديل الحركة المالية</h4>
+        <button type="button" onclick="closeModal('edit-transaction-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="edit-transaction-form" onsubmit="event.preventDefault(); saveTransactionEdit();" class="space-y-4">
+        <input type="hidden" id="edit-tx-id">
+        <div>
+          <label class="form-label">المبلغ المالي (ج.م)</label>
+          <input type="number" id="edit-tx-amount" required min="1" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">البيان والشرح التفصيلي</label>
+          <textarea id="edit-tx-notes" required rows="3" class="form-input"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('edit-transaction-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ التعديل</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT USER -->
+  <div id="edit-user-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">تعديل بيانات المستخدم</h4>
+        <button type="button" onclick="closeModal('edit-user-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="edit-user-form" onsubmit="event.preventDefault(); saveUserEdits();" class="space-y-4">
+        <input type="hidden" id="edit-user-id">
+        <div>
+          <label class="form-label">الاسم بالكامل</label>
+          <input type="text" id="edit-user-fullname" required class="form-input" placeholder="الاسم ثلاثي أو رباعي">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">اسم المستخدم</label>
+            <input type="text" id="edit-user-username" disabled class="form-input bg-slate-100 text-slate-500 cursor-not-allowed">
+            <p class="text-[10px] text-slate-400 mt-1">لا يمكن تغيير اسم المستخدم لأنه مرتبط بحساب الدخول الآمن في Firebase.</p>
+          </div>
+          <div>
+            <label class="form-label">رقم الهاتف</label>
+            <input type="tel" id="edit-user-phone" required class="form-input">
+          </div>
+        </div>
+        <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 text-[11px] text-amber-700 flex items-start gap-2">
+          <i class="ph ph-info mt-0.5"></i>
+          <span>لأسباب أمنية، لا يمكن تغيير كلمة مرور مستخدم آخر من هذه الشاشة مباشرة. لتغييرها، احذف المستخدم وأضِفه من جديد بكلمة مرور جديدة.</span>
+        </div>
+        <div>
+          <label class="form-label">الصلاحية / الدور</label>
+          <select id="edit-user-role" required class="form-input">
+            <option value="COLLECTOR">محصل خارجي ميداني</option>
+            <option value="STAFF">موظف إدخال بيانات</option>
+            <option value="ADMIN">مدير النظام (Admin)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">المنطقة الجغرافية التابعة</label>
+          <input type="text" id="edit-user-area" class="form-input">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('edit-user-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ التغييرات</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase Compat SDKs (work on local file:// protocol without CORS block) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+
+  <!-- SheetJS (لتصدير نسخة احتياطية Excel منظمة) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- App Configuration and scripts -->
+  <script src="firebase-config.js"></script>
+  <script src="firebase-service.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

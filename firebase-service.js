@@ -1,0 +1,374 @@
+// firebase-service.js
+// --- خدمات Firebase متوافقة مع البروتوكول المحلي file:// ---
+
+window.FirebaseService = {
+  isAvailable: () => {
+    return window.firebaseDB !== undefined;
+  },
+
+  // 1. Load all data from Firestore (one-time fetch)
+  loadAllData: async () => {
+    if (!window.FirebaseService.isAvailable()) return null;
+    const db = window.firebaseDB;
+    try {
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers'];
+      const data = {};
+      
+      for (const colName of collections) {
+        const querySnapshot = await db.collection(colName).get();
+        data[colName] = [];
+        querySnapshot.forEach((doc) => {
+          data[colName].push(doc.data());
+        });
+      }
+      
+      // Settings is a single document
+      if (data.settings && data.settings.length > 0) {
+        const globalSet = data.settings.find(s => s.id === 'global') || data.settings[0];
+        data.settings = globalSet;
+      } else {
+        data.settings = null;
+      }
+
+      // Convert brands from [{name: 'BrandName'}] to ['BrandName']
+      if (data.brands) {
+        data.brands = data.brands.map(b => b.name);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Firebase Load Error:", error);
+      return null;
+    }
+  },
+
+  // 2. Real-time updates subscription
+  subscribeToUpdates: (onDataUpdate) => {
+    if (!window.FirebaseService.isAvailable()) return null;
+    const db = window.firebaseDB;
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers'];
+    
+    const activeListeners = [];
+    
+    collections.forEach(colName => {
+      const unsub = db.collection(colName).onSnapshot((snapshot) => {
+        let items = [];
+        snapshot.forEach(doc => {
+          items.push(doc.data());
+        });
+        
+        if (colName === 'settings') {
+          const globalSet = items.find(s => s.id === 'global') || items[0] || null;
+          onDataUpdate('settings', globalSet);
+        } else if (colName === 'brands') {
+          const brandNames = items.map(b => b.name);
+          onDataUpdate('brands', brandNames);
+        } else {
+          onDataUpdate(colName, items);
+        }
+      }, (error) => {
+        console.error(`Firebase snapshot error on collection ${colName}:`, error);
+      });
+      activeListeners.push(unsub);
+    });
+    
+    return () => {
+      activeListeners.forEach(unsub => unsub());
+    };
+  },
+
+  // 3. Sync action to Firestore
+  syncAction: async (action, payload) => {
+    if (!window.FirebaseService.isAvailable()) return { success: false, reason: 'not_initialized' };
+    const db = window.firebaseDB;
+    try {
+      switch (action) {
+        // Users
+        case 'addUser':
+          await db.collection("users").doc(payload.id).set(payload);
+          break;
+        case 'updateUser':
+          await db.collection("users").doc(payload.id).update(payload);
+          break;
+        case 'deleteUser':
+          await db.collection("users").doc(payload.id).delete();
+          break;
+
+        // Clients
+        case 'addClient':
+          await db.collection("clients").doc(payload.id).set(payload);
+          break;
+        case 'updateClient':
+          await db.collection("clients").doc(payload.id).update(payload);
+          break;
+        case 'deleteClient':
+          await db.collection("clients").doc(payload.id).delete();
+          break;
+          
+        // Inventory Devices
+        case 'addDevice':
+          await db.collection("inventory").doc(payload.newDevice.id).set(payload.newDevice);
+          // نكتب نفس حركة الخزينة اللي اتعرضت للمستخدم محلياً بالضبط (نفس الـ id ونفس الملاحظات)
+          // بدل ما نولّد حركة تانية مختلفة، عشان متبقاش في حركتين متضاربتين.
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        case 'updateDevice':
+          await db.collection("inventory").doc(payload.id).update(payload);
+          break;
+        case 'deleteDevice':
+          await db.collection("inventory").doc(payload.id).delete();
+          break;
+
+        // Device groups
+        case 'deleteDeviceGroup': {
+          const snapshot = await db.collection("inventory")
+            .where("brand", "==", payload.brand)
+            .where("name", "==", payload.name)
+            .where("status", "==", "available")
+            .get();
+          const batch = db.batch();
+          snapshot.forEach(d => {
+            batch.delete(d.ref);
+          });
+          await batch.commit();
+          break;
+        }
+        case 'updateDeviceGroup': {
+          const snapshot = await db.collection("inventory")
+            .where("brand", "==", payload.brand)
+            .where("name", "==", payload.name)
+            .get();
+          const batch = db.batch();
+          snapshot.forEach(d => {
+            batch.update(d.ref, { costPrice: payload.costPrice, sellingPrice: payload.sellingPrice, supplier: payload.supplier });
+          });
+          await batch.commit();
+          break;
+        }
+
+        // Contracts
+        case 'addContract':
+          await db.collection("contracts").doc(payload.contract.id).set(payload.contract);
+          await db.collection("inventory").doc(payload.contract.deviceId).update({
+            status: 'sold_installment',
+            soldTo: payload.contract.clientName
+          });
+          if (payload.contract.downPayment > 0 && payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          const contractBatch = db.batch();
+          const start = new Date(payload.contract.startDate);
+          for (let i = 1; i <= payload.contract.duration; i++) {
+            const dueDate = new Date(start);
+            dueDate.setMonth(start.getMonth() + (i - 1));
+            const instId = `${payload.contract.id}_${i}`;
+            const instDoc = db.collection("installments").doc(instId);
+            contractBatch.set(instDoc, {
+              id: instId,
+              contractId: payload.contract.id,
+              clientId: payload.contract.clientId,
+              clientName: payload.contract.clientName,
+              clientPhone: payload.contract.clientPhone,
+              guarantorName: payload.guarantorName || '',
+              guarantorPhone: payload.guarantorPhone || '',
+              collectorName: payload.contract.collectorName,
+              installmentNum: i,
+              amount: payload.contract.monthlyInstallment,
+              dueDate: dueDate.toISOString().split('T')[0],
+              status: 'pending',
+              paidAmount: 0,
+              paidDate: '',
+              receiptId: '',
+              delayFines: 0
+            });
+          }
+          await contractBatch.commit();
+          break;
+
+        case 'deleteTransaction':
+          await db.collection("treasuryTransactions").doc(payload.id).delete();
+          break;
+
+        case 'updateTransaction':
+          await db.collection("treasuryTransactions").doc(payload.id).update({
+            amount: payload.amount,
+            notes: payload.notes
+          });
+          break;
+
+        case 'updateContract': {
+          await db.collection("contracts").doc(payload.id).update(payload);
+          const snapshot = await db.collection("installments").where("contractId", "==", payload.id).get();
+          const batch = db.batch();
+          snapshot.forEach(d => {
+            batch.update(d.ref, { collectorName: payload.collectorName });
+          });
+          await batch.commit();
+          break;
+        }
+
+        case 'deleteContract': {
+          await db.collection("contracts").doc(payload.id).delete();
+          if (payload.deviceId) {
+            await db.collection("inventory").doc(payload.deviceId).update({
+              status: 'available',
+              soldTo: ''
+            });
+          }
+          const snapshot = await db.collection("installments").where("contractId", "==", payload.id).get();
+          const batch = db.batch();
+          snapshot.forEach(d => {
+            batch.delete(d.ref);
+          });
+          await batch.commit();
+          break;
+        }
+
+        // Installments
+        case 'updateInstallment':
+          await db.collection("installments").doc(payload.id).update(payload);
+          break;
+
+        // Custodies (Collector collections)
+        case 'addPendingCustody':
+          await db.collection("collectorCustodies").doc(payload.id).set(payload);
+          break;
+
+        case 'approveCustody':
+          await db.collection("collectorCustodies").doc(payload.custodyId).update({ status: 'approved' });
+          if (payload.installment) {
+            await db.collection("installments").doc(payload.installment.id).set(payload.installment);
+          } else {
+            await db.collection("installments").doc(payload.installmentId).update({ 
+              status: 'paid',
+              paidAmount: payload.amount,
+              paidDate: payload.timestamp.split(' ')[0],
+              receiptId: payload.custodyId
+            });
+          }
+          // نكتب نفس حركة الخزينة اللي ظهرت للمستخدم محلياً بالضبط، بنفس الـ id والملاحظات التفصيلية
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+
+        case 'deleteCustody':
+          await db.collection("collectorCustodies").doc(payload.id).delete();
+          break;
+
+        // Cash sale
+        case 'cashSale':
+          await db.collection("inventory").doc(payload.devId).update({
+            status: 'sold_cash',
+            soldTo: payload.clientName
+          });
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+
+        // Treasury Transactions
+        case 'addExpense': {
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        }
+        case 'addDeposit': {
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        }
+
+        // Brands and Suppliers
+        case 'addBrand':
+          await db.collection("brands").doc(payload.name).set(payload);
+          break;
+        case 'deleteBrand':
+          await db.collection("brands").doc(payload.name).delete();
+          break;
+        case 'addSupplier':
+          await db.collection("suppliers").doc(payload.name).set(payload);
+          break;
+        case 'deleteSupplier':
+          await db.collection("suppliers").doc(payload.name).delete();
+          break;
+
+        // Settings
+        case 'updateSettings':
+          await db.collection("settings").doc("global").set(payload);
+          break;
+
+        // Audit Logs
+        case 'addAuditLog': {
+          const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+          await db.collection("auditLogs").doc(logId).set(payload);
+          break;
+        }
+
+        default:
+          console.warn("Firebase sync action not recognized:", action);
+          break;
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Firebase Sync Error:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // 4. Seeding helper for new setups
+  seedFirebase: async (seedData) => {
+    if (!window.FirebaseService.isAvailable()) return;
+    const db = window.firebaseDB;
+    try {
+      const batch = db.batch();
+      
+      seedData.users.forEach(u => {
+        batch.set(db.collection("users").doc(u.id), u);
+      });
+      seedData.brands.forEach(b => {
+        batch.set(db.collection("brands").doc(b), { name: b });
+      });
+      seedData.suppliers.forEach(s => {
+        batch.set(db.collection("suppliers").doc(s.name), s);
+      });
+      seedData.clients.forEach(c => {
+        batch.set(db.collection("clients").doc(c.id), c);
+      });
+      seedData.inventory.forEach(i => {
+        batch.set(db.collection("inventory").doc(i.id), i);
+      });
+      seedData.contracts.forEach(c => {
+        batch.set(db.collection("contracts").doc(c.id), c);
+      });
+      seedData.treasuryTransactions.forEach(t => {
+        batch.set(db.collection("treasuryTransactions").doc(t.id), t);
+      });
+      seedData.auditLogs.forEach(l => {
+        const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        batch.set(db.collection("auditLogs").doc(logId), l);
+      });
+      batch.set(db.collection("settings").doc("global"), {
+        id: 'global',
+        companyName: seedData.settings.companyName || 'شركة SKY',
+        companyLogo: seedData.settings.companyLogo || '',
+        offlineMode: false,
+        templates: seedData.settings.templates
+      });
+      
+      await batch.commit();
+      console.log("Firestore initialized and seeded with default data successfully!");
+    } catch (e) {
+      console.error("Firebase Seeding Error:", e);
+    }
+  },
+
+  // 5. Upload Image helper (Returns Base64 directly as Storage is disabled)
+  uploadImage: async (base64Data, folder, filename) => {
+    return base64Data;
+  }
+};
