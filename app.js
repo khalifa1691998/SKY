@@ -1184,6 +1184,7 @@ function renderClients() {
       <td class="p-4 text-center">
         <div class="inline-flex gap-1.5">
           <button onclick="viewClientDetails('${c.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-all">الملف الكامل</button>
+          <button onclick="printClientStatement('${c.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-printer"></i> كشف حساب</button>
           <button onclick="editClient('${c.id}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
           <button onclick="deleteClient('${c.id}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded-md text-xs transition-all"><i class="ph ph-trash"></i></button>
         </div>
@@ -4142,12 +4143,111 @@ window.viewClientDetails = function(clientId) {
           ${contractsHtml}
         </div>
       </div>
-      <div class="pt-3 border-t border-slate-100 flex justify-end">
+      <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+        <button onclick="printClientStatement('${client.id}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"><i class="ph ph-printer"></i> طباعة كشف حساب شامل</button>
         <button onclick="document.getElementById('client-profile-modal').remove()" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">إغلاق</button>
       </div>
     </div>
   `;
   document.body.appendChild(detailDiv);
+};
+
+// ================= CLIENT STATEMENT (كشف حساب شامل للعميل) =================
+// بيجمع كل عقود العميل وكل أقساطه (مدفوعة ومتبقية) في مستند واحد قابل للطباعة/الحفظ PDF.
+window.printClientStatement = function(clientId) {
+  const client = db.clients.find(c => c.id === clientId);
+  if (!client) return;
+
+  const companyName = db.settings.companyName || 'شركة SKY';
+  const clientContracts = db.contracts.filter(c => c.clientId === clientId);
+
+  if (clientContracts.length === 0) {
+    showToast('❌ لا توجد عقود مسجلة لهذا العميل لإصدار كشف حساب.', 'error');
+    return;
+  }
+
+  let grandTotalValue = 0, grandTotalPaid = 0, grandTotalRemaining = 0;
+
+  const contractsBlocks = clientContracts.map(contract => {
+    const balance = computeContractBalance(contract);
+    grandTotalValue += balance.totalValue;
+    grandTotalPaid += balance.totalPaid;
+    grandTotalRemaining += balance.totalRemaining;
+
+    const contractInsts = db.installments
+      .filter(i => i.contractId === contract.id)
+      .sort((a, b) => (a.installmentNum || 0) - (b.installmentNum || 0));
+
+    const instRows = contractInsts.map(inst => {
+      const statusInfo = getInstallmentOverdueStatus(inst);
+      const isPaid = inst.status === 'paid';
+      return `
+        <tr>
+          <td>قسط ${inst.installmentNum}</td>
+          <td>${escapeHTML(inst.dueDate)}</td>
+          <td>${inst.amount.toLocaleString()} ج.م</td>
+          <td>${isPaid ? `${(inst.paidAmount || inst.amount).toLocaleString()} ج.م` : '—'}</td>
+          <td>${isPaid ? escapeHTML(inst.paidDate || '—') : '—'}</td>
+          <td>${statusInfo.fine > 0 ? statusInfo.fine.toLocaleString() + ' ج.م' : '—'}</td>
+          <td style="font-weight:700;">${isPaid ? 'مسدد' : statusInfo.statusText}</td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-top:18px; page-break-inside: avoid;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f1f5f9; padding:8px 12px; border-radius:6px; margin-bottom:6px;">
+          <strong>عقد رقم: ${escapeHTML(contract.id.replace('con-', ''))} — ${escapeHTML(contract.deviceInfo)}</strong>
+          <span style="font-size:0.75rem; color:#64748b;">تاريخ العقد: ${escapeHTML(contract.startDate)}</span>
+        </div>
+        <div class="print-doc-row"><span>قيمة العقد الإجمالية</span><strong>${balance.totalValue.toLocaleString()} ج.م</strong></div>
+        <div class="print-doc-row"><span>الدفعة المقدمة</span><strong>${(contract.downPayment || 0).toLocaleString()} ج.م</strong></div>
+        <div class="print-doc-row"><span>إجمالي المسدد (شامل المقدم)</span><strong>${balance.totalPaid.toLocaleString()} ج.م</strong></div>
+        <div class="print-doc-row"><span>إجمالي المتبقي</span><strong>${balance.totalRemaining.toLocaleString()} ج.م</strong></div>
+        <table class="print-doc-table" style="margin-top:8px;">
+          <thead>
+            <tr><th>القسط</th><th>تاريخ الاستحقاق</th><th>القيمة</th><th>المسدد فعلياً</th><th>تاريخ السداد</th><th>غرامة</th><th>الحالة</th></tr>
+          </thead>
+          <tbody>${instRows}</tbody>
+        </table>
+      </div>
+    `;
+  }).join('');
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">كشف حساب شامل للعميل</div>
+
+    <div class="print-doc-row"><span>اسم العميل</span><strong>${escapeHTML(client.name)}</strong></div>
+    <div class="print-doc-row"><span>الهوية القومية</span><strong>${escapeHTML(client.nationalId) || '—'}</strong></div>
+    <div class="print-doc-row"><span>رقم الهاتف</span><strong>${escapeHTML(client.phone)}</strong></div>
+    <div class="print-doc-row"><span>العنوان</span><strong>${escapeHTML(client.address) || '—'}</strong></div>
+
+    <div style="margin-top:14px; padding:10px 12px; background:#ecfdf5; border-radius:8px; display:flex; justify-content:space-around; text-align:center; font-size:0.85rem;">
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي قيمة العقود</div><strong>${grandTotalValue.toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المسدد</div><strong style="color:#059669;">${grandTotalPaid.toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المتبقي</div><strong style="color:#d97706;">${grandTotalRemaining.toLocaleString()} ج.م</strong></div>
+    </div>
+
+    ${contractsBlocks}
+
+    <div class="print-doc-signatures">
+      <div>توقيع مسؤول الحسابات: ______________</div>
+      <div>توقيع العميل: ______________</div>
+    </div>
+    <div class="print-doc-footer">تم إصدار هذا الكشف إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+
+  printHTML(html);
+  logAction('طباعة كشف حساب', `طباعة كشف حساب شامل للعميل ${client.name}`);
 };
 
 window.openBase64InPreviewModal = function(title, base64) {
