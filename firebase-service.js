@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors'];
       const data = {};
       
       for (const colName of collections) {
@@ -46,7 +46,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors'];
     
     const activeListeners = [];
     
@@ -297,6 +297,29 @@ window.FirebaseService = {
           await db.collection("suppliers").doc(payload.name).delete();
           break;
 
+        // Investors & Company Capital
+        case 'addInvestor':
+          await db.collection("investors").doc(payload.investor.id).set(payload.investor);
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        case 'addInvestorCapital':
+          await db.collection("investors").doc(payload.investorId).update({ capitalAmount: payload.newCapitalAmount });
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        case 'withdrawInvestorProfit':
+          await db.collection("investors").doc(payload.investorId).update({ totalWithdrawn: payload.newTotalWithdrawn });
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        case 'deleteInvestor':
+          await db.collection("investors").doc(payload.id).delete();
+          break;
+
         // Settings
         case 'updateSettings':
           await db.collection("settings").doc("global").set(payload);
@@ -335,6 +358,9 @@ window.FirebaseService = {
       });
       seedData.suppliers.forEach(s => {
         batch.set(db.collection("suppliers").doc(s.name), s);
+      });
+      (seedData.investors || []).forEach(inv => {
+        batch.set(db.collection("investors").doc(inv.id), inv);
       });
       seedData.clients.forEach(c => {
         batch.set(db.collection("clients").doc(c.id), c);
