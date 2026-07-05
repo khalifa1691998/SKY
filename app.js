@@ -386,8 +386,8 @@ function updateUIForRole() {
   const roleBadge = document.getElementById('header-role-badge');
   if (roleBadge) {
     if (isAdmin()) {
-      roleBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>الوصول: مشرف (ADMIN)';
-      roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100';
+      roleBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-teal-600 animate-ping"></span>الوصول: مشرف (ADMIN)';
+      roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-100';
     } else if (isCollector) {
       roleBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>الوصول: محصل (COLLECTOR)';
       roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100';
@@ -687,7 +687,7 @@ function showToast(message, type = 'success') {
   const colors = {
     success: 'bg-emerald-600 text-white',
     error: 'bg-rose-600 text-white',
-    info: 'bg-indigo-600 text-white',
+    info: 'bg-teal-600 text-white',
     warning: 'bg-amber-500 text-white'
   };
   
@@ -811,7 +811,7 @@ function showSyncFailureWarning(action, errorDetail) {
 
 async function loadFromServer() {
   const statusMsg = document.getElementById('connection-status-msg');
-  if (statusMsg) statusMsg.innerHTML = '<span class="text-indigo-600">جاري تحميل البيانات من السحابة...</span>';
+  if (statusMsg) statusMsg.innerHTML = '<span class="text-teal-600">جاري تحميل البيانات من السحابة...</span>';
 
   // Use Firebase if initialized
   if (window.FirebaseService && window.FirebaseService.isAvailable()) {
@@ -990,7 +990,7 @@ function renderActiveTab(tabName) {
 }
 
 function renderAllTabs() {
-  const activeTabBtn = document.querySelector('#sidebar-menu a.bg-indigo-600');
+  const activeTabBtn = document.querySelector('#sidebar-menu a.bg-teal-600');
   if (activeTabBtn) {
     const tabName = activeTabBtn.getAttribute('data-tab');
     renderActiveTab(tabName);
@@ -1060,7 +1060,7 @@ function renderDashboard() {
   timeline.innerHTML = '';
   sortByTimestampDesc(db.auditLogs).slice(0, 5).forEach(log => {
     let colorClass = 'bg-slate-200 text-slate-800';
-    if (log.actionType.includes('إضافة') || log.actionType.includes('شراء')) colorClass = 'bg-indigo-50 text-indigo-700 border border-indigo-100';
+    if (log.actionType.includes('إضافة') || log.actionType.includes('شراء')) colorClass = 'bg-teal-50 text-teal-700 border border-teal-100';
     if (log.actionType.includes('إنشاء') || log.actionType.includes('بيع') || log.actionType.includes('تعديل')) colorClass = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
     if (log.actionType.includes('تحصيل') || log.actionType.includes('اعتماد')) colorClass = 'bg-blue-50 text-blue-700 border border-blue-100';
     if (log.actionType.includes('صرف')) colorClass = 'bg-rose-50 text-rose-700 border border-rose-100';
@@ -1175,12 +1175,12 @@ function renderClients() {
       <td class="p-4 text-slate-800">${c.guarantorName || '-'}</td>
       <td class="p-4 text-slate-500">${c.guarantorRelation || '-'}</td>
       <td class="p-4">
-        ${c.locationUrl ? `<a href="${c.locationUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-xs font-semibold"><i class="ph ph-map-pin-line"></i> عرض الخريطة</a>` : '<span class="text-slate-400">لا يوجد</span>'}
+        ${c.locationUrl ? `<a href="${c.locationUrl}" target="_blank" class="text-teal-600 hover:text-teal-800 flex items-center gap-1 text-xs font-semibold"><i class="ph ph-map-pin-line"></i> عرض الخريطة</a>` : '<span class="text-slate-400">لا يوجد</span>'}
       </td>
       <td class="p-4 text-center">
         <div class="inline-flex gap-1.5">
           <button onclick="viewClientDetails('${c.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-all">الملف الكامل</button>
-          <button onclick="editClient('${c.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
+          <button onclick="editClient('${c.id}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
           <button onclick="deleteClient('${c.id}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded-md text-xs transition-all"><i class="ph ph-trash"></i></button>
         </div>
       </td>
@@ -1236,7 +1236,7 @@ function renderInventory() {
       let bg = 'bg-slate-100 text-slate-600';
       let title = 'متاح';
       if (d.status === 'sold_installment') {
-        bg = 'bg-indigo-50 text-indigo-700 border border-indigo-100';
+        bg = 'bg-teal-50 text-teal-700 border border-teal-100';
         title = `قسط لـ: ${d.soldTo}`;
       } else if (d.status === 'sold_cash') {
         bg = 'bg-amber-50 text-amber-700 border border-amber-100';
@@ -1252,7 +1252,7 @@ function renderInventory() {
       <td class="p-4">${group.name}</td>
       <td class="p-4 text-slate-600 text-xs">${group.supplier || '-'}</td>
       <td class="p-4 font-bold font-mono text-emerald-600">${group.costPrice.toLocaleString()} ج.م</td>
-      <td class="p-4 font-bold font-mono text-indigo-600">${group.sellingPrice.toLocaleString()} ج.م</td>
+      <td class="p-4 font-bold font-mono text-teal-600">${group.sellingPrice.toLocaleString()} ج.م</td>
       <td class="p-4">
         <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 text-slate-800 text-xs font-bold">
           ${availQty} متاح / ${totalQty} كلي
@@ -1266,7 +1266,7 @@ function renderInventory() {
               <i class="ph ph-money"></i> بيع كاش
             </button>
           ` : `<span class="text-xs text-slate-400 font-semibold">نفذت الكمية</span>`}
-          <button onclick="editDeviceGroup('${group.brand}', '${group.name}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
+          <button onclick="editDeviceGroup('${group.brand}', '${group.name}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
           <button onclick="deleteDeviceGroup('${group.brand}', '${group.name}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded transition-colors"><i class="ph ph-trash"></i></button>
         </div>
       </td>
@@ -1396,20 +1396,20 @@ function renderContracts() {
       <td class="p-4 font-semibold text-slate-600">${c.collectorName || 'غير مسند'}</td>
       <td class="p-4 text-slate-600">${c.deviceInfo}</td>
       <td class="p-4 font-bold font-mono text-slate-800">${c.totalValue.toLocaleString()} ج.م</td>
-      <td class="p-4 font-bold font-mono text-indigo-600">${c.monthlyInstallment.toLocaleString()} ج.م</td>
+      <td class="p-4 font-bold font-mono text-teal-600">${c.monthlyInstallment.toLocaleString()} ج.م</td>
       <td class="p-4 font-mono text-xs text-slate-500">${c.startDate}</td>
       <td class="p-4">
         <div class="flex flex-col gap-1">
           <span class="font-bold font-mono text-xs text-slate-700">${paidVal.toLocaleString()} / ${totalInstsAmount.toLocaleString()} ج.م</span>
           <div class="w-24 bg-slate-100 rounded-full h-1 overflow-hidden">
-            <div class="bg-indigo-600 h-1" style="width: ${(paidVal/totalInstsAmount * 100) || 0}%"></div>
+            <div class="bg-teal-600 h-1" style="width: ${(paidVal/totalInstsAmount * 100) || 0}%"></div>
           </div>
         </div>
       </td>
       <td class="p-4 text-center">
          <div class="inline-flex gap-1.5">
            <button onclick="viewContractDetails('${c.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-all">التفاصيل</button>
-           <button onclick="editContract('${c.id}')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-pencil-simple"></i></button>
+           <button onclick="editContract('${c.id}')" class="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-pencil-simple"></i></button>
            <button onclick="deleteContract('${c.id}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-trash"></i></button>
          </div>
       </td>
@@ -1486,7 +1486,7 @@ function renderCollections() {
     clientCard.innerHTML = `
       <div onclick="toggleClientInstallments('${clientGroup.clientId}')" class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors select-none">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
+          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm">
             <i class="ph ${isExpanded ? 'ph-folder-open' : 'ph-folder'} text-lg"></i>
           </div>
           <div>
@@ -1500,7 +1500,7 @@ function renderCollections() {
             الضامن: <span class="font-bold text-slate-700">${clientGroup.guarantorName || 'لا يوجد'}</span> 
             ${clientGroup.guarantorPhone ? `<span class="font-mono font-medium text-slate-500">(${clientGroup.guarantorPhone})</span>` : ''}
           </div>
-          <div class="bg-indigo-50 text-indigo-700 py-1.5 px-3 rounded-lg">
+          <div class="bg-teal-50 text-teal-700 py-1.5 px-3 rounded-lg">
             إجمالي المستحق حالياً: <span class="font-black text-sm">${totalRemaining.toLocaleString()} ج.م</span>
           </div>
           <div class="bg-slate-100 text-slate-700 py-1.5 px-2.5 rounded-lg font-mono">
@@ -1547,7 +1547,7 @@ function renderCollections() {
                         ${collectorOptions}
                       </select>
                     </td>
-                    <td class="p-2.5 font-mono font-bold text-indigo-600">
+                    <td class="p-2.5 font-mono font-bold text-teal-600">
                       ${statusInfo.totalDue.toLocaleString()} ج.م
                       ${statusInfo.fine > 0 ? `<span class="text-[9px] text-red-500 block">(غرامة ${statusInfo.fine.toLocaleString()})</span>` : ''}
                     </td>
@@ -1626,7 +1626,7 @@ function renderTreasury() {
         <td class="p-3 font-bold text-slate-800">${app.collectorName}</td>
         <td class="p-3 font-semibold text-slate-700">${app.clientName}</td>
         <td class="p-3 font-mono">${app.contractId.replace('con-', '')}</td>
-        <td class="p-3 font-bold font-mono text-indigo-600">${app.amount.toLocaleString()} ج.م</td>
+        <td class="p-3 font-bold font-mono text-teal-600">${app.amount.toLocaleString()} ج.م</td>
         <td class="p-3 text-slate-500 font-mono text-[10px]">${app.date}</td>
         <td class="p-3 text-center">
           <div class="inline-flex gap-2">
@@ -1675,7 +1675,7 @@ function renderTreasury() {
     }
 
     const adminActionBtns = isAdmin() ? `
-      <button onclick="editTransaction('${tx.id}')" class="p-1 text-indigo-400 hover:text-indigo-600 rounded transition-colors" title="تعديل"><i class="ph ph-pencil-simple"></i></button>
+      <button onclick="editTransaction('${tx.id}')" class="p-1 text-teal-400 hover:text-teal-600 rounded transition-colors" title="تعديل"><i class="ph ph-pencil-simple"></i></button>
       <button onclick="deleteTransaction('${tx.id}')" class="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors" title="حذف"><i class="ph ph-trash"></i></button>
     ` : '';
 
@@ -1752,7 +1752,7 @@ function renderInvestors() {
     emptyState.classList.add('hidden');
     stats.investors.forEach(inv => {
       const adminActionBtns = isAdmin() ? `
-        <button onclick="openAddCapitalModal('${inv.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-xs font-semibold transition-all flex items-center gap-1" title="إضافة رأس مال"><i class="ph ph-plus-circle"></i> رأس مال</button>
+        <button onclick="openAddCapitalModal('${inv.id}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-600 rounded text-xs font-semibold transition-all flex items-center gap-1" title="إضافة رأس مال"><i class="ph ph-plus-circle"></i> رأس مال</button>
         <button onclick="openWithdrawProfitModal('${inv.id}')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="سحب أرباح"><i class="ph ph-hand-withdraw"></i> سحب أرباح</button>
         <button onclick="deleteInvestor('${inv.id}')" class="p-1.5 text-slate-400 hover:text-rose-500 rounded transition-colors" title="حذف"><i class="ph ph-trash"></i></button>
       ` : '';
@@ -1764,7 +1764,7 @@ function renderInvestors() {
       tr.innerHTML = `
         <td class="p-4 font-bold text-slate-800">${inv.name}</td>
         <td class="p-4 text-slate-500 font-mono text-xs">${inv.joinDate || '-'}</td>
-        <td class="p-4 font-bold font-mono text-indigo-600">${(inv.capitalAmount || 0).toLocaleString()} ج.م</td>
+        <td class="p-4 font-bold font-mono text-teal-600">${(inv.capitalAmount || 0).toLocaleString()} ج.م</td>
         <td class="p-4 font-mono">${inv.sharePercent.toFixed(1)}%</td>
         <td class="p-4 font-bold font-mono ${inv.profitShare >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${Math.round(inv.profitShare).toLocaleString()} ج.م</td>
         <td class="p-4 font-mono text-slate-600">${inv.withdrawn.toLocaleString()} ج.م</td>
@@ -2009,7 +2009,7 @@ function renderUsers() {
     }
 
     const adminBtns = isAdmin() ? `
-      <button onclick="editUser('${u.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
+      <button onclick="editUser('${u.id}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
       <button onclick="deleteUser('${u.id}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded transition-colors"><i class="ph ph-trash"></i></button>
     ` : '<span class="text-xs text-slate-400">للمشرف فقط</span>';
 
@@ -2034,17 +2034,21 @@ window.editUser = function(userId) {
     alert('⛔ هذه العملية مخصصة للمشرف (ADMIN) فقط.');
     return;
   }
-  const u = db.users.find(x => x.id === userId);
-  if (!u) return;
+  try {
+    const u = db.users.find(x => x.id === userId);
+    if (!u) return;
 
-  document.getElementById('edit-user-id').value = u.id;
-  document.getElementById('edit-user-fullname').value = u.name || '';
-  document.getElementById('edit-user-username').value = u.username || '';
-  document.getElementById('edit-user-phone').value = u.phone || '';
-  document.getElementById('edit-user-role').value = u.role || 'COLLECTOR';
-  document.getElementById('edit-user-area').value = u.area || '';
-  document.getElementById('edit-user-password').value = '';
-  openModal('edit-user-modal');
+    document.getElementById('edit-user-id').value = u.id;
+    document.getElementById('edit-user-fullname').value = u.name || '';
+    document.getElementById('edit-user-username').value = u.username || '';
+    document.getElementById('edit-user-phone').value = u.phone || '';
+    document.getElementById('edit-user-role').value = u.role || 'COLLECTOR';
+    document.getElementById('edit-user-area').value = u.area || '';
+    openModal('edit-user-modal');
+  } catch (err) {
+    console.error('خطأ أثناء فتح نافذة تعديل المستخدم:', err);
+    alert('❌ حصل خطأ غير متوقع أثناء فتح نافذة التعديل. افتح Console بالمتصفح (F12) وابعتلي رسالة الخطأ اللي ظهرت.');
+  }
 };
 
 window.saveUserEdits = async function() {
@@ -2052,34 +2056,40 @@ window.saveUserEdits = async function() {
     alert('⛔ هذه العملية مخصصة للمشرف (ADMIN) فقط.');
     return;
   }
-  const userId = document.getElementById('edit-user-id').value;
-  const u = db.users.find(x => x.id === userId);
-  if (!u) return;
+  try {
+    const userId = document.getElementById('edit-user-id').value;
+    const u = db.users.find(x => x.id === userId);
+    if (!u) return;
 
-  // ملاحظة: لا يمكن تعديل "اسم المستخدم" هنا لأنه مرتبط مباشرة بحساب Firebase
-  // Authentication الحقيقي الخاص بهذا المستخدم (الحقل معطّل بالواجهة). كذلك لا
-  // يمكن تغيير كلمة مرور مستخدم آخر من هنا لأسباب أمنية (Firebase Authentication
-  // لا يسمح لحساب أدمن بتغيير كلمة مرور حساب آخر مباشرة من المتصفح) - استخدم
-  // بدلاً من ذلك زرار "إرسال رابط تعيين كلمة مرور جديدة" إن وُجد بريد إلكتروني حقيقي.
-  u.name = document.getElementById('edit-user-fullname').value.trim();
-  u.phone = document.getElementById('edit-user-phone').value.trim();
-  u.role = document.getElementById('edit-user-role').value;
-  u.area = document.getElementById('edit-user-area').value.trim();
+    // ملاحظة: لا يمكن تعديل "اسم المستخدم" هنا لأنه مرتبط مباشرة بحساب Firebase
+    // Authentication الحقيقي الخاص بهذا المستخدم (الحقل معطّل بالواجهة). كذلك لا
+    // يمكن تغيير كلمة مرور مستخدم آخر من هنا لأسباب أمنية (Firebase Authentication
+    // لا يسمح لحساب أدمن بتغيير كلمة مرور حساب آخر مباشرة من المتصفح) - استخدم
+    // بدلاً من ذلك زرار "إرسال رابط تعيين كلمة مرور جديدة" إن وُجد بريد إلكتروني حقيقي.
+    u.name = document.getElementById('edit-user-fullname').value.trim();
+    u.phone = document.getElementById('edit-user-phone').value.trim();
+    u.role = document.getElementById('edit-user-role').value;
+    u.area = document.getElementById('edit-user-area').value.trim();
 
-  saveToLocalStorage();
-  logAction('تعديل مستخدم', `تعديل بيانات المستخدم ${u.name} (${u.role})`);
-  await syncWithAppsScript('updateUser', {
-    id: u.id,
-    authUid: u.authUid || null,
-    name: u.name,
-    phone: u.phone,
-    role: u.role,
-    area: u.area
-  });
+    saveToLocalStorage();
+    logAction('تعديل مستخدم', `تعديل بيانات المستخدم ${u.name} (${u.role})`);
+    await syncWithAppsScript('updateUser', {
+      id: u.id,
+      authUid: u.authUid || null,
+      name: u.name,
+      phone: u.phone,
+      role: u.role,
+      area: u.area
+    });
 
-  closeModal('edit-user-modal');
-  renderUsers();
-  populateDropdowns();
+    closeModal('edit-user-modal');
+    renderUsers();
+    populateDropdowns();
+    showToast('✅ تم حفظ تعديلات المستخدم بنجاح', 'success');
+  } catch (err) {
+    console.error('خطأ أثناء حفظ تعديلات المستخدم:', err);
+    alert('❌ حصل خطأ غير متوقع أثناء حفظ التعديلات. افتح Console بالمتصفح (F12) وابعتلي رسالة الخطأ اللي ظهرت.');
+  }
 };
 
 // --- 8. SYSTEM SETTINGS ---
@@ -2322,7 +2332,7 @@ function renderBulkClientsList() {
         <span class="font-bold text-slate-700">${inst.clientName}</span>
         <span class="text-slate-400 font-mono">(${inst.dueDate})</span>
       </div>
-      <div class="font-mono font-bold text-indigo-600">${inst.amount.toLocaleString()} ج.م</div>
+      <div class="font-mono font-bold text-teal-600">${inst.amount.toLocaleString()} ج.م</div>
     `;
     listContainer.appendChild(div);
   });
@@ -3104,14 +3114,20 @@ window.deleteUser = async function(id) {
     alert('⛔ لا يمكنك حذف حسابك الخاص وأنت مسجل دخول.');
     return;
   }
-  if (confirm('هل أنت متأكد من حذف هذا المستخدم؟\n\nملاحظة أمنية: سيتم حذف ملف المستخدم من النظام فوراً وفقدانه صلاحية الوصول لبياناته، لكن حساب الدخول الخاص به في Firebase Authentication سيظل موجوداً تقنياً (Firebase لا يسمح بحذف حسابات أخرى من المتصفح لأسباب أمنية). لحذفه نهائياً توجه لـ Firebase Console > Authentication.')) {
-    const user = db.users.find(u => u.id === id);
-    db.users = db.users.filter(u => u.id !== id);
-    saveToLocalStorage();
-    if (user) logAction('حذف مستخدم', `حذف المستخدم ${user.name}`);
-    renderUsers();
-    populateDropdowns();
-    await syncWithAppsScript('deleteUser', { id, authUid: user ? (user.authUid || null) : null });
+  try {
+    if (confirm('هل أنت متأكد من حذف هذا المستخدم؟\n\nملاحظة أمنية: سيتم حذف ملف المستخدم من النظام فوراً وفقدانه صلاحية الوصول لبياناته، لكن حساب الدخول الخاص به في Firebase Authentication سيظل موجوداً تقنياً (Firebase لا يسمح بحذف حسابات أخرى من المتصفح لأسباب أمنية). لحذفه نهائياً توجه لـ Firebase Console > Authentication.')) {
+      const user = db.users.find(u => u.id === id);
+      db.users = db.users.filter(u => u.id !== id);
+      saveToLocalStorage();
+      if (user) logAction('حذف مستخدم', `حذف المستخدم ${user.name}`);
+      renderUsers();
+      populateDropdowns();
+      await syncWithAppsScript('deleteUser', { id, authUid: user ? (user.authUid || null) : null });
+      showToast('✅ تم حذف المستخدم بنجاح', 'success');
+    }
+  } catch (err) {
+    console.error('خطأ أثناء حذف المستخدم:', err);
+    alert('❌ حصل خطأ غير متوقع أثناء الحذف. افتح Console بالمتصفح (F12) وابعتلي رسالة الخطأ اللي ظهرت.');
   }
 };
 
@@ -3123,12 +3139,34 @@ window.editContract = function(contractId) {
   const c = db.contracts.find(x => x.id === contractId);
   if (!c) return;
 
+  const contractInsts = db.installments.filter(i => i.contractId === c.id);
+  const paidCount = contractInsts.filter(i => i.status === 'paid').length;
+
   document.getElementById('edit-contract-id').value = c.id;
+  document.getElementById('edit-contract-client-name').value = c.clientName || '';
+  document.getElementById('edit-contract-client-phone').value = c.clientPhone || '';
+  document.getElementById('edit-contract-device-info').value = c.deviceInfo || '';
+  document.getElementById('edit-contract-cash-price').value = c.cashPrice || 0;
+  document.getElementById('edit-contract-interest-type').value = c.interestType || 'none';
+  document.getElementById('edit-contract-interest-value').value = c.interestValue || 0;
+  document.getElementById('edit-contract-down-payment').value = c.downPayment || 0;
+  document.getElementById('edit-contract-duration').value = c.duration || contractInsts.length || 1;
+  document.getElementById('edit-contract-start-date').value = c.startDate || '';
   document.getElementById('edit-contract-collector').value = c.collectorName || '';
   document.getElementById('edit-contract-grace').value = c.graceDays || 5;
   document.getElementById('edit-contract-fine-type').value = c.fineType || 'flat';
   document.getElementById('edit-contract-fine-value').value = c.fineValue || 0;
   document.getElementById('edit-contract-status').value = c.status || 'active';
+
+  const paidInfoBox = document.getElementById('edit-contract-paid-info');
+  const paidInfoText = document.getElementById('edit-contract-paid-info-text');
+  if (paidCount > 0) {
+    paidInfoBox.classList.remove('hidden');
+    paidInfoText.textContent = `تم تحصيل ${paidCount} من أصل ${contractInsts.length} قسط لهذا العقد بالفعل. لو غيّرت القيم المالية (السعر/المقدم/الفائدة/المدة)، هيتم إعادة توليد الأقساط المتبقية فقط بالقيم الجديدة، ولن يتم المساس بالأقساط المسددة.`;
+  } else {
+    paidInfoBox.classList.add('hidden');
+  }
+
   openModal('edit-contract-modal');
 };
 
@@ -3138,28 +3176,148 @@ window.saveContractEdit = async function() {
   const c = db.contracts.find(x => x.id === contractId);
   if (!c) return;
 
-  const newCollector = document.getElementById('edit-contract-collector').value.trim();
-  c.collectorName = newCollector;
-  c.graceDays = parseInt(document.getElementById('edit-contract-grace').value) || 5;
-  c.fineType = document.getElementById('edit-contract-fine-type').value;
-  c.fineValue = parseFloat(document.getElementById('edit-contract-fine-value').value) || 0;
-  c.status = document.getElementById('edit-contract-status').value;
+  try {
+    const newClientName = document.getElementById('edit-contract-client-name').value.trim();
+    const newClientPhone = document.getElementById('edit-contract-client-phone').value.trim();
+    const newDeviceInfo = document.getElementById('edit-contract-device-info').value.trim();
+    const newCashPrice = parseFloat(document.getElementById('edit-contract-cash-price').value) || 0;
+    const newInterestType = document.getElementById('edit-contract-interest-type').value;
+    const newInterestValue = parseFloat(document.getElementById('edit-contract-interest-value').value) || 0;
+    const newDownPayment = parseFloat(document.getElementById('edit-contract-down-payment').value) || 0;
+    const newDuration = parseInt(document.getElementById('edit-contract-duration').value) || c.duration;
+    const newStartDate = document.getElementById('edit-contract-start-date').value || c.startDate;
+    const newCollector = document.getElementById('edit-contract-collector').value.trim();
+    const newGrace = parseInt(document.getElementById('edit-contract-grace').value) || 5;
+    const newFineType = document.getElementById('edit-contract-fine-type').value;
+    const newFineValue = parseFloat(document.getElementById('edit-contract-fine-value').value) || 0;
+    const newStatus = document.getElementById('edit-contract-status').value;
 
-  db.installments.forEach(inst => {
-    if (inst.contractId === contractId) {
-      inst.collectorName = newCollector;
+    const contractInsts = db.installments.filter(i => i.contractId === c.id);
+    const paidInsts = contractInsts.filter(i => i.status === 'paid');
+    const paidCount = paidInsts.length;
+    const paidSum = paidInsts.reduce((sum, i) => sum + (i.paidAmount || i.amount || 0), 0);
+
+    const financialChanged = (
+      newCashPrice !== c.cashPrice ||
+      newInterestType !== c.interestType ||
+      newInterestValue !== c.interestValue ||
+      newDownPayment !== c.downPayment ||
+      newDuration !== c.duration
+    );
+
+    if (financialChanged) {
+      if (newDuration <= paidCount) {
+        alert(`❌ لا يمكن ضبط مدة التقسيط على ${newDuration} شهر لأن العميل سدد بالفعل ${paidCount} قسط. اختر مدة أكبر من ${paidCount}.`);
+        return;
+      }
+      const remainingCountPreview = newDuration - paidCount;
+      if (!confirm(`⚠️ تنبيه هام:\n\nتعديل القيم المالية للعقد سيؤدي إلى:\n• حذف الأقساط "غير المسددة" الحالية (${contractInsts.length - paidCount} قسط)\n• إعادة توليد ${remainingCountPreview} قسط جديد بالقيم المحدّثة\n• الأقساط المسددة فعلاً (${paidCount}) لن تتأثر إطلاقاً\n\nهل أنت متأكد من المتابعة؟`)) {
+        return;
+      }
     }
-  });
 
-  saveToLocalStorage();
-  logAction('تعديل عقد', `تعديل بيانات العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}`);
-  
-  await syncWithAppsScript('updateContract', c);
-  
-  closeModal('edit-contract-modal');
-  renderContracts();
-  renderCollections();
+    const interest = calcInterestAmount(newCashPrice, newInterestType, newInterestValue);
+    const totalValue = newCashPrice + interest;
+    const remainingCount = Math.max(1, newDuration - paidCount);
+    const remainingAmount = Math.max(0, totalValue - newDownPayment - paidSum);
+    const monthly = parseFloat((remainingAmount / remainingCount).toFixed(2));
+
+    const client = db.clients.find(cl => cl.id === c.clientId);
+
+    c.clientName = newClientName || c.clientName;
+    c.clientPhone = newClientPhone || c.clientPhone;
+    c.deviceInfo = newDeviceInfo || c.deviceInfo;
+    c.cashPrice = newCashPrice;
+    c.interestType = newInterestType;
+    c.interestValue = newInterestValue;
+    c.interestAmount = interest;
+    c.totalValue = totalValue;
+    c.downPayment = newDownPayment;
+    c.duration = newDuration;
+    c.startDate = newStartDate;
+    c.collectorName = newCollector;
+    c.graceDays = newGrace;
+    c.fineType = newFineType;
+    c.fineValue = newFineValue;
+    c.status = newStatus;
+
+    const collectorUser = db.users.find(u => u.name === newCollector);
+    if (collectorUser) c.collectorId = collectorUser.id;
+
+    let newInstallments = [];
+    if (financialChanged) {
+      c.remainingAmount = remainingAmount;
+      c.monthlyInstallment = monthly;
+
+      // نحذف الأقساط غير المسددة فقط، ونحتفظ بالمسددة كما هي دون أي تعديل
+      db.installments = db.installments.filter(i => !(i.contractId === c.id && i.status !== 'paid'));
+
+      // نبدأ توليد الأقساط الجديدة من بعد آخر قسط مسدد (أو من تاريخ بدء العقد لو مفيش أقساط مسددة)
+      let baseDate;
+      if (paidInsts.length > 0) {
+        const lastPaidDue = paidInsts.reduce((latest, i) => {
+          const d = new Date(i.dueDate);
+          return d > latest ? d : latest;
+        }, new Date(paidInsts[0].dueDate));
+        baseDate = lastPaidDue;
+      } else {
+        baseDate = new Date(newStartDate);
+      }
+
+      for (let i = 1; i <= remainingCount; i++) {
+        const dueDate = new Date(baseDate);
+        dueDate.setMonth(baseDate.getMonth() + i);
+        const inst = {
+          id: `${c.id}_${paidCount + i}`,
+          contractId: c.id,
+          clientId: c.clientId,
+          clientName: c.clientName,
+          clientPhone: c.clientPhone,
+          guarantorName: client ? client.guarantorName : '',
+          guarantorPhone: client ? client.guarantorPhone : '',
+          collectorName: c.collectorName,
+          installmentNum: paidCount + i,
+          amount: monthly,
+          dueDate: dueDate.toISOString().split('T')[0],
+          status: 'pending',
+          paidAmount: 0,
+          paidDate: '',
+          receiptId: '',
+          delayFines: 0
+        };
+        db.installments.push(inst);
+        newInstallments.push(inst);
+      }
+    } else {
+      // مفيش تغيير مالي: بس نحدّث بيانات العميل/المحصل المنسوخة على الأقساط الحالية
+      db.installments.forEach(inst => {
+        if (inst.contractId === c.id) {
+          inst.collectorName = c.collectorName;
+          inst.clientName = c.clientName;
+          inst.clientPhone = c.clientPhone;
+        }
+      });
+    }
+
+    saveToLocalStorage();
+    logAction('تعديل عقد', `تعديل بيانات العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}`);
+
+    await syncWithAppsScript('updateContract', c);
+    if (financialChanged) {
+      await syncWithAppsScript('regenerateInstallments', { contractId: c.id, installments: newInstallments });
+    }
+
+    closeModal('edit-contract-modal');
+    renderContracts();
+    renderCollections();
+    if (typeof renderDashboard === 'function') renderDashboard();
+    showToast('✅ تم حفظ تعديلات العقد بنجاح', 'success');
+  } catch (err) {
+    console.error('خطأ أثناء حفظ تعديلات العقد:', err);
+    alert('❌ حصل خطأ غير متوقع أثناء حفظ التعديلات. افتح Console بالمتصفح (F12) وابعتلي رسالة الخطأ اللي ظهرت.');
+  }
 };
+
 
 window.deleteContract = async function(contractId) {
   if (!isAdmin()) {
@@ -3439,7 +3597,7 @@ window.viewClientDetails = function(clientId) {
     <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 mb-2">
       <div class="flex justify-between font-bold text-xs text-slate-800">
         <span>رقم العقد: ${c.id.replace('con-', '')}</span>
-        <span class="text-indigo-600">${c.totalValue.toLocaleString()} ج.م</span>
+        <span class="text-teal-600">${c.totalValue.toLocaleString()} ج.م</span>
       </div>
       <p class="text-[10px] text-slate-500 mt-1">الجهاز: ${c.deviceInfo} | المحصل: ${c.collectorName}</p>
     </div>
@@ -3455,7 +3613,7 @@ window.viewClientDetails = function(clientId) {
   
   const docView = (title, data) => {
     if (data && data.startsWith('data:image')) {
-      return `<button type="button" onclick="openBase64InPreviewModal('${title}', '${data}')" class="font-bold text-indigo-600 hover:text-indigo-800 underline block mt-1">عرض المستند 👁️</button>`;
+      return `<button type="button" onclick="openBase64InPreviewModal('${title}', '${data}')" class="font-bold text-teal-600 hover:text-teal-800 underline block mt-1">عرض المستند 👁️</button>`;
     }
     return `<span class="font-semibold text-slate-400 truncate block mt-1">${data || 'غير متوفر'}</span>`;
   };
@@ -3463,18 +3621,18 @@ window.viewClientDetails = function(clientId) {
   detailDiv.innerHTML = `
     <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6 overflow-hidden max-h-[85vh] flex flex-col">
       <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-        <h4 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-identification-card text-indigo-600"></i> الملف التعريفي للعميل</h4>
+        <h4 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-identification-card text-teal-600"></i> الملف التعريفي للعميل</h4>
         <button onclick="document.getElementById('client-profile-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
       </div>
       <div class="flex-1 overflow-y-auto space-y-6 text-sm">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <h5 class="font-bold text-indigo-600 border-b border-indigo-50 pb-1 mb-2">بيانات العميل</h5>
+            <h5 class="font-bold text-teal-600 border-b border-teal-50 pb-1 mb-2">بيانات العميل</h5>
             <p class="mb-1"><strong>الاسم الرباعي:</strong> ${client.name}</p>
             <p class="mb-1"><strong>الهوية القومية:</strong> ${client.nationalId}</p>
             <p class="mb-1"><strong>الهاتف:</strong> ${client.phone}</p>
             <p class="mb-1"><strong>العنوان:</strong> ${client.address}</p>
-            ${client.locationUrl ? `<a href="${client.locationUrl}" target="_blank" class="text-indigo-600 hover:underline text-xs font-semibold"><i class="ph ph-map-pin"></i> عرض خرائط Google</a>` : ''}
+            ${client.locationUrl ? `<a href="${client.locationUrl}" target="_blank" class="text-teal-600 hover:underline text-xs font-semibold"><i class="ph ph-map-pin"></i> عرض خرائط Google</a>` : ''}
           </div>
           <div>
             <h5 class="font-bold text-emerald-600 border-b border-emerald-50 pb-1 mb-2">بيانات الضامن</h5>
@@ -3542,7 +3700,7 @@ window.viewContractDetails = function(contractId) {
         <td class="p-3 font-mono">${inst.dueDate}</td>
         <td class="p-3 font-mono font-bold">${inst.amount.toLocaleString()} ج.م</td>
         <td class="p-3"><span class="badge ${statusInfo.statusColor} font-bold">${statusInfo.statusText}</span></td>
-        <td class="p-3 font-mono font-bold text-indigo-600">${statusInfo.fine > 0 ? `${statusInfo.fine.toLocaleString()} ج.م` : '0'}</td>
+        <td class="p-3 font-mono font-bold text-teal-600">${statusInfo.fine > 0 ? `${statusInfo.fine.toLocaleString()} ج.م` : '0'}</td>
         <td class="p-3 font-mono font-bold text-slate-800">${statusInfo.totalDue.toLocaleString()} ج.م</td>
         <td class="p-3 text-center">
           ${inst.status !== 'paid' ? `
@@ -3561,7 +3719,7 @@ window.viewContractDetails = function(contractId) {
   detailDiv.innerHTML = `
     <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl p-6 overflow-hidden max-h-[90vh] flex flex-col">
       <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-        <h4 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-file-text text-indigo-600"></i> تفاصيل وجدولة أقساط العقد رقم: ${contract.id.replace('con-', '')}</h4>
+        <h4 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-file-text text-teal-600"></i> تفاصيل وجدولة أقساط العقد رقم: ${contract.id.replace('con-', '')}</h4>
         <button onclick="document.getElementById('contract-detail-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
       </div>
       <div class="flex-1 overflow-y-auto space-y-4">

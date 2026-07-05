@@ -220,6 +220,22 @@ window.FirebaseService = {
           break;
         }
 
+        // إعادة توليد أقساط عقد بعد تعديل بياناته المالية: بيتم حذف كل
+        // الأقساط "غير المسددة" القديمة لهذا العقد فقط، ثم كتابة الأقساط
+        // الجديدة المُعاد حسابها. الأقساط المسددة لا يتم لمسها إطلاقاً.
+        case 'regenerateInstallments': {
+          const snap = await db.collection("installments").where("contractId", "==", payload.contractId).get();
+          const rgBatch = db.batch();
+          snap.forEach(d => {
+            if (d.data().status !== 'paid') rgBatch.delete(d.ref);
+          });
+          (payload.installments || []).forEach(inst => {
+            rgBatch.set(db.collection("installments").doc(inst.id), inst);
+          });
+          await rgBatch.commit();
+          break;
+        }
+
         case 'deleteContract': {
           await db.collection("contracts").doc(payload.id).delete();
           if (payload.deviceId) {

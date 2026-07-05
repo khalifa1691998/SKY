@@ -9,11 +9,11 @@
 
 :root {
   --font-family: 'Cairo', sans-serif;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --neon-cyan: #22d3ee;
-  --neon-pink: #ec4899;
-  --neon-violet: #a855f7;
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --neon-cyan: #2dd4bf;
+  --neon-pink: #1e3a8a;
+  --neon-violet: #14b8a6;
 }
 
 html, body {
@@ -130,7 +130,7 @@ body::after {
 .form-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
 }
 .dark .form-input {
   background-color: #0d1424;
@@ -138,8 +138,8 @@ body::after {
   color: #f1f5f9;
 }
 .dark .form-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
 }
 
 .form-label {
@@ -204,7 +204,7 @@ body::after {
 /* بنفس روح التصميم المرجعي: خلفية داكنة متدرجة + توهج نيون خلف كارت الدخول
    الزجاجي، بدل الخلفية المصمتة العادية اللي كانت موجودة قبل كده. */
 #login-overlay {
-  background: linear-gradient(160deg, #0a0e1a 0%, #0d1424 55%, #0a0e1a 100%);
+  background: linear-gradient(160deg, #030712 0%, #0a1a1f 55%, #030712 100%);
   overflow: hidden;
 }
 #login-overlay::before,
@@ -250,9 +250,9 @@ body::after {
   position: relative;
 }
 .nav-link-active {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 60%, #4338ca 100%);
+  background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 60%, #115e59 100%);
   color: #ffffff !important;
-  box-shadow: 0 4px 18px 0 rgba(99, 102, 241, 0.45);
+  box-shadow: 0 4px 18px 0 rgba(13, 148, 136, 0.45);
 }
 
 /* ================= GLOBAL DARK MODE OVERRIDES ================= */
@@ -290,15 +290,6 @@ body::after {
 /* ---- ألوان الشارات (Badges) اللونية الشفافة: bg-*-50 / bg-*-100 مع
    text-*-500/600/700 و border-*-50/100/200. بنغطي كل الألوان المستخدمة في
    شارات الحالة عبر التابات المختلفة (عملاء، مخزون، عقود، تحصيل، خزينة...) ---- */
-.dark .bg-indigo-50  { background-color: rgba(99, 102, 241, 0.12) !important; }
-.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.18) !important; }
-.dark .text-indigo-500,
-.dark .text-indigo-600,
-.dark .text-indigo-700 { color: #a5b4fc !important; }
-.dark .border-indigo-50,
-.dark .border-indigo-100,
-.dark .border-indigo-200 { border-color: rgba(99, 102, 241, 0.28) !important; }
-
 .dark .bg-emerald-50  { background-color: rgba(16, 185, 129, 0.12) !important; }
 .dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.18) !important; }
 .dark .text-emerald-500,
@@ -343,8 +334,14 @@ body::after {
 .dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.12) !important; }
 .dark .text-purple-500 { color: #d8b4fe !important; }
 
-.dark .bg-teal-50 { background-color: rgba(20, 184, 166, 0.12) !important; }
-.dark .text-teal-500 { color: #5eead4 !important; }
+.dark .bg-teal-50  { background-color: rgba(20, 184, 166, 0.12) !important; }
+.dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.18) !important; }
+.dark .text-teal-500,
+.dark .text-teal-600,
+.dark .text-teal-700 { color: #5eead4 !important; }
+.dark .border-teal-50,
+.dark .border-teal-100,
+.dark .border-teal-200 { border-color: rgba(20, 184, 166, 0.28) !important; }
 
 .dark .bg-gray-50  { background-color: #1c2740 !important; }
 .dark .bg-gray-100 { background-color: #29344d !important; }
@@ -354,7 +351,7 @@ body::after {
 button, [role="button"], .badge, a[onclick] { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled):active { transform: scale(0.97); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid rgba(79, 70, 229, 0.5);
+  outline: 2px solid rgba(13, 148, 136, 0.5);
   outline-offset: 2px;
 }
 
