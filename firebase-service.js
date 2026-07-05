@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors', 'investorSnapshots'];
       const data = {};
       
       for (const colName of collections) {
@@ -46,7 +46,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors', 'investorSnapshots'];
     
     const activeListeners = [];
     
@@ -345,8 +345,30 @@ window.FirebaseService = {
             await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
           }
           break;
+        case 'withdrawInvestorCapital':
+          await db.collection("investors").doc(payload.investorId).update({ capitalAmount: payload.newCapitalAmount });
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        case 'editInvestor':
+          await db.collection("investors").doc(payload.investorId).update({
+            name: payload.name,
+            joinDate: payload.joinDate,
+            notes: payload.notes,
+            fixedSharePercent: (payload.fixedSharePercent === null || payload.fixedSharePercent === undefined) ? firebase.firestore.FieldValue.delete() : payload.fixedSharePercent
+          });
+          break;
         case 'deleteInvestor':
           await db.collection("investors").doc(payload.id).delete();
+          break;
+        case 'addInvestorSnapshot':
+          if (payload.snapshot) {
+            await db.collection("investorSnapshots").doc(payload.snapshot.id).set(payload.snapshot);
+          }
+          break;
+        case 'deleteInvestorSnapshot':
+          await db.collection("investorSnapshots").doc(payload.id).delete();
           break;
 
         // Settings

@@ -20,7 +20,8 @@ let db = {
   treasuryTransactions: [],
   users: [],
   auditLogs: [],
-  investors: [], // المستثمرون ورأس مال الشركة: { id, name, capitalAmount, joinDate, notes, totalWithdrawn }
+  investors: [], // المستثمرون ورأس مال الشركة: { id, name, capitalAmount, joinDate, notes, totalWithdrawn, fixedSharePercent }
+  investorSnapshots: [], // تجميدات دورية لصافي الربح: { id, timestamp, totalAssets, totalCapital, totalWithdrawn, netProfit, perInvestor: [...] }
   settings: {
     offlineMode: false,
     companyName: 'شركة SKY',
@@ -116,6 +117,7 @@ const defaultSeedData = {
   treasuryTransactions: [],
   auditLogs: [],
   investors: [],
+  investorSnapshots: [],
   settings: {
     offlineMode: false,
     companyName: 'شركة SKY',
@@ -441,6 +443,7 @@ function initDatabase() {
     }
     if (!db.brands) db.brands = ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'];
     if (!db.investors) db.investors = [];
+    if (!db.investorSnapshots) db.investorSnapshots = [];
     if (!db.settings.companyName) db.settings.companyName = 'شركة SKY';
     if (!db.settings.companyLogo) db.settings.companyLogo = '';
     if (!db.settings.templates) {
@@ -502,6 +505,8 @@ window.exportBackup = function() {
       treasuryTransactions: db.treasuryTransactions,
       users: db.users,
       auditLogs: db.auditLogs,
+      investors: db.investors,
+      investorSnapshots: db.investorSnapshots,
       settings: db.settings
     }
   };
@@ -542,7 +547,9 @@ window.exportExcelBackup = function() {
   };
   const typeLabels = {
     deposit: 'إيداع / رأس مال', expense: 'مصروفات خارجية', collection: 'تحصيل أقساط',
-    cash_sale: 'بيع كاش فوري', inventory_purchase: 'شراء بضاعة ومخزون'
+    cash_sale: 'بيع كاش فوري', inventory_purchase: 'شراء بضاعة ومخزون',
+    capital_injection: 'ضخ رأس مال (مستثمر)', capital_withdrawal: 'سحب رأس مال (مستثمر)',
+    profit_withdrawal: 'سحب أرباح (مستثمر)'
   };
   const roleLabels = { ADMIN: 'مشرف عام', COLLECTOR: 'محصل' };
   const L = (map, val) => map[val] || val || '';
@@ -643,6 +650,15 @@ window.exportExcelBackup = function() {
     'التاريخ والوقت': l.timestamp, 'المستخدم': l.user, 'نوع العملية': l.actionType, 'التفاصيل': l.details
   })));
 
+  // 11. المستثمرون ورأس المال
+  const investorStats = computeInvestorFinancials();
+  addSheet('المستثمرون ورأس المال', investorStats.investors.map(inv => ({
+    'اسم المستثمر': inv.name, 'تاريخ الانضمام': inv.joinDate || '', 'رأس المال': inv.capitalAmount || 0,
+    'نسبة ثابتة؟': (inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null && inv.fixedSharePercent !== '') ? 'نعم' : 'لا',
+    'نسبة الملكية %': Number(inv.sharePercent.toFixed(2)), 'نصيبه من الربح': Math.round(inv.profitShare),
+    'المسحوب فعلياً': inv.withdrawn, 'المتبقي له': Math.round(inv.remainingDue), 'ملاحظات': inv.notes || ''
+  })));
+
   XLSX.writeFile(wb, `SKY_ERP_Excel_${dateStr}.xlsx`);
 
   logAction('نسخ احتياطي', `تم تصدير نسخة Excel منظمة للمراجعة والأرشفة`);
@@ -692,6 +708,8 @@ window.handleRestoreFileSelected = function(event) {
       if (restoredData.treasuryTransactions) db.treasuryTransactions = restoredData.treasuryTransactions;
       if (restoredData.users) db.users = restoredData.users;
       if (restoredData.auditLogs) db.auditLogs = restoredData.auditLogs;
+      if (restoredData.investors) db.investors = restoredData.investors;
+      if (restoredData.investorSnapshots) db.investorSnapshots = restoredData.investorSnapshots;
       if (restoredData.settings) {
         // Preserve current connection settings, only restore data-related settings
         const currentConnectionSettings = {
@@ -876,6 +894,7 @@ async function loadFromServer() {
         db.users = fbData.users || [];
         db.auditLogs = sortByTimestampDesc(fbData.auditLogs || []);
         db.investors = fbData.investors || [];
+        db.investorSnapshots = sortByTimestampDesc(fbData.investorSnapshots || []);
         if (fbData.settings) {
           db.settings = { ...db.settings, ...fbData.settings };
         }
@@ -2326,6 +2345,11 @@ function renderTreasury() {
       typeClass = 'badge-warning';
       amountSign = '-';
       amountClass = 'text-rose-600';
+    } else if (tx.type === 'capital_withdrawal') {
+      typeText = 'سحب رأس مال (مستثمر)';
+      typeClass = 'badge-warning';
+      amountSign = '-';
+      amountClass = 'text-rose-600';
     }
 
     const adminActionBtns = isAdmin() ? `
@@ -2352,8 +2376,13 @@ function renderTreasury() {
 // المنطق المحاسبي: بنحسب "إجمالي أصول الشركة" الحالية (كاش + بضاعة متاحة + أقساط
 // متبقية على العملاء + عهد محصلين معلقة)، وبعدين صافي الربح التراكمي = الأصول
 // الحالية ناقص إجمالي رأس المال المستثمَر، زائد أي أرباح اتسحبت فعلاً قبل كده
-// (عشان نرجعها للحساب لأنها كانت أرباح مكتسبة). كل مستثمر بياخد نصيبه من الربح
-// حسب نسبة رأس ماله من إجمالي رأس المال.
+// (عشان نرجعها للحساب لأنها كانت أرباح مكتسبة).
+//
+// توزيع الربح: كل مستثمر بياخد نصيبه حسب نسبة رأس ماله من إجمالي رأس المال،
+// إلا لو كان له "نسبة شراكة ثابتة" (fixedSharePercent) متفق عليها بعقد مستقل
+// عن رأس ماله المالي - في الحالة دي بياخد نسبته الثابتة، والباقي (100% ناقص
+// مجموع النسب الثابتة) بيتوزع على باقي المستثمرين (اللي بدون نسبة ثابتة) حسب
+// نسبة رأس مال كل واحد منهم من إجمالي رأس مال هذه المجموعة فقط.
 function computeInvestorFinancials() {
   const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
   const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + dev.costPrice, 0);
@@ -2368,8 +2397,21 @@ function computeInvestorFinancials() {
 
   const netProfit = totalAssets - totalCapital + totalWithdrawn;
 
+  const hasFixedShare = (inv) => inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null && inv.fixedSharePercent !== '' && !isNaN(inv.fixedSharePercent);
+
+  const fixedInvestors = investors.filter(hasFixedShare);
+  const variableInvestors = investors.filter(inv => !hasFixedShare(inv));
+  const sumFixedPercent = Math.min(100, fixedInvestors.reduce((sum, inv) => sum + Number(inv.fixedSharePercent || 0), 0));
+  const remainingPoolPercent = 100 - sumFixedPercent;
+  const variableCapitalTotal = variableInvestors.reduce((sum, inv) => sum + (inv.capitalAmount || 0), 0);
+
   const investorsWithShares = investors.map(inv => {
-    const sharePercent = totalCapital > 0 ? (inv.capitalAmount / totalCapital) * 100 : 0;
+    let sharePercent;
+    if (hasFixedShare(inv)) {
+      sharePercent = Number(inv.fixedSharePercent);
+    } else {
+      sharePercent = variableCapitalTotal > 0 ? (inv.capitalAmount / variableCapitalTotal) * remainingPoolPercent : 0;
+    }
     const profitShare = netProfit * (sharePercent / 100);
     const withdrawn = inv.totalWithdrawn || 0;
     const remainingDue = profitShare - withdrawn;
@@ -2378,16 +2420,32 @@ function computeInvestorFinancials() {
 
   return {
     treasuryBalance, inventoryCapital, outstandingInstallments, pendingCustody,
-    totalAssets, totalCapital, totalWithdrawn, netProfit,
+    totalAssets, totalCapital, totalWithdrawn, netProfit, sumFixedPercent,
     investors: investorsWithShares
   };
 }
+
+// إرجاع كل حركات الخزينة الخاصة بمستثمر معين (سجل حركاته الكامل). بنعتمد على
+// حقل investorId المُسجَّل في الحركة، ولو الحركة قديمة (اتسجلت قبل إضافة هذا
+// الحقل) بنرجع لمطابقة اسم المستثمر داخل نص الملاحظات كحل احتياطي متوافق مع
+// البيانات القديمة.
+function getInvestorLedgerTransactions(investorId, investorName) {
+  return db.treasuryTransactions.filter(tx => {
+    if (tx.investorId) return tx.investorId === investorId;
+    const relevantTypes = ['capital_injection', 'profit_withdrawal', 'capital_withdrawal'];
+    if (!relevantTypes.includes(tx.type)) return false;
+    return investorName && tx.notes && tx.notes.includes(investorName);
+  }).sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+}
+
+let investorsCapitalChartInstance = null;
 
 function renderInvestors() {
   const tbody = document.getElementById('investors-table-body');
   if (!tbody) return;
 
   const stats = computeInvestorFinancials();
+  const admin = isAdmin();
 
   document.getElementById('investors-total-capital').textContent = `${stats.totalCapital.toLocaleString()} ج.م`;
   document.getElementById('investors-total-assets').textContent = `${stats.totalAssets.toLocaleString()} ج.م`;
@@ -2395,7 +2453,13 @@ function renderInvestors() {
   document.getElementById('investors-total-withdrawn').textContent = `${stats.totalWithdrawn.toLocaleString()} ج.م`;
 
   const netProfitEl = document.getElementById('investors-net-profit');
-  netProfitEl.className = stats.netProfit >= 0 ? 'text-3xl font-extrabold mt-3 text-emerald-400' : 'text-3xl font-extrabold mt-3 text-rose-400';
+  netProfitEl.className = stats.netProfit >= 0 ? 'text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-emerald-400 truncate' : 'text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-rose-400 truncate';
+
+  // أزرار إدارة المستثمرين (إضافة/تجميد الأرباح) للأدمن فقط - أي موظف عنده
+  // صلاحية عرض هذا التبويب هيقدر يشوف البيانات ويطبع كشوف الحساب، لكن مش
+  // هيقدر يضيف مستثمر جديد أو يجمّد الأرباح أو يعدّل رأس المال.
+  const adminToolbar = document.getElementById('investors-admin-toolbar');
+  if (adminToolbar) adminToolbar.classList.toggle('hidden', !admin);
 
   tbody.innerHTML = '';
   const emptyState = document.getElementById('investors-empty-state');
@@ -2405,31 +2469,95 @@ function renderInvestors() {
   } else {
     emptyState.classList.add('hidden');
     stats.investors.forEach(inv => {
-      const adminActionBtns = isAdmin() ? `
+      const readOnlyBtns = `
+        <button onclick="viewInvestorLedger('${inv.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="سجل حركاته"><i class="ph ph-list-bullets"></i> السجل</button>
+        <button onclick="printInvestorStatement('${inv.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="طباعة كشف حساب"><i class="ph ph-printer"></i> كشف حساب</button>
+      `;
+      const adminActionBtns = admin ? `
+        <button onclick="openEditInvestorModal('${inv.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs font-semibold transition-all flex items-center gap-1" title="تعديل البيانات"><i class="ph ph-pencil-simple"></i> تعديل</button>
         <button onclick="openAddCapitalModal('${inv.id}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-600 rounded text-xs font-semibold transition-all flex items-center gap-1" title="إضافة رأس مال"><i class="ph ph-plus-circle"></i> رأس مال</button>
+        <button onclick="openWithdrawCapitalModal('${inv.id}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="سحب رأس مال"><i class="ph ph-minus-circle"></i> سحب رأس مال</button>
         <button onclick="openWithdrawProfitModal('${inv.id}')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="سحب أرباح"><i class="ph ph-hand-withdraw"></i> سحب أرباح</button>
         <button onclick="deleteInvestor('${inv.id}')" class="p-1.5 text-slate-400 hover:text-rose-500 rounded transition-colors" title="حذف"><i class="ph ph-trash"></i></button>
       ` : '';
 
       const remainingClass = inv.remainingDue >= 0 ? 'text-emerald-600' : 'text-rose-600';
+      const hasFixed = inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null && inv.fixedSharePercent !== '' && !isNaN(inv.fixedSharePercent);
+      const fixedBadge = hasFixed ? `<span class="inline-block mr-1 px-1.5 py-0.5 bg-violet-50 text-violet-600 border border-violet-100 rounded text-[10px] font-bold align-middle" title="نسبة شراكة ثابتة بالاتفاق، مش محسوبة من رأس المال">ثابتة</span>` : '';
 
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-50 transition-colors';
       tr.innerHTML = `
-        <td class="p-4 font-bold text-slate-800">${escapeHTML(inv.name)}</td>
+        <td class="p-4 font-bold text-slate-800">${escapeHTML(inv.name)}${inv.notes ? `<div class="text-[11px] font-normal text-slate-400 mt-0.5">${escapeHTML(inv.notes)}</div>` : ''}</td>
         <td class="p-4 text-slate-500 font-mono text-xs">${escapeHTML(inv.joinDate) || '-'}</td>
         <td class="p-4 font-bold font-mono text-teal-600">${(inv.capitalAmount || 0).toLocaleString()} ج.م</td>
-        <td class="p-4 font-mono">${inv.sharePercent.toFixed(1)}%</td>
+        <td class="p-4 font-mono">${inv.sharePercent.toFixed(1)}%${fixedBadge}</td>
         <td class="p-4 font-bold font-mono ${inv.profitShare >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${Math.round(inv.profitShare).toLocaleString()} ج.م</td>
         <td class="p-4 font-mono text-slate-600">${inv.withdrawn.toLocaleString()} ج.م</td>
         <td class="p-4 font-bold font-mono ${remainingClass}">${Math.round(inv.remainingDue).toLocaleString()} ج.م</td>
         <td class="p-4 text-center">
-          <div class="inline-flex flex-wrap gap-1.5 justify-center">${adminActionBtns}</div>
+          <div class="inline-flex flex-wrap gap-1.5 justify-center">${readOnlyBtns}${adminActionBtns}</div>
         </td>
       `;
       tbody.appendChild(tr);
     });
   }
+
+  renderInvestorsCapitalChart(stats);
+}
+
+// رسم بياني (Doughnut) لتوزيع رأس المال المستثمَر بين المستثمرين، بيديك صورة
+// سريعة عن وزن كل مستثمر في رأس مال الشركة.
+function renderInvestorsCapitalChart(stats) {
+  const canvas = document.getElementById('investors-capital-chart');
+  const emptyMsg = document.getElementById('investors-chart-empty');
+  if (!canvas) return;
+
+  if (investorsCapitalChartInstance) {
+    investorsCapitalChartInstance.destroy();
+    investorsCapitalChartInstance = null;
+  }
+
+  const investors = (stats.investors || []).filter(inv => (inv.capitalAmount || 0) > 0);
+  if (investors.length === 0 || typeof Chart === 'undefined') {
+    canvas.classList.add('hidden');
+    if (emptyMsg) emptyMsg.classList.remove('hidden');
+    return;
+  }
+  canvas.classList.remove('hidden');
+  if (emptyMsg) emptyMsg.classList.add('hidden');
+
+  const palette = ['#0d9488', '#0ea5e9', '#f59e0b', '#f43f5e', '#8b5cf6', '#22c55e', '#eab308', '#6366f1', '#ec4899', '#14b8a6'];
+  const ctx = canvas.getContext('2d');
+  const isDarkMode = document.documentElement.classList.contains('dark');
+
+  investorsCapitalChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: investors.map(inv => inv.name),
+      datasets: [{
+        data: investors.map(inv => inv.capitalAmount),
+        backgroundColor: investors.map((_, i) => palette[i % palette.length]),
+        borderWidth: 2,
+        borderColor: isDarkMode ? '#1e293b' : '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { family: 'Cairo', size: 11 }, color: isDarkMode ? '#a6b2c5' : '#64748b', boxWidth: 12, padding: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx2) => `${ctx2.label}: ${ctx2.parsed.toLocaleString()} ج.م`
+          }
+        }
+      }
+    }
+  });
 }
 
 function nowTimestamp() {
@@ -2447,6 +2575,19 @@ window.openAddCapitalModal = function(investorId) {
   openModal('add-capital-modal');
 };
 
+// سحب جزء من رأس المال ذاته (مش من الأرباح). بيقلل capitalAmount مباشرة، وده
+// بيغيّر نسبة ملكية المستثمر تلقائياً في المرة الجاية اللي تتحسب فيها الأرباح.
+window.openWithdrawCapitalModal = function(investorId) {
+  const inv = db.investors.find(i => i.id === investorId);
+  if (!inv) return;
+  document.getElementById('withdraw-capital-investor-id').value = investorId;
+  document.getElementById('withdraw-capital-investor-name').textContent = inv.name;
+  document.getElementById('withdraw-capital-current').textContent = `${(inv.capitalAmount || 0).toLocaleString()} ج.م`;
+  document.getElementById('withdraw-capital-amount').value = '';
+  document.getElementById('withdraw-capital-notes').value = '';
+  openModal('withdraw-capital-modal');
+};
+
 window.openWithdrawProfitModal = function(investorId) {
   const stats = computeInvestorFinancials();
   const inv = stats.investors.find(i => i.id === investorId);
@@ -2457,6 +2598,20 @@ window.openWithdrawProfitModal = function(investorId) {
   document.getElementById('withdraw-profit-amount').value = '';
   document.getElementById('withdraw-profit-notes').value = '';
   openModal('withdraw-investor-profit-modal');
+};
+
+// فتح نافذة تعديل بيانات المستثمر (الاسم/تاريخ الانضمام/الملاحظات/نسبة الشراكة
+// الثابتة). لا يمكن تعديل رأس المال من هنا مباشرة حفاظاً على سجل الحركات
+// (لازم يتم عبر "إضافة رأس مال" أو "سحب رأس مال" عشان تفضل كل حركة موثقة).
+window.openEditInvestorModal = function(investorId) {
+  const inv = db.investors.find(i => i.id === investorId);
+  if (!inv) return;
+  document.getElementById('edit-investor-id').value = investorId;
+  document.getElementById('edit-investor-name').value = inv.name || '';
+  document.getElementById('edit-investor-join-date').value = inv.joinDate || '';
+  document.getElementById('edit-investor-notes').value = inv.notes || '';
+  document.getElementById('edit-investor-fixed-share').value = (inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null) ? inv.fixedSharePercent : '';
+  openModal('edit-investor-modal');
 };
 
 window.deleteInvestor = async function(investorId) {
@@ -2471,14 +2626,213 @@ window.deleteInvestor = async function(investorId) {
   renderInvestors();
 };
 
+// ================= سجل حركات المستثمر (Ledger) =================
+window.viewInvestorLedger = function(investorId) {
+  const stats = computeInvestorFinancials();
+  const inv = stats.investors.find(i => i.id === investorId);
+  if (!inv) return;
+
+  const txs = getInvestorLedgerTransactions(investorId, inv.name);
+  const typeLabels = {
+    capital_injection: { text: 'ضخ رأس مال', color: 'text-teal-600' },
+    capital_withdrawal: { text: 'سحب رأس مال', color: 'text-amber-600' },
+    profit_withdrawal: { text: 'سحب أرباح', color: 'text-emerald-600' }
+  };
+
+  document.getElementById('investor-ledger-title').textContent = `سجل حركات المستثمر: ${inv.name}`;
+  document.getElementById('investor-ledger-summary').innerHTML = `
+    <div><span class="text-slate-500">رأس المال الحالي:</span> <strong class="text-teal-600">${(inv.capitalAmount || 0).toLocaleString()} ج.م</strong></div>
+    <div><span class="text-slate-500">نصيبه من الربح:</span> <strong class="${inv.profitShare >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${Math.round(inv.profitShare).toLocaleString()} ج.م</strong></div>
+    <div><span class="text-slate-500">المسحوب فعلياً (أرباح):</span> <strong>${inv.withdrawn.toLocaleString()} ج.م</strong></div>
+    <div><span class="text-slate-500">المتبقي له:</span> <strong class="${inv.remainingDue >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${Math.round(inv.remainingDue).toLocaleString()} ج.م</strong></div>
+  `;
+
+  const body = document.getElementById('investor-ledger-body');
+  if (txs.length === 0) {
+    body.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">لا توجد حركات مسجلة لهذا المستثمر بعد.</div>`;
+  } else {
+    body.innerHTML = `
+      <table class="w-full text-right border-collapse text-sm">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-semibold">
+            <th class="p-3">التاريخ</th><th class="p-3">النوع</th><th class="p-3">المبلغ</th><th class="p-3">ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${txs.map(tx => {
+            const info = typeLabels[tx.type] || { text: tx.type, color: 'text-slate-600' };
+            return `<tr>
+              <td class="p-3 font-mono text-xs text-slate-500">${escapeHTML(tx.timestamp)}</td>
+              <td class="p-3 font-semibold ${info.color}">${info.text}</td>
+              <td class="p-3 font-mono font-bold ${tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${tx.amount >= 0 ? '+' : ''}${tx.amount.toLocaleString()} ج.م</td>
+              <td class="p-3 text-slate-500 text-xs">${escapeHTML(tx.notes) || '-'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+  openModal('investor-ledger-modal');
+};
+
+// ================= كشف حساب مستثمر قابل للطباعة/الحفظ PDF =================
+window.printInvestorStatement = function(investorId) {
+  const stats = computeInvestorFinancials();
+  const inv = stats.investors.find(i => i.id === investorId);
+  if (!inv) return;
+
+  const companyName = db.settings.companyName || 'شركة SKY';
+  const txs = getInvestorLedgerTransactions(investorId, inv.name);
+  const typeLabels = { capital_injection: 'ضخ رأس مال', capital_withdrawal: 'سحب رأس مال', profit_withdrawal: 'سحب أرباح' };
+
+  const txRows = txs.map(tx => `
+    <tr>
+      <td>${escapeHTML(tx.timestamp)}</td>
+      <td>${typeLabels[tx.type] || tx.type}</td>
+      <td>${tx.amount >= 0 ? '+' : ''}${tx.amount.toLocaleString()} ج.م</td>
+      <td>${escapeHTML(tx.notes) || '-'}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">كشف حساب مستثمر</div>
+
+    <div class="print-doc-row"><span>اسم المستثمر</span><strong>${escapeHTML(inv.name)}</strong></div>
+    <div class="print-doc-row"><span>تاريخ الانضمام</span><strong>${escapeHTML(inv.joinDate) || '—'}</strong></div>
+    <div class="print-doc-row"><span>نسبة الملكية</span><strong>${inv.sharePercent.toFixed(1)}%${(inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null && inv.fixedSharePercent !== '') ? ' (نسبة ثابتة بالاتفاق)' : ''}</strong></div>
+
+    <div style="margin-top:14px; padding:10px 12px; background:#ecfdf5; border-radius:8px; display:flex; justify-content:space-around; text-align:center; font-size:0.85rem;">
+      <div><div style="color:#64748b; font-size:0.7rem;">رأس المال الحالي</div><strong>${(inv.capitalAmount || 0).toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">نصيبه من الربح</div><strong style="color:#059669;">${Math.round(inv.profitShare).toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">المسحوب فعلياً</div><strong style="color:#d97706;">${inv.withdrawn.toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">المتبقي له</div><strong style="color:${inv.remainingDue >= 0 ? '#059669' : '#e11d48'};">${Math.round(inv.remainingDue).toLocaleString()} ج.م</strong></div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <strong style="font-size:0.9rem;">سجل الحركات</strong>
+      <table class="print-doc-table" style="margin-top:8px;">
+        <thead><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>ملاحظات</th></tr></thead>
+        <tbody>${txRows || '<tr><td colspan="4" style="text-align:center;">لا توجد حركات مسجلة</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div class="print-doc-signatures">
+      <div>توقيع مسؤول الحسابات: ______________</div>
+      <div>توقيع المستثمر: ______________</div>
+    </div>
+    <div class="print-doc-footer">تم إصدار هذا الكشف إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+
+  printHTML(html);
+  logAction('طباعة كشف حساب', `طباعة كشف حساب للمستثمر ${inv.name}`);
+};
+
+// ================= تجميد صافي الربح (Snapshot دوري) =================
+// آلية بسيطة لتثبيت "صورة" من صافي الربح والأرصدة الحالية بتاريخ معين، عشان
+// يكون عندك مرجع تاريخي ثابت (شهري/ربع سنوي) مش متأثر بتقلبات المخزون
+// والخزينة اليومية اللي بيتأثر بيها الحساب اللحظي.
+window.freezeInvestorProfitSnapshot = async function() {
+  const stats = computeInvestorFinancials();
+  if (!(await customConfirm(`هيتم تجميد صافي الربح الحالي (${Math.round(stats.netProfit).toLocaleString()} ج.م) وتوزيعه على المستثمرين كصورة تاريخية بتاريخ اليوم.\n\nده مجرد سجل مرجعي للمراجعة ومش بيغيّر أي أرصدة فعلية. تحب تكمل؟`))) return;
+
+  const snapshotId = `snap-${Date.now()}`;
+  const snapshot = {
+    id: snapshotId,
+    timestamp: nowTimestamp(),
+    totalAssets: stats.totalAssets,
+    totalCapital: stats.totalCapital,
+    totalWithdrawn: stats.totalWithdrawn,
+    netProfit: stats.netProfit,
+    perInvestor: stats.investors.map(inv => ({
+      investorId: inv.id, name: inv.name, capitalAmount: inv.capitalAmount || 0,
+      sharePercent: inv.sharePercent, profitShare: inv.profitShare,
+      withdrawn: inv.withdrawn, remainingDue: inv.remainingDue
+    }))
+  };
+
+  db.investorSnapshots = db.investorSnapshots || [];
+  db.investorSnapshots.unshift(snapshot);
+  saveToLocalStorage();
+  logAction('تجميد أرباح', `تجميد صورة لصافي الربح بتاريخ اليوم: ${Math.round(stats.netProfit).toLocaleString()} ج.م`);
+  await syncWithAppsScript('addInvestorSnapshot', { snapshot });
+
+  showToast('✅ تم تجميد صورة الأرباح بنجاح.', 'success');
+  renderInvestors();
+};
+
+window.viewSnapshotsHistory = function() {
+  const snapshots = db.investorSnapshots || [];
+  const body = document.getElementById('snapshots-history-body');
+  const admin = isAdmin();
+
+  if (snapshots.length === 0) {
+    body.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">لا توجد أي تجميدات محفوظة بعد. استخدم زرار "تجميد الأرباح الحالية" لإنشاء أول صورة تاريخية.</div>`;
+  } else {
+    body.innerHTML = snapshots.map(snap => `
+      <div class="border border-slate-100 rounded-xl p-4 space-y-2">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <strong class="text-sm text-slate-700">${escapeHTML(snap.timestamp)}</strong>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="text-slate-500">صافي الربح وقتها: <strong class="${snap.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${Math.round(snap.netProfit).toLocaleString()} ج.م</strong></span>
+            ${admin ? `<button onclick="deleteInvestorSnapshot('${snap.id}')" class="p-1 text-slate-400 hover:text-rose-500" title="حذف هذا السجل"><i class="ph ph-trash"></i></button>` : ''}
+          </div>
+        </div>
+        <div class="table-scroll-wrapper">
+          <table class="w-full text-right border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 text-slate-500"><th class="p-2">المستثمر</th><th class="p-2">رأس المال</th><th class="p-2">النسبة</th><th class="p-2">نصيبه</th><th class="p-2">المتبقي له</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${(snap.perInvestor || []).map(p => `
+                <tr>
+                  <td class="p-2 font-semibold">${escapeHTML(p.name)}</td>
+                  <td class="p-2 font-mono">${(p.capitalAmount || 0).toLocaleString()} ج.م</td>
+                  <td class="p-2 font-mono">${(p.sharePercent || 0).toFixed(1)}%</td>
+                  <td class="p-2 font-mono">${Math.round(p.profitShare || 0).toLocaleString()} ج.م</td>
+                  <td class="p-2 font-mono">${Math.round(p.remainingDue || 0).toLocaleString()} ج.م</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `).join('');
+  }
+  openModal('snapshots-history-modal');
+};
+
+window.deleteInvestorSnapshot = async function(snapshotId) {
+  if (!(await customConfirm('هل أنت متأكد من حذف هذا السجل التاريخي؟ الإجراء ده لا يمكن التراجع عنه.'))) return;
+  db.investorSnapshots = (db.investorSnapshots || []).filter(s => s.id !== snapshotId);
+  saveToLocalStorage();
+  logAction('حذف تجميد أرباح', `حذف سجل تجميد أرباح تاريخي`);
+  await syncWithAppsScript('deleteInvestorSnapshot', { id: snapshotId });
+  viewSnapshotsHistory();
+};
+
 document.getElementById('add-investor-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = document.getElementById('investor-name').value.trim();
   const capitalAmount = parseFloat(document.getElementById('investor-capital').value);
   const joinDate = document.getElementById('investor-join-date').value;
   const notes = document.getElementById('investor-notes').value.trim();
+  const fixedShareRaw = document.getElementById('investor-fixed-share').value;
+  const fixedSharePercent = fixedShareRaw !== '' ? parseFloat(fixedShareRaw) : null;
 
   if (!name || !capitalAmount || capitalAmount <= 0) return;
+  if (fixedSharePercent !== null && (isNaN(fixedSharePercent) || fixedSharePercent < 0 || fixedSharePercent > 100)) {
+    showToast('❌ نسبة الشراكة الثابتة لازم تكون رقم بين 0 و 100.', 'error');
+    return;
+  }
 
   const investorId = `inv-${Date.now()}`;
   const newInvestor = {
@@ -2487,7 +2841,8 @@ document.getElementById('add-investor-form').addEventListener('submit', async (e
     capitalAmount,
     joinDate: joinDate || nowTimestamp().split(' ')[0],
     notes,
-    totalWithdrawn: 0
+    totalWithdrawn: 0,
+    fixedSharePercent: fixedSharePercent
   };
 
   const txId = `tx-cap-${Date.now()}`;
@@ -2496,6 +2851,7 @@ document.getElementById('add-investor-form').addEventListener('submit', async (e
     timestamp: nowTimestamp(),
     type: 'capital_injection',
     amount: capitalAmount,
+    investorId,
     notes: `ضخ رأس مال من المستثمر: ${name}`
   };
 
@@ -2511,6 +2867,35 @@ document.getElementById('add-investor-form').addEventListener('submit', async (e
   renderInvestors();
   renderTreasury();
   renderDashboard();
+});
+
+document.getElementById('edit-investor-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const investorId = document.getElementById('edit-investor-id').value;
+  const name = document.getElementById('edit-investor-name').value.trim();
+  const joinDate = document.getElementById('edit-investor-join-date').value;
+  const notes = document.getElementById('edit-investor-notes').value.trim();
+  const fixedShareRaw = document.getElementById('edit-investor-fixed-share').value;
+  const fixedSharePercent = fixedShareRaw !== '' ? parseFloat(fixedShareRaw) : null;
+
+  const inv = db.investors.find(i => i.id === investorId);
+  if (!inv || !name) return;
+  if (fixedSharePercent !== null && (isNaN(fixedSharePercent) || fixedSharePercent < 0 || fixedSharePercent > 100)) {
+    showToast('❌ نسبة الشراكة الثابتة لازم تكون رقم بين 0 و 100.', 'error');
+    return;
+  }
+
+  inv.name = name;
+  inv.joinDate = joinDate || inv.joinDate;
+  inv.notes = notes;
+  inv.fixedSharePercent = fixedSharePercent;
+
+  saveToLocalStorage();
+  logAction('تعديل مستثمر', `تعديل بيانات المستثمر ${inv.name}`);
+  await syncWithAppsScript('editInvestor', { investorId, name: inv.name, joinDate: inv.joinDate, notes: inv.notes, fixedSharePercent: inv.fixedSharePercent });
+
+  closeModal('edit-investor-modal');
+  renderInvestors();
 });
 
 document.getElementById('add-capital-form').addEventListener('submit', async (e) => {
@@ -2530,6 +2915,7 @@ document.getElementById('add-capital-form').addEventListener('submit', async (e)
     timestamp: nowTimestamp(),
     type: 'capital_injection',
     amount: amount,
+    investorId,
     notes: `زيادة رأس مال من المستثمر ${inv.name}${notes ? ': ' + notes : ''}`
   };
 
@@ -2541,6 +2927,49 @@ document.getElementById('add-capital-form').addEventListener('submit', async (e)
 
   closeModal('add-capital-modal');
   document.getElementById('add-capital-form').reset();
+  renderInvestors();
+  renderTreasury();
+  renderDashboard();
+});
+
+document.getElementById('withdraw-capital-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const investorId = document.getElementById('withdraw-capital-investor-id').value;
+  const amount = parseFloat(document.getElementById('withdraw-capital-amount').value);
+  const notes = document.getElementById('withdraw-capital-notes').value.trim();
+
+  const inv = db.investors.find(i => i.id === investorId);
+  if (!inv || !amount || amount <= 0) return;
+
+  const currentCapital = inv.capitalAmount || 0;
+  if (amount > currentCapital) {
+    showToast(`❌ المبلغ المطلوب سحبه (${amount.toLocaleString()} ج.م) أكبر من رأس مال المستثمر الحالي (${currentCapital.toLocaleString()} ج.م).`, 'error');
+    return;
+  }
+  if (amount === currentCapital) {
+    if (!(await customConfirm(`المبلغ اللي هتسحبه هيصفّر رأس مال هذا المستثمر بالكامل. لو عايز تخرجه نهائياً من سجل المستثمرين استخدم "حذف" بدلاً من كده. تحب تكمل السحب برضه؟`))) return;
+  }
+
+  inv.capitalAmount = currentCapital - amount;
+
+  const txId = `tx-capwd-${Date.now()}`;
+  const withdrawTx = {
+    id: txId,
+    timestamp: nowTimestamp(),
+    type: 'capital_withdrawal',
+    amount: -amount,
+    investorId,
+    notes: `سحب رأس مال للمستثمر ${inv.name}${notes ? ': ' + notes : ''}`
+  };
+
+  db.treasuryTransactions.unshift(withdrawTx);
+  saveToLocalStorage();
+  logAction('سحب رأس مال', `سحب المستثمر ${inv.name} مبلغ ${amount.toLocaleString()} ج.م من رأس ماله`);
+
+  await syncWithAppsScript('withdrawInvestorCapital', { investorId, newCapitalAmount: inv.capitalAmount, transaction: withdrawTx });
+
+  closeModal('withdraw-capital-modal');
+  document.getElementById('withdraw-capital-form').reset();
   renderInvestors();
   renderTreasury();
   renderDashboard();
@@ -2571,6 +3000,7 @@ document.getElementById('withdraw-profit-form').addEventListener('submit', async
     timestamp: nowTimestamp(),
     type: 'profit_withdrawal',
     amount: -amount,
+    investorId,
     notes: `سحب أرباح للمستثمر ${inv.name}${notes ? ': ' + notes : ''}`
   };
 
