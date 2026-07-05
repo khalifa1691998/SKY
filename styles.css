@@ -63,9 +63,18 @@ body::after {
 }
 
 /* المحتوى نفسه لازم يكون فوق طبقة الإضاءة الزخرفية */
-#app-wrapper, #login-overlay, #mobile-topbar {
+#login-overlay {
   position: relative;
   z-index: 1;
+}
+#mobile-topbar {
+  position: relative;
+}
+/* z-index أعلى من #sidebar-backdrop (39) عشان القائمة الجانبية على الموبايل
+   (اللي جوّه app-wrapper) تفضل قابلة للضغط فوق طبقة التعتيم، مش تحتها. */
+#app-wrapper {
+  position: relative;
+  z-index: 41;
 }
 
 /* Custom Scrollbars */
