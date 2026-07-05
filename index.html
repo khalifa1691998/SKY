@@ -1676,6 +1676,14 @@
               <input type="number" id="contract-duration" required min="1" max="60" value="12" class="form-input">
             </div>
           </div>
+          <div class="pt-3 border-t border-slate-200 dark:border-skyDark-800">
+            <label class="form-label flex items-center gap-1.5">
+              <i class="ph ph-hand-coins text-teal-600"></i>
+              أو حدد قيمة القسط الشهري اللي انت عايزه مباشرة (اختياري)
+            </label>
+            <input type="number" id="contract-target-monthly" min="0" step="0.01" placeholder="مثال: 500" class="form-input">
+            <p class="text-[10px] text-slate-400 mt-1">لو كتبت قيمة هنا، هيتم حساب عدد أشهر التقسيط تلقائياً بناءً عليها بدل ما تحسب هي من عدد الأشهر.</p>
+          </div>
         </div>
 
         <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">

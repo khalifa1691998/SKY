@@ -3124,6 +3124,7 @@ document.getElementById('contract-interest-type').addEventListener('change', fun
 document.getElementById('contract-interest-value').addEventListener('input', updateContractCalculation);
 document.getElementById('contract-duration').addEventListener('input', updateContractCalculation);
 document.getElementById('contract-down-payment').addEventListener('input', updateContractCalculation);
+document.getElementById('contract-target-monthly').addEventListener('input', updateContractFromTargetMonthly);
 
 function calcInterestAmount(cashPrice, interestType, interestValue) {
   if (interestType === 'percent') {
@@ -3134,12 +3135,14 @@ function calcInterestAmount(cashPrice, interestType, interestValue) {
   return 0;
 }
 
-function updateContractCalculation() {
+// يحسب القيم الأساسية (سعر الكاش، الفائدة، الإجمالي، المتبقي) بناءً على الجهاز
+// المختار والمقدم ونوع الزيادة الحاليين في نموذج إنشاء العقد. مُستخدمة في اتجاهي
+// الحساب: من فترة التقسيط -> القسط، ومن القسط المطلوب -> فترة التقسيط.
+function getContractCalcBase() {
   const devId = document.getElementById('contract-device-select').value;
   const dev = db.inventory.find(d => d.id === devId);
-  if (!dev) return;
+  if (!dev) return null;
 
-  const duration = parseInt(document.getElementById('contract-duration').value) || 1;
   const downPayment = parseFloat(document.getElementById('contract-down-payment').value) || 0;
   const interestType = document.getElementById('contract-interest-type').value;
   const interestValue = parseFloat(document.getElementById('contract-interest-value').value) || 0;
@@ -3148,12 +3151,47 @@ function updateContractCalculation() {
   const interest = calcInterestAmount(cashPrice, interestType, interestValue);
   const totalPrice = cashPrice + interest;
   const remaining = Math.max(0, totalPrice - downPayment);
-  const monthly = parseFloat((remaining / duration).toFixed(2));
 
-  document.getElementById('calc-cash-price').textContent = `${cashPrice.toLocaleString()} ج.م`;
-  document.getElementById('calc-total-price').textContent = `${totalPrice.toLocaleString()} ج.م`;
-  document.getElementById('calc-remaining-amount').textContent = `${remaining.toLocaleString()} ج.م`;
+  return { cashPrice, interest, totalPrice, downPayment, remaining };
+}
+
+function updateContractCalculation() {
+  const base = getContractCalcBase();
+  if (!base) return;
+
+  const duration = parseInt(document.getElementById('contract-duration').value) || 1;
+  const monthly = parseFloat((base.remaining / duration).toFixed(2));
+
+  document.getElementById('calc-cash-price').textContent = `${base.cashPrice.toLocaleString()} ج.م`;
+  document.getElementById('calc-total-price').textContent = `${base.totalPrice.toLocaleString()} ج.م`;
+  document.getElementById('calc-remaining-amount').textContent = `${base.remaining.toLocaleString()} ج.م`;
   document.getElementById('calc-monthly-installment').textContent = `${monthly.toLocaleString()} ج.م`;
+
+  // بنحدّث خانة "القسط الشهري المطلوب" لتعكس نفس القيمة المحسوبة، إلا لو المستخدم
+  // بيكتب فيها حالياً (عشان منقاطعوش وهو بيكتب رقمه بنفسه).
+  const targetInput = document.getElementById('contract-target-monthly');
+  if (targetInput && document.activeElement !== targetInput) {
+    targetInput.value = monthly > 0 ? monthly : '';
+  }
+}
+
+// بيتنفذ لما المستخدم يكتب قيمة قسط شهري يحدده هو بنفسه: بنحسب عدد أشهر
+// التقسيط اللازمة عشان نوصل لأقرب قيمة ممكنة لنفس القسط، وبعدين بنعيد
+// حساب القسط الفعلي بناءً على العدد الصحيح للأشهر.
+function updateContractFromTargetMonthly() {
+  const base = getContractCalcBase();
+  if (!base) return;
+
+  const targetInput = document.getElementById('contract-target-monthly');
+  const target = parseFloat(targetInput.value);
+  if (!target || target <= 0 || base.remaining <= 0) return;
+
+  let duration = Math.round(base.remaining / target);
+  if (duration < 1) duration = 1;
+  if (duration > 60) duration = 60;
+
+  document.getElementById('contract-duration').value = duration;
+  updateContractCalculation();
 }
 
 document.getElementById('add-contract-form').addEventListener('submit', async (e) => {
