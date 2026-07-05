@@ -3101,11 +3101,11 @@ document.getElementById('cash-sale-form').addEventListener('submit', async (e) =
   renderDashboard();
 });
 
-// true لما المستخدم يكون كاتب رقم بنفسه في خانة "القسط الشهري المطلوب" - في
-// الحالة دي بنسيب رقمه زي ما هو تماماً (مش بنعيد حسابه)، وبيبقى هو القسط
-// النهائي اللي هيتسجل بيه العقد. القسط الشهري وعدد الشهور والزيادة كلهم
-// حقول حرة ومستقلة عن بعض؛ المقدم بس بيقلل من "المتبقي" و"الإجمالي" ولا
-// بيأثر إطلاقاً على الزيادة أو القسط أو المدة.
+// true لما المستخدم يكون كاتب رقم بنفسه في خانة "القسط الشهري المطلوب".
+// في الحالة دي: "الإجمالي بعد الفائدة" = القسط × عدد الشهور (بيتحسب تلقائي
+// من الرقمين اللي هو كاتبهم)، و"قيمة الزيادة" بتتظبط تلقائياً عشان توصّل
+// لنفس الإجمالي ده. المقدم بعد كده بيتخصم من الإجمالي عشان يطلع "المتبقي" -
+// بس وبس، مفيهوش أي إضافة للمقدم في أي حتة من الحساب.
 let targetMonthlyManuallySet = false;
 
 document.getElementById('contract-device-select').addEventListener('change', function() {
@@ -3125,10 +3125,14 @@ document.getElementById('contract-interest-type').addEventListener('change', fun
   } else {
     interestValueInput.disabled = false;
   }
+  // المستخدم بيتحكم يدوي في الزيادة دلوقتي، يبقى نلغي وضع "القسط الثابت"
+  // عشان منقاطعوش تعديله بإعادة حساب الزيادة تلقائياً فوق اللي هو كاتبه.
+  targetMonthlyManuallySet = false;
   updateContractCalculation();
 });
 
 document.getElementById('contract-interest-value').addEventListener('input', function() {
+  targetMonthlyManuallySet = false;
   updateContractCalculation();
 });
 
@@ -3156,51 +3160,65 @@ function calcInterestAmount(cashPrice, interestType, interestValue) {
   return 0;
 }
 
-// يحسب القيم الأساسية (سعر الكاش، الفائدة، الإجمالي، المتبقي) بناءً على الجهاز
-// ونوع الزيادة المختارين. المقدم هنا بيقلل من "المتبقي" دايماً وبس - مفيهوش
-// أي ربط مع القسط الشهري أو عدد الشهور.
-function getContractCalcBase() {
+// بيحدّث أرقام الملخص (سعر الكاش / الإجمالي بعد الفائدة / المتبقي / القسط
+// الشهري) على حسب وضعين:
+//
+// 1) وضع "القسط الشهري محدد يدوي" (targetMonthlyManuallySet = true):
+//    - الإجمالي بعد الفائدة = القسط × عدد الشهور (زي ما كتبهم المستخدم بالظبط)
+//    - قيمة الزيادة بتتحسب تلقائياً = الإجمالي بعد الفائدة - سعر الكاش
+//    - المتبقي = الإجمالي بعد الفائدة - المقدم (خصم بسيط، مفيش أي إضافة)
+//
+// 2) الوضع العادي (المستخدم لسه ما كتبش قسط شهري بنفسه):
+//    - الإجمالي بعد الفائدة = سعر الكاش + الزيادة (من نوع/قيمة الزيادة المختارة)
+//    - المتبقي = الإجمالي بعد الفائدة - المقدم
+//    - القسط الشهري المقترح = المتبقي ÷ عدد الشهور
+function updateContractCalculation() {
   const devId = document.getElementById('contract-device-select').value;
   const dev = db.inventory.find(d => d.id === devId);
-  if (!dev) return null;
-
-  const downPayment = parseFloat(document.getElementById('contract-down-payment').value) || 0;
-  const interestType = document.getElementById('contract-interest-type').value;
-  const interestValue = parseFloat(document.getElementById('contract-interest-value').value) || 0;
+  if (!dev) return;
 
   const cashPrice = dev.sellingPrice;
-  const interest = calcInterestAmount(cashPrice, interestType, interestValue);
-  const totalPrice = cashPrice + interest;
-  const remaining = Math.max(0, totalPrice - downPayment);
-
-  return { cashPrice, interest, totalPrice, downPayment, remaining };
-}
-
-// بيحدّث أرقام الملخص (سعر الكاش / الإجمالي / المتبقي) وبيقترح قسط شهري
-// (المتبقي ÷ عدد الشهور) فقط كاقتراح مبدئي. لو المستخدم كاتب رقم بنفسه في
-// خانة "القسط الشهري المطلوب" (targetMonthlyManuallySet = true) بنسيبه
-// زي ما هو ومنلمسوش، لأنه هو اللي هيتسجل بيه العقد فعلياً.
-function updateContractCalculation() {
-  const base = getContractCalcBase();
-  if (!base) return;
-
+  const downPayment = parseFloat(document.getElementById('contract-down-payment').value) || 0;
   const duration = parseInt(document.getElementById('contract-duration').value) || 1;
-  const suggestedMonthly = parseFloat((base.remaining / duration).toFixed(2));
   const targetInput = document.getElementById('contract-target-monthly');
   const manualValue = parseFloat(targetInput.value);
-  const displayedMonthly = (targetMonthlyManuallySet && manualValue >= 0 && !isNaN(manualValue))
-    ? manualValue
-    : suggestedMonthly;
 
-  document.getElementById('calc-cash-price').textContent = `${base.cashPrice.toLocaleString()} ج.م`;
-  document.getElementById('calc-total-price').textContent = `${base.totalPrice.toLocaleString()} ج.م`;
-  document.getElementById('calc-remaining-amount').textContent = `${base.remaining.toLocaleString()} ج.م`;
-  document.getElementById('calc-monthly-installment').textContent = `${displayedMonthly.toLocaleString()} ج.م`;
+  let totalAfterInterest, remaining, monthly;
 
-  // نملأ خانة "القسط الشهري المطلوب" بالاقتراح فقط لو المستخدم لسه ما لمسهاش.
-  if (targetInput && !targetMonthlyManuallySet) {
-    targetInput.value = suggestedMonthly > 0 ? suggestedMonthly : '';
+  if (targetMonthlyManuallySet && !isNaN(manualValue) && manualValue >= 0) {
+    monthly = manualValue;
+    totalAfterInterest = parseFloat((monthly * duration).toFixed(2));
+    remaining = Math.max(0, parseFloat((totalAfterInterest - downPayment).toFixed(2)));
+
+    const interestNeeded = parseFloat((totalAfterInterest - cashPrice).toFixed(2));
+    const typeSelect = document.getElementById('contract-interest-type');
+    const valueInput = document.getElementById('contract-interest-value');
+    if (Math.abs(interestNeeded) < 0.01) {
+      typeSelect.value = 'none';
+      valueInput.value = 0;
+      valueInput.disabled = true;
+    } else {
+      typeSelect.value = 'fixed';
+      valueInput.disabled = false;
+      valueInput.value = interestNeeded;
+    }
+  } else {
+    const interestType = document.getElementById('contract-interest-type').value;
+    const interestValue = parseFloat(document.getElementById('contract-interest-value').value) || 0;
+    const interest = calcInterestAmount(cashPrice, interestType, interestValue);
+    totalAfterInterest = cashPrice + interest;
+    remaining = Math.max(0, totalAfterInterest - downPayment);
+    monthly = parseFloat((remaining / duration).toFixed(2));
+
+    if (targetInput) {
+      targetInput.value = monthly > 0 ? monthly : '';
+    }
   }
+
+  document.getElementById('calc-cash-price').textContent = `${cashPrice.toLocaleString()} ج.م`;
+  document.getElementById('calc-total-price').textContent = `${totalAfterInterest.toLocaleString()} ج.م`;
+  document.getElementById('calc-remaining-amount').textContent = `${remaining.toLocaleString()} ج.م`;
+  document.getElementById('calc-monthly-installment').textContent = `${monthly.toLocaleString()} ج.م`;
 }
 
 document.getElementById('add-contract-form').addEventListener('submit', async (e) => {
