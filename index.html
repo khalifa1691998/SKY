@@ -1846,7 +1846,8 @@
           <i class="ph ph-x text-lg"></i>
         </button>
       </div>
-      <div class="space-y-4">
+      <!-- STEP 1: SELECT MONTH / TYPE / REVIEW LIST -->
+      <div class="space-y-4" id="bulk-wa-step-select">
         <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-950">
           تتيح لك هذه الميزة إرسال تذكيرات سداد جماعية لجميع العملاء الذين لديهم أقساط مستحقة الدفع في الشهر المختار.
         </div>
@@ -1875,6 +1876,64 @@
             <i class="ph ph-paper-plane-tilt"></i>
             <span>بدء الإرسال الجماعي</span>
           </button>
+        </div>
+      </div>
+
+      <!-- STEP 2: SEND ONE-BY-ONE QUEUE (avoids browser popup blocking) -->
+      <div class="space-y-4 hidden" id="bulk-wa-step-queue">
+        <div class="p-3 bg-sky-50 rounded-xl border border-sky-100 text-xs text-sky-950">
+          يفتح النظام رسالة واحدة في كل مرة. بعد ما تدوس "فتح واتساب وإرسال"، هيتفتح واتساب لهذا العميل — ابعت الرسالة من هناك، ارجع للنظام وادوس "التالي".
+        </div>
+        <div class="flex items-center justify-between text-xs font-bold text-slate-500">
+          <span id="bulk-wa-progress-label">جاري تجهيز القائمة...</span>
+          <span id="bulk-wa-progress-count">0 / 0</span>
+        </div>
+        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div id="bulk-wa-progress-bar" class="h-full bg-emerald-500 transition-all" style="width:0%"></div>
+        </div>
+        <div>
+          <label class="form-label">العميل الحالي</label>
+          <input type="text" id="bulk-wa-current-name" readonly class="form-input bg-slate-50 text-slate-500 font-semibold">
+        </div>
+        <div>
+          <label class="form-label">رقم الهاتف</label>
+          <input type="text" id="bulk-wa-current-phone" readonly class="form-input bg-slate-50 text-slate-500 font-semibold">
+          <p class="text-[11px] text-rose-500 mt-1 hidden" id="bulk-wa-phone-warning">⚠ الرقم غير واضح أو غير مكتمل، تأكد منه قبل الإرسال أو عدّله من بيانات العميل.</p>
+        </div>
+        <div>
+          <label class="form-label">نص الرسالة (يمكن التعديل)</label>
+          <textarea id="bulk-wa-current-text" rows="6" class="form-input text-sm focus:border-emerald-500 focus:ring-emerald-200"></textarea>
+        </div>
+        <div class="flex justify-between items-center gap-2 pt-2">
+          <button type="button" onclick="closeModal('bulk-whatsapp-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إيقاف وإغلاق</button>
+          <div class="flex gap-2">
+            <button type="button" id="btn-skip-bulk-wa" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-semibold">تخطي هذا العميل</button>
+            <button type="button" id="btn-send-current-bulk-wa" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md flex items-center gap-2">
+              <i class="ph ph-whatsapp-logo"></i>
+              <span>فتح واتساب وإرسال</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: SUMMARY -->
+      <div class="space-y-4 hidden" id="bulk-wa-step-summary">
+        <div class="text-center py-4">
+          <i class="ph ph-check-circle text-emerald-500 text-5xl"></i>
+          <p class="font-bold text-slate-700 mt-2">انتهت جلسة الإرسال الجماعي</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-center text-sm">
+          <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+            <div class="text-2xl font-bold text-emerald-600" id="bulk-wa-sent-count">0</div>
+            <div class="text-xs text-emerald-700">تم فتح الرسالة</div>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="text-2xl font-bold text-slate-500" id="bulk-wa-skipped-count">0</div>
+            <div class="text-xs text-slate-500">تم تخطيه</div>
+          </div>
+        </div>
+        <div class="flex justify-end pt-2">
+          <button type="button" onclick="closeModal('bulk-whatsapp-modal')" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md">تم</button>
         </div>
       </div>
     </div>

@@ -2422,6 +2422,37 @@ window.printInstallmentReceipt = function(instId) {
 // ================= WHATSAPP INTEGRATION =================
 let activeWhatsappPayload = { phone: '', text: '' };
 
+// تطبيع رقم الهاتف لصيغة دولية صالحة لروابط wa.me (بدون + أو مسافات أو أصفار زيادة).
+// بيرجع null لو الرقم مش واضح/غير كافي عشان نقدر نحذّر المستخدم بدل ما نبعت لرقم غلط.
+function normalizeWhatsappPhone(raw) {
+  if (!raw) return null;
+  let digits = String(raw).trim().replace(/[^\d+]/g, '');
+  if (!digits) return null;
+
+  if (digits.startsWith('+')) digits = digits.slice(1);
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  digits = digits.replace(/\D/g, '');
+  if (!digits) return null;
+
+  // رقم مصري محلي كامل بصفر البداية: 01xxxxxxxxx (11 رقم)
+  if (digits.startsWith('0') && digits.length === 11) {
+    return '20' + digits.slice(1);
+  }
+  // رقم مصري بدون الصفر ولا كود الدولة: 1xxxxxxxxx (10 أرقام)
+  if (/^1[0125]\d{8}$/.test(digits)) {
+    return '20' + digits;
+  }
+  // الرقم مكتوب بالفعل بكود الدولة المصري: 201xxxxxxxxx (12 رقم)
+  if (digits.startsWith('20') && digits.length === 12) {
+    return digits;
+  }
+  // أي رقم دولي آخر بطول منطقي، نسيبه زي ما هو بدون افتراض إنه مصري
+  if (digits.length >= 8 && digits.length <= 15) {
+    return digits;
+  }
+  return null;
+}
+
 window.openWhatsappModal = function(instId, templateType) {
   const inst = db.installments.find(i => i.id === instId);
   if (!inst) return;
@@ -2464,12 +2495,13 @@ window.openWhatsappModal = function(instId, templateType) {
   document.getElementById('wa-recipient-name').value = recipientName;
   document.getElementById('wa-recipient-phone').value = targetPhone;
   document.getElementById('wa-message-text').value = resolvedMsg;
-  
-  let formattedPhone = targetPhone;
-  if (targetPhone.startsWith('0')) {
-    formattedPhone = '2' + targetPhone;
+
+  const formattedPhone = normalizeWhatsappPhone(targetPhone);
+  if (!formattedPhone) {
+    alert(`رقم هاتف العميل "${recipientName}" غير واضح أو غير مكتمل (${targetPhone || 'فارغ'}). من فضلك عدّل رقم الهاتف من بيانات العميل قبل الإرسال.`);
+    return;
   }
-  
+
   activeWhatsappPayload = {
     phone: formattedPhone,
     text: resolvedMsg
@@ -2487,6 +2519,14 @@ window.sendPreparedWhatsapp = function() {
 };
 
 // ================= BULK WHATSAPP OPERATIONS =================
+// إرسال بنظام "طابور": بنفتح رسالة واحدة بس في كل مرة، والانتقال للتالي بيحصل
+// بضغطة زرار حقيقية من المستخدم. ده بيتفادى مشكلة إن المتصفح بيحجب فتح أكتر
+// من نافذة تلقائياً لو اتفتحوا مع بعض عن طريق setTimeout بدون تفاعل مباشر من المستخدم.
+let bulkWaQueue = [];
+let bulkWaIndex = 0;
+let bulkWaSentCount = 0;
+let bulkWaSkippedCount = 0;
+
 window.openBulkWhatsappModal = function() {
   const select = document.getElementById('bulk-wa-month-select');
   select.innerHTML = '';
@@ -2503,6 +2543,10 @@ window.openBulkWhatsappModal = function() {
     alert('لا توجد أقساط مسجلة لجدولة الرسائل الجماعية.');
     return;
   }
+
+  document.getElementById('bulk-wa-step-select').classList.remove('hidden');
+  document.getElementById('bulk-wa-step-queue').classList.add('hidden');
+  document.getElementById('bulk-wa-step-summary').classList.add('hidden');
 
   renderBulkClientsList();
   openModal('bulk-whatsapp-modal');
@@ -2552,7 +2596,7 @@ document.getElementById('bulk-wa-type-select').addEventListener('change', render
 document.getElementById('btn-start-bulk-wa').addEventListener('click', () => {
   const month = document.getElementById('bulk-wa-month-select').value;
   const type = document.getElementById('bulk-wa-type-select').value;
-  
+
   const targetInsts = db.installments.filter(inst => {
     const matchesMonth = inst.dueDate.substring(0, 7) === month;
     const stats = getInstallmentOverdueStatus(inst);
@@ -2565,34 +2609,103 @@ document.getElementById('btn-start-bulk-wa').addEventListener('click', () => {
 
   if (targetInsts.length === 0) return;
 
-  alert(`سيتم فتح نافذة WhatsApp لكل عميل تلو الآخر (العدد الإجمالي: ${targetInsts.length}). يرجى إرسال الرسالة في نافذة المتصفح المفتوحة ثم العودة.`);
-  
-  targetInsts.forEach((inst, idx) => {
-    setTimeout(() => {
-      const stats = getInstallmentOverdueStatus(inst);
-      const companyName = db.settings.companyName || 'شركة SKY';
-      const templates = db.settings.templates || defaultSeedData.settings.templates;
-      let templateText = type === 'reminder' ? templates.reminder : templates.warning;
+  // نبني نص كل رسالة مقدماً ونخزنها في طابور، وبعدين نعرض عنصر واحد بس في كل مرة
+  bulkWaQueue = targetInsts.map(inst => {
+    const stats = getInstallmentOverdueStatus(inst);
+    const companyName = db.settings.companyName || 'شركة SKY';
+    const templates = db.settings.templates || defaultSeedData.settings.templates;
+    const templateText = type === 'reminder' ? templates.reminder : templates.warning;
 
-      let resolvedMsg = templateText
-        .replace(/{{الاسم}}/g, inst.clientName)
-        .replace(/{{القسط}}/g, inst.amount.toLocaleString())
-        .replace(/{{التاريخ}}/g, inst.dueDate)
-        .replace(/{{العقد}}/g, inst.contractId.replace('con-', ''))
-        .replace(/{{الغرامة}}/g, stats.fine.toLocaleString())
-        .replace(/{{المطلوب}}/g, stats.totalDue.toLocaleString())
-        .replace(/{{اسم_الشركة}}/g, companyName);
+    const resolvedMsg = templateText
+      .replace(/{{الاسم}}/g, inst.clientName)
+      .replace(/{{القسط}}/g, inst.amount.toLocaleString())
+      .replace(/{{التاريخ}}/g, inst.dueDate)
+      .replace(/{{العقد}}/g, inst.contractId.replace('con-', ''))
+      .replace(/{{الغرامة}}/g, stats.fine.toLocaleString())
+      .replace(/{{المطلوب}}/g, stats.totalDue.toLocaleString())
+      .replace(/{{اسم_الشركة}}/g, companyName);
 
-      let phone = inst.clientPhone;
-      if (phone.startsWith('0')) phone = '2' + phone;
-      
-      const url = `https://wa.me/${phone}?text=${encodeURIComponent(resolvedMsg)}`;
-      window.open(url, '_blank');
-    }, idx * 1500);
+    return {
+      clientName: inst.clientName,
+      rawPhone: inst.clientPhone,
+      phone: normalizeWhatsappPhone(inst.clientPhone),
+      text: resolvedMsg
+    };
   });
-  
-  closeModal('bulk-whatsapp-modal');
-  logAction('إرسال جماعي', `إرسال رسائل جماعية لشهر ${month} لنوع ${type === 'reminder' ? 'تذكير' : 'إنذار'}`);
+
+  bulkWaIndex = 0;
+  bulkWaSentCount = 0;
+  bulkWaSkippedCount = 0;
+
+  document.getElementById('bulk-wa-step-select').classList.add('hidden');
+  document.getElementById('bulk-wa-step-summary').classList.add('hidden');
+  document.getElementById('bulk-wa-step-queue').classList.remove('hidden');
+
+  renderBulkWaQueueItem();
+
+  logAction('إرسال جماعي', `بدء جلسة إرسال جماعي لشهر ${month} لنوع ${type === 'reminder' ? 'تذكير' : 'إنذار'} (${bulkWaQueue.length} عميل)`);
+});
+
+function renderBulkWaQueueItem() {
+  // انتهى الطابور بالكامل
+  if (bulkWaIndex >= bulkWaQueue.length) {
+    document.getElementById('bulk-wa-step-queue').classList.add('hidden');
+    document.getElementById('bulk-wa-step-summary').classList.remove('hidden');
+    document.getElementById('bulk-wa-sent-count').textContent = bulkWaSentCount;
+    document.getElementById('bulk-wa-skipped-count').textContent = bulkWaSkippedCount;
+    return;
+  }
+
+  const item = bulkWaQueue[bulkWaIndex];
+  document.getElementById('bulk-wa-progress-label').textContent = `العميل: ${item.clientName}`;
+  document.getElementById('bulk-wa-progress-count').textContent = `${bulkWaIndex + 1} / ${bulkWaQueue.length}`;
+  document.getElementById('bulk-wa-progress-bar').style.width = `${Math.round((bulkWaIndex / bulkWaQueue.length) * 100)}%`;
+
+  document.getElementById('bulk-wa-current-name').value = item.clientName;
+  document.getElementById('bulk-wa-current-phone').value = item.rawPhone || '';
+  document.getElementById('bulk-wa-current-text').value = item.text;
+
+  const warningEl = document.getElementById('bulk-wa-phone-warning');
+  const sendBtn = document.getElementById('btn-send-current-bulk-wa');
+  if (!item.phone) {
+    warningEl.classList.remove('hidden');
+    sendBtn.disabled = true;
+    sendBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    warningEl.classList.add('hidden');
+    sendBtn.disabled = false;
+    sendBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+document.getElementById('btn-send-current-bulk-wa').addEventListener('click', () => {
+  const item = bulkWaQueue[bulkWaIndex];
+  if (!item || !item.phone) return;
+
+  // نأخذ النص من الـ textarea في حالة المستخدم عدّل فيه يدوياً
+  const editedText = document.getElementById('bulk-wa-current-text').value;
+  const url = `https://wa.me/${item.phone}?text=${encodeURIComponent(editedText)}`;
+
+  // فتح النافذة هنا بيحصل مباشرة كنتيجة لضغطة المستخدم على الزرار، فمفيش
+  // أي احتمال إن المتصفح يحجبها زي ما كان بيحصل مع الحلقة القديمة اللي كانت
+  // بتفتح كل النوافذ دفعة واحدة عن طريق setTimeout.
+  window.open(url, '_blank');
+
+  bulkWaSentCount++;
+  logAction('إرسال واتساب جماعي', `فتح رسالة واتساب للعميل ${item.clientName} (${item.phone})`);
+
+  bulkWaIndex++;
+  renderBulkWaQueueItem();
+});
+
+document.getElementById('btn-skip-bulk-wa').addEventListener('click', () => {
+  const item = bulkWaQueue[bulkWaIndex];
+  if (item) {
+    bulkWaSkippedCount++;
+    logAction('تخطي إرسال واتساب', `تم تخطي العميل ${item.clientName} أثناء الإرسال الجماعي`);
+  }
+  bulkWaIndex++;
+  renderBulkWaQueueItem();
 });
 
 // ================= CUSTOM TRANSACTIONAL ACTIONS =================
