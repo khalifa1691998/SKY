@@ -3101,21 +3101,19 @@ document.getElementById('cash-sale-form').addEventListener('submit', async (e) =
   renderDashboard();
 });
 
-// true لما المستخدم يكون كاتب قيمة بنفسه في خانة "القسط الشهري المطلوب" - في
-// الوضع ده، فترة التقسيط والقسط الشهري بيفضلوا زي ما هما بالظبط زي ما كتبهم
-// المستخدم، و"قيمة الزيادة" هي اللي بتتظبط تلقائياً عشان توفّق بين الأرقام.
-let contractMonthlyLocked = false;
+// true لما المستخدم يكون كاتب رقم بنفسه في خانة "القسط الشهري المطلوب" - في
+// الحالة دي بنسيب رقمه زي ما هو تماماً (مش بنعيد حسابه)، وبيبقى هو القسط
+// النهائي اللي هيتسجل بيه العقد. القسط الشهري وعدد الشهور والزيادة كلهم
+// حقول حرة ومستقلة عن بعض؛ المقدم بس بيقلل من "المتبقي" و"الإجمالي" ولا
+// بيأثر إطلاقاً على الزيادة أو القسط أو المدة.
+let targetMonthlyManuallySet = false;
 
 document.getElementById('contract-device-select').addEventListener('change', function() {
   const devId = this.value;
   const dev = db.inventory.find(d => d.id === devId);
   if (dev) {
     document.getElementById('calc-cash-price').textContent = `${dev.sellingPrice.toLocaleString()} ج.م`;
-    if (contractMonthlyLocked) {
-      reconcileInterestForTargetMonthly();
-    } else {
-      updateContractCalculation();
-    }
+    updateContractCalculation();
   }
 });
 
@@ -3127,41 +3125,26 @@ document.getElementById('contract-interest-type').addEventListener('change', fun
   } else {
     interestValueInput.disabled = false;
   }
-  // المستخدم بيتحكم يدوي في الزيادة دلوقتي، يبقى نلغي وضع "القسط الثابت" عشان
-  // منقاطعوش تعديله بإعادة حساب الزيادة تلقائياً فوق اللي هو كاتبه.
-  contractMonthlyLocked = false;
   updateContractCalculation();
 });
 
 document.getElementById('contract-interest-value').addEventListener('input', function() {
-  contractMonthlyLocked = false;
   updateContractCalculation();
 });
 
 document.getElementById('contract-duration').addEventListener('input', function() {
-  if (contractMonthlyLocked) {
-    reconcileInterestForTargetMonthly();
-  } else {
-    updateContractCalculation();
-  }
+  updateContractCalculation();
 });
 
 document.getElementById('contract-down-payment').addEventListener('input', function() {
-  if (contractMonthlyLocked) {
-    reconcileInterestForTargetMonthly();
-  } else {
-    updateContractCalculation();
-  }
+  updateContractCalculation();
 });
 
 document.getElementById('contract-target-monthly').addEventListener('input', function() {
-  const val = parseFloat(this.value);
-  contractMonthlyLocked = !!val && val > 0;
-  if (contractMonthlyLocked) {
-    reconcileInterestForTargetMonthly();
-  } else {
-    updateContractCalculation();
-  }
+  // المستخدم لمس الخانة بنفسه؛ من دلوقتي رقمه هو اللي هيتعتمد بالظبط ومش
+  // هيتغير تلقائياً لحد ما يمسحه هو بنفسه.
+  targetMonthlyManuallySet = this.value !== '';
+  updateContractCalculation();
 });
 
 function calcInterestAmount(cashPrice, interestType, interestValue) {
@@ -3174,8 +3157,8 @@ function calcInterestAmount(cashPrice, interestType, interestValue) {
 }
 
 // يحسب القيم الأساسية (سعر الكاش، الفائدة، الإجمالي، المتبقي) بناءً على الجهاز
-// المختار والمقدم ونوع الزيادة الحاليين في نموذج إنشاء العقد. مُستخدمة في اتجاهي
-// الحساب: من فترة التقسيط -> القسط، ومن القسط المطلوب -> فترة التقسيط.
+// ونوع الزيادة المختارين. المقدم هنا بيقلل من "المتبقي" دايماً وبس - مفيهوش
+// أي ربط مع القسط الشهري أو عدد الشهور.
 function getContractCalcBase() {
   const devId = document.getElementById('contract-device-select').value;
   const dev = db.inventory.find(d => d.id === devId);
@@ -3193,65 +3176,31 @@ function getContractCalcBase() {
   return { cashPrice, interest, totalPrice, downPayment, remaining };
 }
 
+// بيحدّث أرقام الملخص (سعر الكاش / الإجمالي / المتبقي) وبيقترح قسط شهري
+// (المتبقي ÷ عدد الشهور) فقط كاقتراح مبدئي. لو المستخدم كاتب رقم بنفسه في
+// خانة "القسط الشهري المطلوب" (targetMonthlyManuallySet = true) بنسيبه
+// زي ما هو ومنلمسوش، لأنه هو اللي هيتسجل بيه العقد فعلياً.
 function updateContractCalculation() {
   const base = getContractCalcBase();
   if (!base) return;
 
   const duration = parseInt(document.getElementById('contract-duration').value) || 1;
-  const monthly = parseFloat((base.remaining / duration).toFixed(2));
+  const suggestedMonthly = parseFloat((base.remaining / duration).toFixed(2));
+  const targetInput = document.getElementById('contract-target-monthly');
+  const manualValue = parseFloat(targetInput.value);
+  const displayedMonthly = (targetMonthlyManuallySet && manualValue >= 0 && !isNaN(manualValue))
+    ? manualValue
+    : suggestedMonthly;
 
   document.getElementById('calc-cash-price').textContent = `${base.cashPrice.toLocaleString()} ج.م`;
   document.getElementById('calc-total-price').textContent = `${base.totalPrice.toLocaleString()} ج.م`;
   document.getElementById('calc-remaining-amount').textContent = `${base.remaining.toLocaleString()} ج.م`;
-  document.getElementById('calc-monthly-installment').textContent = `${monthly.toLocaleString()} ج.م`;
+  document.getElementById('calc-monthly-installment').textContent = `${displayedMonthly.toLocaleString()} ج.م`;
 
-  // بنحدّث خانة "القسط الشهري المطلوب" لتعكس نفس القيمة المحسوبة، إلا لو المستخدم
-  // بيكتب فيها حالياً (عشان منقاطعوش وهو بيكتب رقمه بنفسه) أو لو الوضع "مقفول".
-  const targetInput = document.getElementById('contract-target-monthly');
-  if (targetInput && document.activeElement !== targetInput && !contractMonthlyLocked) {
-    targetInput.value = monthly > 0 ? monthly : '';
+  // نملأ خانة "القسط الشهري المطلوب" بالاقتراح فقط لو المستخدم لسه ما لمسهاش.
+  if (targetInput && !targetMonthlyManuallySet) {
+    targetInput.value = suggestedMonthly > 0 ? suggestedMonthly : '';
   }
-}
-
-// بيتنفذ لما المستخدم يكون محدد قسط شهري بنفسه (contractMonthlyLocked = true):
-// بيثبّت القسط وفترة التقسيط زي ما هما بالظبط، وبيحسب "قيمة الزيادة" المطلوبة
-// عشان (سعر الكاش + الزيادة - المقدم) يساوي بالظبط (القسط × عدد الأشهر).
-function reconcileInterestForTargetMonthly() {
-  const devId = document.getElementById('contract-device-select').value;
-  const dev = db.inventory.find(d => d.id === devId);
-  if (!dev) return;
-
-  const duration = parseInt(document.getElementById('contract-duration').value) || 1;
-  const downPayment = parseFloat(document.getElementById('contract-down-payment').value) || 0;
-  const targetInput = document.getElementById('contract-target-monthly');
-  const target = parseFloat(targetInput.value);
-  if (!target || target <= 0) return;
-
-  const cashPrice = dev.sellingPrice;
-  const remaining = parseFloat((target * duration).toFixed(2));
-  const totalPrice = parseFloat((remaining + downPayment).toFixed(2));
-  const interestNeeded = parseFloat((totalPrice - cashPrice).toFixed(2));
-
-  const typeSelect = document.getElementById('contract-interest-type');
-  const valueInput = document.getElementById('contract-interest-value');
-
-  if (Math.abs(interestNeeded) < 0.01) {
-    typeSelect.value = 'none';
-    valueInput.value = 0;
-    valueInput.disabled = true;
-  } else {
-    // بنستخدم "مبلغ ثابت" عشان نقدر نمثّل زيادة أو خصم (لو القسط اللي طلبه
-    // المستخدم أقل من المفروض) بالظبط بأي قيمة، سواء موجبة أو سالبة.
-    typeSelect.value = 'fixed';
-    valueInput.disabled = false;
-    valueInput.min = '';
-    valueInput.value = interestNeeded;
-  }
-
-  document.getElementById('calc-cash-price').textContent = `${cashPrice.toLocaleString()} ج.م`;
-  document.getElementById('calc-total-price').textContent = `${totalPrice.toLocaleString()} ج.م`;
-  document.getElementById('calc-remaining-amount').textContent = `${remaining.toLocaleString()} ج.م`;
-  document.getElementById('calc-monthly-installment').textContent = `${target.toLocaleString()} ج.م`;
 }
 
 document.getElementById('add-contract-form').addEventListener('submit', async (e) => {
@@ -3284,7 +3233,13 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
   const totalValue = cashPrice + interest;
   const contractId = `con-${Math.floor(100000 + Math.random() * 900000)}`;
   const remaining = Math.max(0, totalValue - downPayment);
-  const monthly = parseFloat((remaining / duration).toFixed(2));
+
+  // لو المستخدم كاتب قسط شهري بنفسه في خانة "القسط الشهري المطلوب"، بنستخدم
+  // رقمه ده بالظبط في العقد المحفوظ (مش بنعيد حسابه من المتبقي ÷ المدة).
+  const targetMonthlyRaw = parseFloat(document.getElementById('contract-target-monthly').value);
+  const monthly = (targetMonthlyManuallySet && !isNaN(targetMonthlyRaw) && targetMonthlyRaw >= 0)
+    ? targetMonthlyRaw
+    : parseFloat((remaining / duration).toFixed(2));
 
   const contract = {
     id: contractId,
@@ -3368,7 +3323,7 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
 
   closeModal('add-contract-modal');
   document.getElementById('add-contract-form').reset();
-  contractMonthlyLocked = false;
+  targetMonthlyManuallySet = false;
   document.getElementById('contract-interest-value').disabled = true;
   
   renderContracts();
@@ -4739,7 +4694,7 @@ setTimeout(() => {
 // Custom wrapper to open contract modal and populate dropdowns with latest data
 window.openAddContractModal = function() {
   populateDropdowns();
-  contractMonthlyLocked = false;
+  targetMonthlyManuallySet = false;
   openModal('add-contract-modal');
 };
 
