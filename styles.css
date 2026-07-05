@@ -89,6 +89,41 @@ body {
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
+/* منع الآيفون/آيباد من عمل تكبير تلقائي (zoom) لما المستخدم يدوس على أي حقل إدخال
+   داخل المودالات؛ ده كان بيخلي إحساس إن الصفحة "بتقفز" أو مش متجاوبة على الموبايل */
+@media (max-width: 640px) {
+  .form-input,
+  select.form-input,
+  textarea.form-input,
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ================= إصلاح مشكلة المودالات (النوافذ المنبثقة) على الشاشات
+   الصغيرة/المتوسطة (موبايل ولابتوب بشاشة صغيرة):
+   قبل كده، صندوق المودال ماكانش له حد أقصى لارتفاعه ولا خاصية سكرول داخلية،
+   فلو المحتوى (زي فورم عقد التقسيط) أطول من الشاشة، كان الجزء اللي تحت
+   بيختفي ومفيش أي طريقة إن المستخدم يوصله أو يسكرول له. ================= */
+[id$="-modal"] > div {
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* موديل إضافة العميل مبني بطريقة مختلفة (هيدر ثابت + محتوى بيسكرول لوحده
+   بالداخل)، فبنسيب الـ overflow بتاعه زي ما هو عشان مايبقاش فيه سكرول مزدوج */
+#add-client-modal > div {
+  overflow-y: hidden;
+}
+
 .form-label {
   display: block;
   font-size: 0.875rem;
