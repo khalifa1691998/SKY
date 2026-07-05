@@ -536,7 +536,7 @@ window.exportExcelBackup = function() {
   const nowLabel = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const statusLabels = {
-    available: 'متاح', sold_installment: 'مباع بالتقسيط', sold_cash: 'مباع كاش',
+    available: 'متاح', sold_installment: 'مباع بالتقسيط', sold_cash: 'مباع كاش', maintenance: 'تحت الصيانة',
     active: 'ساري', completed: 'مكتمل', cancelled: 'ملغي',
     pending: 'قيد الانتظار', paid: 'مدفوع', approved: 'معتمد', rejected: 'مرفوض'
   };
@@ -584,7 +584,9 @@ window.exportExcelBackup = function() {
   // 3. المخزون والأجهزة
   addSheet('المخزون والأجهزة', db.inventory.map(d => ({
     'الماركة': d.brand, 'الموديل': d.name, 'السيريال': d.serial, 'سعر التكلفة': d.costPrice,
-    'سعر البيع': d.sellingPrice, 'المورد': d.supplier, 'الحالة': L(statusLabels, d.status), 'بيع لـ': d.soldTo || ''
+    'سعر البيع': d.sellingPrice, 'المورد': d.supplier, 'الفرع': d.branch || '', 'حالة القطعة': d.condition || '',
+    'الضمان (شهر)': d.warrantyMonths || 0, 'تاريخ الإضافة': d.addedDate || '',
+    'الحالة': L(statusLabels, d.status), 'بيع لـ': d.soldTo || '', 'ملاحظات': d.notes || ''
   })));
 
   // 4. العقود
@@ -1101,7 +1103,7 @@ function renderDashboard() {
     overdueAlertText.innerHTML = `<span>كل الأقساط منتظمة بالكامل</span>`;
   }
 
-  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available').reduce((sum, dev) => sum + dev.costPrice, 0);
+  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + dev.costPrice, 0);
   document.getElementById('kpi-inventory-capital').textContent = `${inventoryCapital.toLocaleString()} ج.م`;
 
   const totalRemainingContractBalance = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + inst.amount, 0);
@@ -1390,21 +1392,75 @@ function renderClientBalances() {
 document.getElementById('balance-search-input').addEventListener('input', renderClientBalances);
 
 // --- 3. INVENTORY & DEVICES ---
+
+// عدد الأيام بين تاريخ نصي (YYYY-MM-DD) واليوم الحالي، بيستخدم في تقرير "عمر المخزون"
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  const then = new Date(dateStr);
+  if (isNaN(then.getTime())) return null;
+  const diffMs = Date.now() - then.getTime();
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+// يبني (أو يعيد استخدام) عناصر فلاتر الفرع/المورد/الحالة فوق جدول المخزون بشكل ديناميكي
+function populateInventoryFilters() {
+  const branchSel = document.getElementById('inventory-filter-branch');
+  const supplierSel = document.getElementById('inventory-filter-supplier');
+  if (!branchSel || !supplierSel) return;
+
+  const branches = [...new Set(db.inventory.map(d => d.branch || 'الفرع الرئيسي'))].sort();
+  const currentBranch = branchSel.value;
+  branchSel.innerHTML = '<option value="">كل الفروع</option>' + branches.map(b => `<option value="${escapeHTML(b)}">${escapeHTML(b)}</option>`).join('');
+  if (branches.includes(currentBranch)) branchSel.value = currentBranch;
+
+  const suppliers = [...new Set(db.inventory.map(d => d.supplier).filter(Boolean))].sort();
+  const currentSupplier = supplierSel.value;
+  supplierSel.innerHTML = '<option value="">كل الموردين</option>' + suppliers.map(s => `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join('');
+  if (suppliers.includes(currentSupplier)) supplierSel.value = currentSupplier;
+}
+
 function renderInventory() {
   const searchVal = document.getElementById('inventory-search').value.toLowerCase();
   const tbody = document.getElementById('inventory-table-body');
   const emptyState = document.getElementById('inventory-empty-state');
-  
+
+  const statusFilterEl = document.getElementById('inventory-filter-status');
+  const branchFilterEl = document.getElementById('inventory-filter-branch');
+  const supplierFilterEl = document.getElementById('inventory-filter-supplier');
+  const lowStockOnlyEl = document.getElementById('inventory-filter-lowstock');
+
+  const statusFilter = statusFilterEl ? statusFilterEl.value : '';
+  const branchFilter = branchFilterEl ? branchFilterEl.value : '';
+  const supplierFilter = supplierFilterEl ? supplierFilterEl.value : '';
+  const lowStockOnly = lowStockOnlyEl ? lowStockOnlyEl.checked : false;
+
   tbody.innerHTML = '';
-  
+
+  populateInventoryFilters();
+
   document.getElementById('inv-suppliers-count').textContent = db.suppliers.length;
   document.getElementById('inv-total-count').textContent = [...new Set(db.inventory.map(d => `${d.brand}_${d.name}`))].length;
   document.getElementById('inv-available-count').textContent = db.inventory.filter(d => d.status === 'available').length;
   document.getElementById('inv-sold-count').textContent = db.inventory.filter(d => d.status.startsWith('sold')).length;
 
+  const invValueEl = document.getElementById('inv-value-count');
+  if (invValueEl) {
+    if (isAdmin()) {
+      const totalValue = db.inventory.filter(d => d.status === 'available' || d.status === 'maintenance').reduce((s, d) => s + (d.costPrice || 0), 0);
+      invValueEl.textContent = `${totalValue.toLocaleString()} ج.م`;
+    } else {
+      invValueEl.innerHTML = '<i class="ph ph-lock-key"></i>';
+    }
+  }
+  const maintenanceCountEl = document.getElementById('inv-maintenance-count');
+  if (maintenanceCountEl) {
+    maintenanceCountEl.textContent = db.inventory.filter(d => d.status === 'maintenance').length;
+  }
+
   const grouped = {};
   db.inventory.forEach(dev => {
-    const key = `${dev.brand}_${dev.name}_${dev.costPrice}_${dev.sellingPrice}_${dev.supplier}`;
+    const branch = dev.branch || 'الفرع الرئيسي';
+    const key = `${dev.brand}_${dev.name}_${dev.costPrice}_${dev.sellingPrice}_${dev.supplier}_${branch}`;
     if (!grouped[key]) {
       grouped[key] = {
         brand: dev.brand,
@@ -1412,15 +1468,44 @@ function renderInventory() {
         costPrice: dev.costPrice,
         sellingPrice: dev.sellingPrice,
         supplier: dev.supplier,
+        branch,
+        minQty: dev.minQty || 3,
         devices: []
       };
     }
     grouped[key].devices.push(dev);
   });
 
-  const groupedList = Object.values(grouped).filter(group => {
+  let groupedList = Object.values(grouped).filter(group => {
     return group.name.toLowerCase().includes(searchVal) || group.brand.toLowerCase().includes(searchVal);
   });
+
+  if (statusFilter) {
+    groupedList = groupedList.filter(g => g.devices.some(d => statusFilter === 'sold' ? d.status.startsWith('sold') : d.status === statusFilter));
+  }
+  if (branchFilter) {
+    groupedList = groupedList.filter(g => g.branch === branchFilter);
+  }
+  if (supplierFilter) {
+    groupedList = groupedList.filter(g => g.supplier === supplierFilter);
+  }
+
+  let lowStockGroupsCount = 0;
+  groupedList.forEach(g => {
+    const avail = g.devices.filter(d => d.status === 'available').length;
+    if (avail > 0 && avail <= (g.minQty || 3)) lowStockGroupsCount++;
+  });
+  const lowStockEl = document.getElementById('inv-lowstock-count');
+  if (lowStockEl) lowStockEl.textContent = lowStockGroupsCount;
+
+  if (lowStockOnly) {
+    groupedList = groupedList.filter(g => {
+      const avail = g.devices.filter(d => d.status === 'available').length;
+      return avail > 0 && avail <= (g.minQty || 3);
+    });
+  }
+
+  renderBestSellers();
 
   if (groupedList.length === 0) {
     emptyState.classList.remove('hidden');
@@ -1428,10 +1513,22 @@ function renderInventory() {
   }
   emptyState.classList.add('hidden');
 
+  const userIsAdmin = isAdmin();
+
   groupedList.forEach(group => {
     const totalQty = group.devices.length;
-    const availQty = group.devices.filter(d => d.status === 'available').length;
-    
+    const availDevices = group.devices.filter(d => d.status === 'available');
+    const availQty = availDevices.length;
+    const minQty = group.minQty || 3;
+    const isLowStock = availQty > 0 && availQty <= minQty;
+    const isOutOfStock = availQty === 0 && totalQty > 0;
+
+    // أقدم قطعة متاحة بالمخزن لحساب "عمر المخزون" (كام يوم واقفة من غير ما تتباع)
+    const oldestAge = availDevices.reduce((max, d) => {
+      const age = daysSince(d.addedDate);
+      return age !== null && age > max ? age : max;
+    }, 0);
+
     const serialBadges = group.devices.map(d => {
       let bg = 'bg-slate-100 text-slate-600';
       let title = 'متاح';
@@ -1441,23 +1538,34 @@ function renderInventory() {
       } else if (d.status === 'sold_cash') {
         bg = 'bg-amber-50 text-amber-700 border border-amber-100';
         title = `كاش لـ: ${d.soldTo}`;
+      } else if (d.status === 'maintenance') {
+        bg = 'bg-purple-50 text-purple-700 border border-purple-100';
+        title = 'تحت الصيانة';
       }
-      return `<span class="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded ${bg} m-0.5" title="${escapeHTML(title)}">${escapeHTML(d.serial)}</span>`;
+      return `<span onclick="openDeviceActionsModal('${d.id}')" class="inline-block cursor-pointer text-[10px] font-mono px-1.5 py-0.5 rounded ${bg} m-0.5 hover:ring-1 hover:ring-slate-300" title="${escapeHTML(title)} — اضغط لعرض تفاصيل القطعة">${escapeHTML(d.serial)}</span>`;
     }).join(' ');
+
+    const stockBadge = isOutOfStock
+      ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-rose-100 text-rose-700 text-xs font-bold">نفذت الكمية</span>`
+      : isLowStock
+        ? `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-100 text-amber-700 text-xs font-bold" title="الحد الأدنى: ${minQty}"><i class="ph ph-warning"></i> ${availQty} متاح / ${totalQty} كلي (منخفض)</span>`
+        : `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 text-slate-800 text-xs font-bold">${availQty} متاح / ${totalQty} كلي</span>`;
+
+    const costCell = userIsAdmin
+      ? `${group.costPrice.toLocaleString()} ج.م`
+      : `<span class="text-slate-300" title="مخفي - للأدمن فقط"><i class="ph ph-lock-key"></i></span>`;
 
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors';
     tr.innerHTML = `
       <td class="p-4 font-bold text-slate-800">${escapeHTML(group.brand)}</td>
       <td class="p-4">${escapeHTML(group.name)}</td>
+      <td class="p-4 text-slate-500 text-xs">${escapeHTML(group.branch)}</td>
       <td class="p-4 text-slate-600 text-xs">${escapeHTML(group.supplier) || '-'}</td>
-      <td class="p-4 font-bold font-mono text-emerald-600">${group.costPrice.toLocaleString()} ج.م</td>
+      <td class="p-4 font-bold font-mono text-emerald-600">${costCell}</td>
       <td class="p-4 font-bold font-mono text-teal-600">${group.sellingPrice.toLocaleString()} ج.م</td>
-      <td class="p-4">
-        <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 text-slate-800 text-xs font-bold">
-          ${availQty} متاح / ${totalQty} كلي
-        </span>
-      </td>
+      <td class="p-4">${stockBadge}</td>
+      <td class="p-4 text-xs text-slate-500">${availQty > 0 ? (oldestAge + ' يوم') : '—'}</td>
       <td class="p-4 max-w-xs overflow-hidden">${serialBadges}</td>
       <td class="p-4 text-center">
         <div class="inline-flex gap-1.5">
@@ -1465,7 +1573,7 @@ function renderInventory() {
             <button data-brand="${escapeHTML(group.brand)}" data-name="${escapeHTML(group.name)}" onclick="openCashSaleModalGrouped(this.dataset.brand, this.dataset.name)" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
               <i class="ph ph-money"></i> بيع كاش
             </button>
-          ` : `<span class="text-xs text-slate-400 font-semibold">نفذت الكمية</span>`}
+          ` : `<span class="text-xs text-slate-400 font-semibold">لا يوجد متاح</span>`}
           <button data-brand="${escapeHTML(group.brand)}" data-name="${escapeHTML(group.name)}" onclick="editDeviceGroup(this.dataset.brand, this.dataset.name)" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
           <button data-brand="${escapeHTML(group.brand)}" data-name="${escapeHTML(group.name)}" onclick="deleteDeviceGroup(this.dataset.brand, this.dataset.name)" class="p-1 text-rose-500 hover:bg-rose-50 rounded transition-colors"><i class="ph ph-trash"></i></button>
         </div>
@@ -1473,6 +1581,41 @@ function renderInventory() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// لوحة "الأكثر مبيعاً": بتحسب عدد القطع المباعة (كاش أو قسط) لكل صنف/موديل
+// عبر كل تاريخ المخزون، وتعرض أعلى 5 أصناف مبيعاً.
+function renderBestSellers() {
+  const container = document.getElementById('inv-best-sellers');
+  if (!container) return;
+
+  const soldCounts = {};
+  db.inventory.forEach(d => {
+    if (!d.status.startsWith('sold')) return;
+    const key = `${d.brand} ${d.name}`;
+    soldCounts[key] = (soldCounts[key] || 0) + 1;
+  });
+
+  const top = Object.entries(soldCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  if (top.length === 0) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+
+  container.classList.remove('hidden');
+  container.innerHTML = `
+    <p class="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5"><i class="ph ph-trend-up"></i> الأكثر مبيعاً</p>
+    <div class="flex flex-wrap gap-2">
+      ${top.map(([name, count], idx) => `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 text-xs font-semibold text-slate-700">
+          <span class="text-teal-600 font-bold">#${idx + 1}</span> ${escapeHTML(name)}
+          <span class="px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 text-[10px] font-bold">${count} مباع</span>
+        </span>
+      `).join('')}
+    </div>
+  `;
 }
 
 // Cash Sale Modal for grouped items
@@ -1532,6 +1675,7 @@ window.editDeviceGroup = function(brand, name) {
   document.getElementById('edit-inv-cost').value = sampleDev.costPrice;
   document.getElementById('edit-inv-price').value = sampleDev.sellingPrice;
   document.getElementById('edit-inv-supplier').value = sampleDev.supplier || '';
+  document.getElementById('edit-inv-minqty').value = sampleDev.minQty || 3;
   openModal('edit-inventory-modal');
 };
 
@@ -1542,22 +1686,316 @@ window.saveInventoryEdit = async function() {
   const newCost = parseFloat(document.getElementById('edit-inv-cost').value) || 0;
   const newPrice = parseFloat(document.getElementById('edit-inv-price').value) || 0;
   const newSupplier = document.getElementById('edit-inv-supplier').value.trim();
+  const newMinQty = parseInt(document.getElementById('edit-inv-minqty').value) || 3;
 
   db.inventory.forEach(d => {
     if (d.brand === brand && d.name === name) {
       d.costPrice = newCost;
       d.sellingPrice = newPrice;
       d.supplier = newSupplier;
+      d.minQty = newMinQty;
     }
   });
 
   saveToLocalStorage();
-  logAction('تعديل مخزون', `تعديل أسعار صنف ${brand} ${name}: تكلفة ${newCost} ج.م، بيع ${newPrice} ج.م`);
+  logAction('تعديل مخزون', `تعديل أسعار صنف ${brand} ${name}: تكلفة ${newCost} ج.م، بيع ${newPrice} ج.م، حد أدنى ${newMinQty}`);
   
-  await syncWithAppsScript('updateDeviceGroup', { brand, name, costPrice: newCost, sellingPrice: newPrice, supplier: newSupplier });
+  await syncWithAppsScript('updateDeviceGroup', { brand, name, costPrice: newCost, sellingPrice: newPrice, supplier: newSupplier, minQty: newMinQty });
   
   closeModal('edit-inventory-modal');
   renderInventory();
+  renderDashboard();
+};
+
+// ================= DEVICE ACTIONS: تفاصيل القطعة، الصيانة، الإرجاع، الطباعة =================
+
+const DEVICE_STATUS_LABELS = {
+  available: 'متاح بالمخزن',
+  sold_cash: 'مباع كاش',
+  sold_installment: 'مباع بالتقسيط',
+  maintenance: 'تحت الصيانة'
+};
+const DEVICE_CONDITION_LABELS = {
+  new: 'جديد',
+  used: 'مستعمل',
+  refurbished: 'مجدد (Refurbished)'
+};
+
+window.openDeviceActionsModal = function(deviceId) {
+  const dev = db.inventory.find(d => d.id === deviceId);
+  if (!dev) return;
+
+  document.getElementById('device-actions-title').textContent = `${dev.brand} ${dev.name} — ${dev.serial}`;
+
+  const warrantyInfo = dev.warrantyMonths
+    ? `${dev.warrantyMonths} شهر${dev.addedDate ? ' (حتى ' + computeWarrantyExpiry(dev) + ')' : ''}`
+    : 'بدون ضمان مسجل';
+
+  const infoHtml = `
+    <div class="grid grid-cols-2 gap-2 text-xs">
+      <div><span class="text-slate-400">الحالة:</span> <strong>${DEVICE_STATUS_LABELS[dev.status] || dev.status}</strong></div>
+      <div><span class="text-slate-400">حالة القطعة:</span> <strong>${DEVICE_CONDITION_LABELS[dev.condition] || '-'}</strong></div>
+      <div><span class="text-slate-400">الفرع:</span> <strong>${escapeHTML(dev.branch || '-')}</strong></div>
+      <div><span class="text-slate-400">المورد:</span> <strong>${escapeHTML(dev.supplier || '-')}</strong></div>
+      <div><span class="text-slate-400">الضمان:</span> <strong>${warrantyInfo}</strong></div>
+      <div><span class="text-slate-400">تاريخ الإضافة:</span> <strong>${escapeHTML(dev.addedDate || '-')}</strong></div>
+      ${dev.soldTo ? `<div class="col-span-2"><span class="text-slate-400">بيع لـ:</span> <strong>${escapeHTML(dev.soldTo)}</strong></div>` : ''}
+      ${dev.notes ? `<div class="col-span-2"><span class="text-slate-400">ملاحظات:</span> ${escapeHTML(dev.notes)}</div>` : ''}
+    </div>
+  `;
+  document.getElementById('device-actions-info').innerHTML = infoHtml;
+
+  // أزرار الإجراءات حسب حالة القطعة الحالية
+  const actionsEl = document.getElementById('device-actions-buttons');
+  let buttons = '';
+  if (dev.status === 'available') {
+    buttons += `<button onclick="sendDeviceToMaintenance('${dev.id}')" class="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold flex items-center gap-1.5"><i class="ph ph-wrench"></i> إرسال للصيانة</button>`;
+    if (isAdmin()) {
+      buttons += `<button onclick="returnDeviceToSupplier('${dev.id}')" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold flex items-center gap-1.5"><i class="ph ph-arrow-u-up-left"></i> إرجاع للمورد (تالف)</button>`;
+    }
+  } else if (dev.status === 'maintenance') {
+    buttons += `<button onclick="returnDeviceFromMaintenance('${dev.id}')" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5"><i class="ph ph-check-circle"></i> إرجاع للمتاح بعد الصيانة</button>`;
+  } else if (dev.status === 'sold_cash' || dev.status === 'sold_installment') {
+    if (isAdmin()) {
+      buttons += `<button onclick="returnDeviceToStockFromClient('${dev.id}')" class="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold flex items-center gap-1.5"><i class="ph ph-arrow-u-up-left"></i> استرجاع من العميل للمخزن</button>`;
+    }
+  }
+  buttons += `<button onclick="printDeviceLabel('${dev.id}')" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5"><i class="ph ph-printer"></i> طباعة ملصق</button>`;
+  actionsEl.innerHTML = buttons;
+
+  // سجل تاريخ الحركة
+  const historyEl = document.getElementById('device-actions-history');
+  const history = dev.history || [];
+  historyEl.innerHTML = history.length > 0
+    ? history.map(h => `<div class="text-[11px] text-slate-500 border-r-2 border-slate-100 pr-2 py-1"><strong class="text-slate-700">${escapeHTML(h.action)}</strong> — ${escapeHTML(h.date)} <span class="text-slate-400">(${escapeHTML(h.by)})</span>${h.note ? '<br>' + escapeHTML(h.note) : ''}</div>`).join('')
+    : '<p class="text-xs text-slate-400">لا يوجد سجل حركة مسجل لهذه القطعة.</p>';
+
+  openModal('device-actions-modal');
+};
+
+function computeWarrantyExpiry(dev) {
+  if (!dev.addedDate || !dev.warrantyMonths) return '-';
+  const d = new Date(dev.addedDate);
+  d.setMonth(d.getMonth() + parseInt(dev.warrantyMonths));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+window.sendDeviceToMaintenance = async function(deviceId) {
+  const dev = db.inventory.find(d => d.id === deviceId);
+  if (!dev || dev.status !== 'available') return;
+  const reason = window.prompt('سبب إرسال القطعة للصيانة (اختياري):', '') || '';
+
+  dev.status = 'maintenance';
+  addDeviceHistory(dev, 'إرسال للصيانة', reason);
+  saveToLocalStorage();
+  logAction('إرسال جهاز للصيانة', `${dev.brand} ${dev.name} (SN: ${dev.serial}) — ${reason}`);
+  await syncWithAppsScript('updateDevice', { id: dev.id, status: dev.status, history: dev.history });
+
+  closeModal('device-actions-modal');
+  renderInventory();
+  renderDashboard();
+};
+
+window.returnDeviceFromMaintenance = async function(deviceId) {
+  const dev = db.inventory.find(d => d.id === deviceId);
+  if (!dev || dev.status !== 'maintenance') return;
+
+  dev.status = 'available';
+  addDeviceHistory(dev, 'إرجاع من الصيانة', 'تم الانتهاء من الصيانة وإرجاع القطعة للمتاح');
+  saveToLocalStorage();
+  logAction('إرجاع جهاز من الصيانة', `${dev.brand} ${dev.name} (SN: ${dev.serial})`);
+  await syncWithAppsScript('updateDevice', { id: dev.id, status: dev.status, history: dev.history });
+
+  closeModal('device-actions-modal');
+  renderInventory();
+  renderDashboard();
+};
+
+// إرجاع قطعة "مباعة" (كاش أو قسط) للمخزن كمرتجع من العميل. ملحوظة هامة:
+// الإجراء ده بيرجع حالة القطعة لمتاح بس مش بيعدّل تلقائياً أي عقد أو حركة
+// خزينة مرتبطة بالبيع الأصلي (لتفادي كسر أرصدة العملاء) — أي تسوية مالية
+// لازم تتم يدوياً من شاشة العقود/الخزينة حسب حالة كل عميل.
+window.returnDeviceToStockFromClient = async function(deviceId) {
+  const dev = db.inventory.find(d => d.id === deviceId);
+  if (!dev || !dev.status.startsWith('sold')) return;
+  if (!isAdmin()) {
+    alert('⛔ استرجاع القطع من العملاء مخصص للمشرف (ADMIN) فقط.');
+    return;
+  }
+  const confirmed = await customConfirm(
+    `هل أنت متأكد من استرجاع هذه القطعة (${dev.brand} ${dev.name}) للمخزن؟\nملحوظة: هذا الإجراء لن يعدّل تلقائياً أي عقد أو رصيد خزينة مرتبط — يجب مراجعة وتسوية العقد/التحصيلات يدوياً بعدها.`,
+    'استرجاع من العميل'
+  );
+  if (!confirmed) return;
+
+  const reason = window.prompt('سبب الاسترجاع:', '') || '';
+  const previousOwner = dev.soldTo;
+  dev.status = 'available';
+  dev.soldTo = '';
+  addDeviceHistory(dev, 'استرجاع من العميل', `تم استرجاع القطعة من (${previousOwner}). السبب: ${reason}`);
+  saveToLocalStorage();
+  logAction('استرجاع جهاز من عميل', `${dev.brand} ${dev.name} (SN: ${dev.serial}) من ${previousOwner} — ${reason}`);
+  await syncWithAppsScript('updateDevice', { id: dev.id, status: dev.status, soldTo: dev.soldTo, history: dev.history });
+
+  closeModal('device-actions-modal');
+  renderInventory();
+  renderDashboard();
+};
+
+// إرجاع قطعة تالفة للمورد نهائياً: بتتحذف من المخزون، ويتسجل مبلغ استرداد
+// (Refund) في الخزينة بقيمة سعر التكلفة (بافتراض إن المورد بيرد فلوس القطعة).
+window.returnDeviceToSupplier = async function(deviceId) {
+  const dev = db.inventory.find(d => d.id === deviceId);
+  if (!dev || dev.status !== 'available') return;
+  if (!isAdmin()) {
+    alert('⛔ إرجاع القطع للموردين مخصص للمشرف (ADMIN) فقط.');
+    return;
+  }
+  const reason = window.prompt('سبب إرجاع القطعة للمورد (مثال: عيب مصنعي):', '') || '';
+  const refund = await customConfirm(`هل استرد المورد قيمة القطعة (${dev.costPrice.toLocaleString()} ج.م) نقداً في الخزينة؟`, 'استرداد قيمة القطعة');
+
+  if (refund) {
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const refundTx = {
+      id: `tx-ref-${Date.now()}`,
+      timestamp,
+      type: 'deposit',
+      amount: dev.costPrice,
+      notes: `استرداد قيمة قطعة تالفة من المورد ${dev.supplier}: ${dev.brand} ${dev.name} (SN: ${dev.serial}) — ${reason}`
+    };
+    db.treasuryTransactions.unshift(refundTx);
+    await syncWithAppsScript('addDeposit', { transaction: refundTx });
+  }
+
+  db.inventory = db.inventory.filter(d => d.id !== deviceId);
+  saveToLocalStorage();
+  logAction('إرجاع جهاز للمورد', `${dev.brand} ${dev.name} (SN: ${dev.serial}) للمورد ${dev.supplier} — ${reason}${refund ? ' (تم استرداد القيمة)' : ''}`);
+  await syncWithAppsScript('deleteDevice', { id: deviceId });
+
+  closeModal('device-actions-modal');
+  renderInventory();
+  renderTreasury();
+  renderDashboard();
+};
+
+// طباعة ملصق بسيط للقطعة (باركود بصري + بيانات أساسية) في نافذة جديدة قابلة للطباعة
+window.printDeviceLabel = function(deviceId) {
+  const dev = db.inventory.find(d => d.id === deviceId);
+  if (!dev) return;
+
+  const win = window.open('', '_blank', 'width=420,height=300');
+  const barsHtml = Array.from({ length: 40 }).map(() => {
+    const w = 1 + Math.floor(Math.random() * 3);
+    return `<div style="width:${w}px;background:#0f172a;height:100%;"></div>`;
+  }).join('');
+
+  win.document.write(`
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="UTF-8">
+      <title>ملصق ${escapeHTML(dev.serial)}</title>
+      <style>
+        body { font-family: 'Tahoma', sans-serif; padding: 16px; }
+        .label { border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; width: 320px; }
+        .barcode { display: flex; gap: 1px; height: 45px; margin: 8px 0; align-items: stretch; }
+        .row { display:flex; justify-content: space-between; font-size: 12px; margin: 2px 0; }
+      </style>
+    </head>
+    <body onload="window.print()">
+      <div class="label">
+        <div style="font-weight:bold; font-size:14px;">${escapeHTML(dev.brand)} ${escapeHTML(dev.name)}</div>
+        <div class="barcode">${barsHtml}</div>
+        <div style="text-align:center; font-family: monospace; font-size: 13px; letter-spacing: 2px;">${escapeHTML(dev.serial)}</div>
+        <div class="row"><span>السعر:</span><strong>${dev.sellingPrice.toLocaleString()} ج.م</strong></div>
+        <div class="row"><span>الحالة:</span><strong>${DEVICE_CONDITION_LABELS[dev.condition] || '-'}</strong></div>
+        <div class="row"><span>الفرع:</span><strong>${escapeHTML(dev.branch || '-')}</strong></div>
+      </div>
+    </body>
+    </html>
+  `);
+  win.document.close();
+};
+
+// ================= تصدير / استيراد المخزون بصيغة CSV =================
+window.exportInventoryCSV = function() {
+  const headers = ['الماركة', 'الموديل', 'السيريال', 'الحالة', 'الفرع', 'المورد', 'سعر التكلفة', 'سعر البيع', 'حالة القطعة', 'الضمان (شهر)', 'تاريخ الإضافة', 'ملاحظات'];
+  const rows = db.inventory.map(d => [
+    d.brand, d.name, d.serial, DEVICE_STATUS_LABELS[d.status] || d.status, d.branch || '', d.supplier || '',
+    d.costPrice, d.sellingPrice, DEVICE_CONDITION_LABELS[d.condition] || '', d.warrantyMonths || 0, d.addedDate || '', (d.notes || '').replace(/\n/g, ' ')
+  ]);
+  const csvContent = '\uFEFF' + [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `inventory_export_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+window.submitImportInventory = async function() {
+  const text = document.getElementById('import-inventory-textarea').value.trim();
+  if (!text) { alert('يرجى لصق البيانات أولاً.'); return; }
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '');
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  let added = 0, skipped = [];
+  const syncPromises = [];
+
+  lines.forEach((line, idx) => {
+    // الصيغة المتوقعة لكل سطر: الماركة,الموديل,السيريال,سعر التكلفة,سعر البيع,المورد,الفرع(اختياري)
+    const parts = line.split(',').map(p => p.trim());
+    if (parts.length < 5) { skipped.push(`سطر ${idx + 1}: بيانات ناقصة`); return; }
+    const [brand, name, serial, costStr, priceStr, supplier = '', branch = 'الفرع الرئيسي'] = parts;
+    const costPrice = parseFloat(costStr);
+    const sellingPrice = parseFloat(priceStr);
+
+    if (!brand || !name || !serial || isNaN(costPrice) || isNaN(sellingPrice)) {
+      skipped.push(`سطر ${idx + 1}: بيانات غير صحيحة`);
+      return;
+    }
+    if (isDuplicateSerial(serial)) {
+      skipped.push(`سطر ${idx + 1}: السيريال (${serial}) مكرر`);
+      return;
+    }
+
+    const newDevice = {
+      id: `dev-${Date.now()}-${idx}`,
+      brand, name, serial, costPrice, sellingPrice, supplier,
+      status: 'available', soldTo: '', condition: 'new', warrantyMonths: 0,
+      branch, minQty: 3, notes: '', addedDate: todayDate, history: []
+    };
+    addDeviceHistory(newDevice, 'استيراد دفعة', `تمت إضافة القطعة عبر الاستيراد الجماعي`);
+    db.inventory.push(newDevice);
+
+    const purchaseTx = {
+      id: `tx-pur-imp-${Date.now()}-${idx}`,
+      timestamp, type: 'inventory_purchase', amount: -costPrice,
+      notes: `شراء قطعة ${brand} ${name} (SN: ${serial}) عبر الاستيراد الجماعي من ${supplier}`
+    };
+    db.treasuryTransactions.unshift(purchaseTx);
+    syncPromises.push(syncWithAppsScript('addDevice', { newDevice, timestamp, transaction: purchaseTx }));
+    added++;
+  });
+
+  saveToLocalStorage();
+  if (added > 0) {
+    logAction('استيراد مخزون جماعي', `تمت إضافة ${added} قطعة عبر الاستيراد الجماعي`);
+  }
+  if (syncPromises.length > 0) await Promise.all(syncPromises);
+
+  let resultMsg = `تم استيراد ${added} قطعة بنجاح.`;
+  if (skipped.length > 0) resultMsg += `\n\nتم تجاهل ${skipped.length} سطر:\n${skipped.join('\n')}`;
+  alert(resultMsg);
+
+  document.getElementById('import-inventory-textarea').value = '';
+  closeModal('import-inventory-modal');
+  renderInventory();
+  renderTreasury();
   renderDashboard();
 };
 
@@ -1918,7 +2356,7 @@ function renderTreasury() {
 // حسب نسبة رأس ماله من إجمالي رأس المال.
 function computeInvestorFinancials() {
   const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available').reduce((sum, dev) => sum + dev.costPrice, 0);
+  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + dev.costPrice, 0);
   const outstandingInstallments = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + inst.amount, 0);
   const pendingCustody = db.collectorCustodies.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0);
 
@@ -3465,6 +3903,22 @@ document.getElementById('add-supplier-form').addEventListener('submit', async (e
   renderInventory();
 });
 
+// يتحقق هل رقم تسلسلي معين موجود بالفعل بالمخزن (بأي حالة: متاح أو مباع) عشان
+// نمنع تكرار نفس السيريال بغلط (خصوصاً عند اللصق أو الاستيراد الجماعي).
+function isDuplicateSerial(serial, excludeId) {
+  const clean = (serial || '').trim().toLowerCase();
+  if (!clean) return false;
+  return db.inventory.some(d => d.id !== excludeId && (d.serial || '').trim().toLowerCase() === clean);
+}
+
+// يضيف حدث جديد لسجل تاريخ الجهاز (Audit Trail على مستوى القطعة نفسها)
+function addDeviceHistory(device, action, note) {
+  if (!device.history) device.history = [];
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  device.history.unshift({ date: timestamp, action, note: note || '', by: getCurrentUserName() });
+}
+
 document.getElementById('add-device-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const brand = document.getElementById('device-brand-select').value;
@@ -3473,18 +3927,34 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
   const costPrice = parseFloat(document.getElementById('device-cost').value);
   const sellingPrice = parseFloat(document.getElementById('device-price').value);
   const supplier = document.getElementById('device-supplier').value;
+  const condition = document.getElementById('device-condition').value || 'new';
+  const warrantyMonths = parseInt(document.getElementById('device-warranty').value) || 0;
+  const branch = document.getElementById('device-branch').value.trim() || 'الفرع الرئيسي';
+  const minQty = parseInt(document.getElementById('device-min-qty').value) || 3;
+  const notes = document.getElementById('device-notes').value.trim();
 
-  const serials = serialRaw.split(',')
+  const rawSerials = serialRaw.split(',')
     .map(s => s.trim())
     .filter(s => s !== '');
 
-  if (serials.length === 0) {
+  if (rawSerials.length === 0) {
     alert('يرجى كتابة رقم تسلسلي واحد على الأقل.');
     return;
   }
 
+  // فحص التكرار قبل الإضافة: أي سيريال موجود بالفعل (بأي صنف) بيتم استبعاده
+  // وتنبيه المستخدم باسمه بدل ما يتضاف تلقائي ويسبب تعارض بيانات.
+  const duplicates = rawSerials.filter(s => isDuplicateSerial(s));
+  const serials = rawSerials.filter(s => !isDuplicateSerial(s));
+
+  if (duplicates.length > 0) {
+    alert(`⚠️ تم تجاهل السيريالات التالية لأنها مسجلة بالفعل بالمخزون:\n${duplicates.join(', ')}`);
+  }
+  if (serials.length === 0) return;
+
   const now = new Date();
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const syncPromises = [];
   serials.forEach((serial, index) => {
@@ -3497,8 +3967,16 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
       sellingPrice,
       supplier,
       status: 'available',
-      soldTo: ''
+      soldTo: '',
+      condition,
+      warrantyMonths,
+      branch,
+      minQty,
+      notes,
+      addedDate: todayDate,
+      history: []
     };
+    addDeviceHistory(newDevice, 'إضافة للمخزن', `تمت إضافة القطعة من المورد ${supplier}`);
 
     db.inventory.push(newDevice);
 
@@ -4130,6 +4608,12 @@ function populateDropdowns() {
 
 document.getElementById('client-search-input').addEventListener('input', renderClients);
 document.getElementById('inventory-search').addEventListener('input', renderInventory);
+['inventory-filter-status', 'inventory-filter-branch', 'inventory-filter-supplier'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', renderInventory);
+});
+const lowStockFilterEl = document.getElementById('inventory-filter-lowstock');
+if (lowStockFilterEl) lowStockFilterEl.addEventListener('change', renderInventory);
 document.getElementById('contract-search-input').addEventListener('input', renderContracts);
 document.getElementById('collection-search-input').addEventListener('input', renderCollections);
 document.getElementById('collection-filter-month').addEventListener('change', renderCollections);

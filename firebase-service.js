@@ -152,8 +152,10 @@ window.FirebaseService = {
             .where("name", "==", payload.name)
             .get();
           const batch = db.batch();
+          const groupUpdateData = { costPrice: payload.costPrice, sellingPrice: payload.sellingPrice, supplier: payload.supplier };
+          if (payload.minQty !== undefined) groupUpdateData.minQty = payload.minQty;
           snapshot.forEach(d => {
-            batch.update(d.ref, { costPrice: payload.costPrice, sellingPrice: payload.sellingPrice, supplier: payload.supplier });
+            batch.update(d.ref, groupUpdateData);
           });
           await batch.commit();
           break;
