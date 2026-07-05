@@ -86,12 +86,23 @@ window.FirebaseService = {
         // Users
         case 'addUser':
           await db.collection("users").doc(payload.id).set(payload);
+          // مستند خفيف منفصل بمفتاحه Auth UID، مطلوب عشان قواعد أمان Firestore
+          // تقدر تتحقق من صلاحية المستخدم (role) بسرعة وأمان وقت أي عملية قراءة/كتابة
+          if (payload.authUid && payload.role) {
+            await db.collection("userRoles").doc(payload.authUid).set({ role: payload.role });
+          }
           break;
         case 'updateUser':
           await db.collection("users").doc(payload.id).update(payload);
+          if (payload.authUid && payload.role) {
+            await db.collection("userRoles").doc(payload.authUid).set({ role: payload.role }, { merge: true });
+          }
           break;
         case 'deleteUser':
           await db.collection("users").doc(payload.id).delete();
+          if (payload.authUid) {
+            await db.collection("userRoles").doc(payload.authUid).delete();
+          }
           break;
 
         // Clients

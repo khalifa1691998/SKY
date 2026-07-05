@@ -313,7 +313,9 @@ async function resolveCurrentUserFromAuth(uid, email) {
       user.authUid = uid;
       saveToLocalStorage();
       // نحدّث Firestore كمان عشان المرة الجاية يتلاقى مباشرة عن طريق authUid
-      syncWithAppsScript('updateUser', { id: user.id, authUid: uid }).catch(err => {
+      // (وبنبعت الدور "role" كمان عشان يتزامن مستند صلاحيات المستخدم userRoles
+      // اللي قواعد أمان Firestore بتعتمد عليه)
+      syncWithAppsScript('updateUser', { id: user.id, authUid: uid, role: user.role }).catch(err => {
         console.error('فشل حفظ authUid في Firestore:', err);
       });
     }
@@ -2068,6 +2070,7 @@ window.saveUserEdits = async function() {
   logAction('تعديل مستخدم', `تعديل بيانات المستخدم ${u.name} (${u.role})`);
   await syncWithAppsScript('updateUser', {
     id: u.id,
+    authUid: u.authUid || null,
     name: u.name,
     phone: u.phone,
     role: u.role,
@@ -3108,7 +3111,7 @@ window.deleteUser = async function(id) {
     if (user) logAction('حذف مستخدم', `حذف المستخدم ${user.name}`);
     renderUsers();
     populateDropdowns();
-    await syncWithAppsScript('deleteUser', { id });
+    await syncWithAppsScript('deleteUser', { id, authUid: user ? (user.authUid || null) : null });
   }
 };
 
@@ -3370,9 +3373,11 @@ window.migrateUsersToFirebaseAuth = async function() {
         delete u.password;
 
         // تحديث Firestore: إضافة authUid، وحذف حقل password نهائياً بواسطة FieldValue.delete()
+        // وبعت الدور "role" كمان عشان يتزامن مستند userRoles اللي قواعد الأمان بتعتمد عليه
         await syncWithAppsScript('updateUser', {
           id: u.id,
           authUid: result.uid,
+          role: u.role,
           password: firebase.firestore.FieldValue.delete()
         });
         successCount++;
