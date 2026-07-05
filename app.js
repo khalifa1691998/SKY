@@ -961,6 +961,9 @@ function renderActiveTab(tabName) {
       break;
     case 'clients':
       renderClients();
+      if (!document.getElementById('clients-subtab-balances').classList.contains('hidden')) {
+        renderClientBalances();
+      }
       break;
     case 'inventory':
       renderInventory();
@@ -1188,6 +1191,170 @@ function renderClients() {
     tbody.appendChild(tr);
   });
 }
+
+// ================= CLIENTS SUB-TABS (LIST / BALANCES) =================
+window.switchClientsSubTab = function(which) {
+  const listBtn = document.getElementById('clients-subtab-btn-list');
+  const balBtn = document.getElementById('clients-subtab-btn-balances');
+  const listPane = document.getElementById('clients-subtab-list');
+  const balPane = document.getElementById('clients-subtab-balances');
+
+  if (which === 'balances') {
+    listPane.classList.add('hidden');
+    balPane.classList.remove('hidden');
+    listBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-500 hover:text-slate-700';
+    balBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-slate-800 shadow-sm';
+    renderClientBalances();
+  } else {
+    balPane.classList.add('hidden');
+    listPane.classList.remove('hidden');
+    balBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-500 hover:text-slate-700';
+    listBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-slate-800 shadow-sm';
+  }
+};
+
+// بيحسب رصيد عقد واحد: كام اتحصّل (شامل المقدم) وكام متبقي وعدد الأقساط المسددة
+function computeContractBalance(contract) {
+  const contractInsts = db.installments.filter(i => i.contractId === contract.id);
+  const paidInsts = contractInsts.filter(i => i.status === 'paid');
+  const paidFromInstallments = paidInsts.reduce((sum, i) => sum + (i.paidAmount || i.amount || 0), 0);
+  const totalPaid = (contract.downPayment || 0) + paidFromInstallments;
+  const totalRemaining = Math.max(0, (contract.totalValue || 0) - totalPaid);
+
+  return {
+    totalValue: contract.totalValue || 0,
+    totalPaid,
+    totalRemaining,
+    installmentsPaid: paidInsts.length,
+    installmentsTotal: contractInsts.length
+  };
+}
+
+// بيحسب رصيد العميل الكامل مجمّع من كل عقوده (كل الأجهزة اللي واخدها)
+function computeClientBalance(clientId) {
+  const clientContracts = db.contracts.filter(c => c.clientId === clientId);
+  const devices = clientContracts.map(c => ({ contract: c, balance: computeContractBalance(c) }));
+
+  const totals = devices.reduce((acc, d) => {
+    acc.totalValue += d.balance.totalValue;
+    acc.totalPaid += d.balance.totalPaid;
+    acc.totalRemaining += d.balance.totalRemaining;
+    return acc;
+  }, { totalValue: 0, totalPaid: 0, totalRemaining: 0 });
+
+  return { devices, totals };
+}
+
+let expandedBalanceClients = new Set();
+window.toggleClientBalanceRow = function(clientId) {
+  if (expandedBalanceClients.has(clientId)) {
+    expandedBalanceClients.delete(clientId);
+  } else {
+    expandedBalanceClients.add(clientId);
+  }
+  renderClientBalances();
+};
+
+function renderClientBalances() {
+  const searchVal = (document.getElementById('balance-search-input').value || '').toLowerCase();
+  const listContainer = document.getElementById('client-balances-list');
+  const emptyState = document.getElementById('balances-empty-state');
+  listContainer.innerHTML = '';
+
+  const clientsWithContracts = db.clients.filter(c => db.contracts.some(ct => ct.clientId === c.id));
+  const filtered = clientsWithContracts.filter(c =>
+    c.name.toLowerCase().includes(searchVal) || (c.phone || '').includes(searchVal)
+  );
+
+  if (filtered.length === 0) {
+    emptyState.classList.remove('hidden');
+    document.getElementById('balance-summary-total').textContent = '0';
+    document.getElementById('balance-summary-paid').textContent = '0';
+    document.getElementById('balance-summary-remaining').textContent = '0';
+    return;
+  }
+  emptyState.classList.add('hidden');
+
+  let grandTotal = 0, grandPaid = 0, grandRemaining = 0;
+
+  filtered.forEach(client => {
+    const { devices, totals } = computeClientBalance(client.id);
+    grandTotal += totals.totalValue;
+    grandPaid += totals.totalPaid;
+    grandRemaining += totals.totalRemaining;
+
+    const progressPct = totals.totalValue > 0 ? Math.round((totals.totalPaid / totals.totalValue) * 100) : 0;
+    const isExpanded = expandedBalanceClients.has(client.id);
+
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden';
+    card.innerHTML = `
+      <div onclick="toggleClientBalanceRow('${client.id}')" class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors select-none">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm">
+            <i class="ph ${isExpanded ? 'ph-folder-open' : 'ph-folder'} text-lg"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-slate-800 text-md">${escapeHTML(client.name)}</h4>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">هاتف: ${escapeHTML(client.phone)} | عدد الأجهزة: ${devices.length}</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-4 text-xs font-semibold">
+          <div class="bg-slate-100 text-slate-700 py-1.5 px-3 rounded-lg">إجمالي: <span class="font-black text-sm">${totals.totalValue.toLocaleString()} ج.م</span></div>
+          <div class="bg-emerald-50 text-emerald-700 py-1.5 px-3 rounded-lg">تم تحصيله: <span class="font-black text-sm">${totals.totalPaid.toLocaleString()} ج.م</span></div>
+          <div class="bg-amber-50 text-amber-700 py-1.5 px-3 rounded-lg">المتبقي: <span class="font-black text-sm">${totals.totalRemaining.toLocaleString()} ج.م</span></div>
+          <div class="w-24 hidden sm:block">
+            <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500" style="width:${progressPct}%"></div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5 text-center">${progressPct}% مسدد</p>
+          </div>
+          <i class="ph ${isExpanded ? 'ph-caret-up' : 'ph-caret-down'} text-slate-400 text-sm ml-2"></i>
+        </div>
+      </div>
+
+      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 bg-white space-y-2">
+        <div class="overflow-x-auto">
+          <table class="w-full text-right border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[11px]">
+                <th class="p-2.5">الجهاز</th>
+                <th class="p-2.5">رقم العقد</th>
+                <th class="p-2.5">قيمة العقد</th>
+                <th class="p-2.5">تم تحصيله</th>
+                <th class="p-2.5">المتبقي</th>
+                <th class="p-2.5">الأقساط المنجزة</th>
+                <th class="p-2.5 text-center">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700">
+              ${devices.map(d => `
+                <tr>
+                  <td class="p-2.5 font-bold">${escapeHTML(d.contract.deviceInfo)}</td>
+                  <td class="p-2.5 font-mono text-slate-500">${escapeHTML(d.contract.id.replace('con-', ''))}</td>
+                  <td class="p-2.5 font-mono font-bold">${d.balance.totalValue.toLocaleString()} ج.م</td>
+                  <td class="p-2.5 font-mono text-emerald-600 font-bold">${d.balance.totalPaid.toLocaleString()} ج.م</td>
+                  <td class="p-2.5 font-mono text-amber-600 font-bold">${d.balance.totalRemaining.toLocaleString()} ج.م</td>
+                  <td class="p-2.5 font-mono">${d.balance.installmentsPaid} / ${d.balance.installmentsTotal}</td>
+                  <td class="p-2.5 text-center">
+                    <button onclick="viewContractDetails('${d.contract.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[10px] font-semibold transition-all">تفاصيل العقد</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    listContainer.appendChild(card);
+  });
+
+  document.getElementById('balance-summary-total').textContent = grandTotal.toLocaleString();
+  document.getElementById('balance-summary-paid').textContent = grandPaid.toLocaleString();
+  document.getElementById('balance-summary-remaining').textContent = grandRemaining.toLocaleString();
+}
+
+document.getElementById('balance-search-input').addEventListener('input', renderClientBalances);
 
 // --- 3. INVENTORY & DEVICES ---
 function renderInventory() {
@@ -1516,6 +1683,7 @@ function renderCollections() {
             <thead>
               <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[11px]">
                 <th class="p-2.5">رقم الدفعة</th>
+                <th class="p-2.5">الجهاز</th>
                 <th class="p-2.5">تاريخ الاستحقاق</th>
                 <th class="p-2.5">القسط الأساسي</th>
                 <th class="p-2.5">الحالة والتأخير</th>
@@ -1528,6 +1696,7 @@ function renderCollections() {
             <tbody class="divide-y divide-slate-100 text-slate-700">
               ${clientGroup.installments.map(inst => {
                 const statusInfo = getInstallmentOverdueStatus(inst);
+                const instContract = db.contracts.find(c => c.id === inst.contractId);
                 
                 let collectorOptions = db.users
                   .filter(u => u.role === 'COLLECTOR')
@@ -1539,6 +1708,7 @@ function renderCollections() {
                 return `
                   <tr>
                     <td class="p-2.5 font-bold">قسط ${inst.installmentNum}</td>
+                    <td class="p-2.5 text-slate-600">${escapeHTML(instContract?.deviceInfo) || '—'}</td>
                     <td class="p-2.5 font-mono text-slate-500">${inst.dueDate}</td>
                     <td class="p-2.5 font-mono font-bold">${inst.amount.toLocaleString()} ج.م</td>
                     <td class="p-2.5"><span class="badge ${statusInfo.statusColor} font-bold">${statusInfo.statusText}</span></td>
