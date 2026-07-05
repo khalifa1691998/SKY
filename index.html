@@ -175,6 +175,10 @@
         <i class="ph ph-chart-pie-slice text-lg w-5"></i>
         <span>المستثمرون ورأس المال</span>
       </a>
+      <a href="#" data-tab="reports" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-chart-bar text-lg w-5"></i>
+        <span>التقارير</span>
+      </a>
       <a href="#" data-tab="users" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-user-gear text-lg w-5"></i>
         <span>إدارة المستخدمين</span>
@@ -797,6 +801,106 @@
           </div>
           <div id="investors-empty-state" class="p-6 text-center text-slate-400 text-sm hidden">
             لا يوجد مستثمرون مُسجّلون بعد. اضغط "إضافة مستثمر جديد" للبدء.
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: REPORTS ================= -->
+      <section id="tab-reports" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">التقارير</h3>
+            <p class="text-sm text-slate-500">ملخص مالي وتشغيلي شامل خلال فترة محددة، قابل للطباعة أو الحفظ كـ PDF مباشرة.</p>
+          </div>
+          <button onclick="printReportsPage()" class="no-print px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-sm shadow-lg transition-all duration-200 flex items-center gap-2">
+            <i class="ph ph-printer"></i>
+            <span>طباعة / حفظ PDF</span>
+          </button>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="glass-card rounded-2xl p-5 flex flex-wrap items-end gap-4 no-print">
+          <div>
+            <label class="form-label">من تاريخ</label>
+            <input type="date" id="report-from-date" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">إلى تاريخ</label>
+            <input type="date" id="report-to-date" class="form-input">
+          </div>
+          <button onclick="renderReports()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2 h-fit">
+            <i class="ph ph-funnel"></i>
+            <span>تطبيق الفلتر</span>
+          </button>
+        </div>
+
+        <!-- KPI Summary -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div class="glass-card rounded-2xl p-5">
+            <p class="text-xs font-semibold text-slate-500">مبيعات العقود بالفترة</p>
+            <h4 class="text-xl font-bold text-slate-900 mt-2" id="report-kpi-sales">0.00 ج.م</h4>
+          </div>
+          <div class="glass-card rounded-2xl p-5">
+            <p class="text-xs font-semibold text-slate-500">إجمالي التحصيل بالفترة</p>
+            <h4 class="text-xl font-bold text-emerald-600 mt-2" id="report-kpi-collections">0.00 ج.م</h4>
+          </div>
+          <div class="glass-card rounded-2xl p-5">
+            <p class="text-xs font-semibold text-slate-500">إجمالي المصروفات والمشتريات</p>
+            <h4 class="text-xl font-bold text-rose-600 mt-2" id="report-kpi-expenses">0.00 ج.م</h4>
+          </div>
+          <div class="glass-card rounded-2xl p-5">
+            <p class="text-xs font-semibold text-slate-500">صافي التدفق النقدي بالفترة</p>
+            <h4 class="text-xl font-bold text-teal-600 mt-2" id="report-kpi-net">0.00 ج.م</h4>
+          </div>
+        </div>
+
+        <!-- Collector Performance -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+          <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
+            <i class="ph ph-users-three text-teal-600"></i>
+            <span>أداء المحصلين خلال الفترة</span>
+          </h4>
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-semibold">
+                  <th class="p-3">المحصل</th>
+                  <th class="p-3">عدد الأقساط المحصّلة</th>
+                  <th class="p-3">إجمالي المبلغ المحصَّل</th>
+                  <th class="p-3">أقساط متأخرة مسندة له حالياً</th>
+                </tr>
+              </thead>
+              <tbody id="report-collectors-body" class="text-sm divide-y divide-slate-100">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Overdue Clients -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+          <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
+            <i class="ph ph-warning-circle text-rose-600"></i>
+            <span>العملاء المتأخرون حالياً (لقطة لحظية)</span>
+          </h4>
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-semibold">
+                  <th class="p-3">العميل</th>
+                  <th class="p-3">الهاتف</th>
+                  <th class="p-3">عدد الأقساط المتأخرة</th>
+                  <th class="p-3">إجمالي المستحق (شامل الغرامة)</th>
+                  <th class="p-3">أطول مدة تأخير</th>
+                </tr>
+              </thead>
+              <tbody id="report-overdue-body" class="text-sm divide-y divide-slate-100">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div id="report-overdue-empty" class="p-6 text-center text-slate-400 text-sm hidden">
+            لا يوجد عملاء متأخرون حالياً. 🎉
           </div>
         </div>
       </section>
@@ -2030,6 +2134,10 @@
       </div>
     </div>
   </div>
+
+  <!-- منطقة الطباعة: بيتم حقن محتوى الإيصال/التقرير جواها وقت الطباعة، وباقي
+       الصفحة بتتخفى تلقائياً بواسطة قواعد CSS الخاصة بـ @media print -->
+  <div id="print-area"></div>
 
   <!-- Firebase Compat SDKs (work on local file:// protocol without CORS block) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>

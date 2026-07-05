@@ -962,6 +962,9 @@ function renderActiveTab(tabName) {
     case 'investors':
       renderInvestors();
       break;
+    case 'reports':
+      renderReports();
+      break;
     case 'users':
       renderUsers();
       break;
@@ -1544,7 +1547,10 @@ function renderCollections() {
                       ${inst.status !== 'paid' ? `
                         <button onclick="collectInstallmentBtn('${inst.id}')" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold text-[10px] transition-all"><i class="ph ph-check-square"></i> تحصيل</button>
                       ` : `
-                        <span class="text-emerald-600 font-bold"><i class="ph ph-check mr-0.5"></i> معتمد</span>
+                        <div class="inline-flex items-center gap-1">
+                          <span class="text-emerald-600 font-bold text-[10px]"><i class="ph ph-check mr-0.5"></i> معتمد</span>
+                          <button onclick="printInstallmentReceipt('${inst.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-[10px] transition-all"><i class="ph ph-printer"></i> إيصال</button>
+                        </div>
                       `}
                     </td>
                   </tr>
@@ -1973,7 +1979,152 @@ window.rejectCollectorCustody = async function(id) {
   }
 };
 
-// --- 7. USER MANAGEMENT ---
+// --- 7. REPORTS ---
+function renderReports() {
+  const fromInput = document.getElementById('report-from-date');
+  const toInput = document.getElementById('report-to-date');
+
+  // افتراضياً: من أول الشهر الحالي لحد النهاردة، لو المستخدم لسه ما حددش فترة
+  if (!fromInput.value) {
+    const now = new Date();
+    fromInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  }
+  if (!toInput.value) {
+    toInput.value = new Date().toISOString().split('T')[0];
+  }
+
+  const fromDate = fromInput.value;
+  const toDate = toInput.value;
+
+  // ---- KPIs (حسب الفترة المختارة) ----
+  const contractsInRange = db.contracts.filter(c => c.startDate >= fromDate && c.startDate <= toDate);
+  const salesInRange = contractsInRange.reduce((sum, c) => sum + c.totalValue, 0);
+
+  const txInRange = db.treasuryTransactions.filter(tx => {
+    const txDate = (tx.timestamp || '').split(' ')[0];
+    return txDate >= fromDate && txDate <= toDate;
+  });
+  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
+  const expensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase').reduce((sum, tx) => sum + tx.amount, 0));
+  const netInRange = txInRange.reduce((sum, tx) => sum + tx.amount, 0);
+
+  document.getElementById('report-kpi-sales').textContent = `${salesInRange.toLocaleString()} ج.م`;
+  document.getElementById('report-kpi-collections').textContent = `${collectionsInRange.toLocaleString()} ج.م`;
+  document.getElementById('report-kpi-expenses').textContent = `${expensesInRange.toLocaleString()} ج.م`;
+  document.getElementById('report-kpi-net').textContent = `${netInRange.toLocaleString()} ج.م`;
+
+  // ---- أداء المحصلين خلال الفترة ----
+  const collectors = db.users.filter(u => u.role === 'COLLECTOR');
+  const collectorsBody = document.getElementById('report-collectors-body');
+  collectorsBody.innerHTML = '';
+
+  collectors.forEach(col => {
+    const paidInRange = db.installments.filter(i =>
+      i.status === 'paid' && i.collectorName === col.name && i.paidDate >= fromDate && i.paidDate <= toDate
+    );
+    const collectedAmount = paidInRange.reduce((sum, i) => sum + (i.paidAmount || i.amount), 0);
+    const overdueAssigned = db.installments.filter(i => {
+      if (i.collectorName !== col.name || i.status === 'paid') return false;
+      return getInstallmentOverdueStatus(i).overdueDays > 0;
+    }).length;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="p-3 font-bold">${col.name}</td>
+      <td class="p-3 font-mono">${paidInRange.length}</td>
+      <td class="p-3 font-mono font-bold text-emerald-600">${collectedAmount.toLocaleString()} ج.م</td>
+      <td class="p-3 font-mono ${overdueAssigned > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">${overdueAssigned}</td>
+    `;
+    collectorsBody.appendChild(row);
+  });
+
+  // ---- العملاء المتأخرون حالياً (لقطة لحظية، مش مرتبطة بفلتر التاريخ) ----
+  const overdueByClient = {};
+  db.installments.forEach(inst => {
+    if (inst.status === 'paid') return;
+    const stats = getInstallmentOverdueStatus(inst);
+    if (stats.overdueDays <= 0) return;
+    const contract = db.contracts.find(c => c.id === inst.contractId);
+    const clientId = contract?.clientId || inst.clientName;
+    if (!overdueByClient[clientId]) {
+      overdueByClient[clientId] = { name: inst.clientName, phone: inst.clientPhone, count: 0, totalDue: 0, maxDays: 0 };
+    }
+    overdueByClient[clientId].count++;
+    overdueByClient[clientId].totalDue += stats.totalDue;
+    overdueByClient[clientId].maxDays = Math.max(overdueByClient[clientId].maxDays, stats.overdueDays);
+  });
+
+  const overdueBody = document.getElementById('report-overdue-body');
+  const overdueEmpty = document.getElementById('report-overdue-empty');
+  overdueBody.innerHTML = '';
+  const overdueList = Object.values(overdueByClient).sort((a, b) => b.maxDays - a.maxDays);
+
+  if (overdueList.length === 0) {
+    overdueEmpty.classList.remove('hidden');
+  } else {
+    overdueEmpty.classList.add('hidden');
+    overdueList.forEach(c => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-3 font-bold">${c.name}</td>
+        <td class="p-3 font-mono">${c.phone}</td>
+        <td class="p-3 font-mono">${c.count}</td>
+        <td class="p-3 font-mono font-bold text-rose-600">${c.totalDue.toLocaleString()} ج.م</td>
+        <td class="p-3 font-mono">${c.maxDays} يوم</td>
+      `;
+      overdueBody.appendChild(row);
+    });
+  }
+}
+
+// طباعة صفحة التقارير الحالية كمستند PDF/ورقي كامل
+window.printReportsPage = function() {
+  const companyName = db.settings.companyName || 'شركة SKY';
+  const fromDate = document.getElementById('report-from-date').value;
+  const toDate = document.getElementById('report-to-date').value;
+
+  const collectorsRows = document.getElementById('report-collectors-body').innerHTML;
+  const overdueRows = document.getElementById('report-overdue-body').innerHTML;
+  const overdueEmptyVisible = !document.getElementById('report-overdue-empty').classList.contains('hidden');
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${companyName}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>الفترة:</strong> ${fromDate} إلى ${toDate}</div>
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">تقرير مالي وتشغيلي شامل</div>
+
+    <div class="print-doc-row"><span>مبيعات العقود بالفترة</span><strong>${document.getElementById('report-kpi-sales').textContent}</strong></div>
+    <div class="print-doc-row"><span>إجمالي التحصيل بالفترة</span><strong>${document.getElementById('report-kpi-collections').textContent}</strong></div>
+    <div class="print-doc-row"><span>إجمالي المصروفات والمشتريات</span><strong>${document.getElementById('report-kpi-expenses').textContent}</strong></div>
+    <div class="print-doc-row"><span>صافي التدفق النقدي بالفترة</span><strong>${document.getElementById('report-kpi-net').textContent}</strong></div>
+
+    <h4 style="margin-top:20px; margin-bottom:8px; font-weight:700;">أداء المحصلين خلال الفترة</h4>
+    <table class="print-doc-table">
+      <thead><tr><th>المحصل</th><th>عدد الأقساط المحصّلة</th><th>إجمالي المبلغ المحصَّل</th><th>أقساط متأخرة مسندة له حالياً</th></tr></thead>
+      <tbody>${collectorsRows}</tbody>
+    </table>
+
+    <h4 style="margin-top:20px; margin-bottom:8px; font-weight:700;">العملاء المتأخرون حالياً</h4>
+    ${overdueEmptyVisible ? '<p style="font-size:0.85rem; color:#64748b;">لا يوجد عملاء متأخرون حالياً.</p>' : `
+    <table class="print-doc-table">
+      <thead><tr><th>العميل</th><th>الهاتف</th><th>عدد الأقساط المتأخرة</th><th>إجمالي المستحق</th><th>أطول مدة تأخير</th></tr></thead>
+      <tbody>${overdueRows}</tbody>
+    </table>`}
+
+    <div class="print-doc-footer">تم إصدار هذا التقرير إلكترونياً من نظام ${companyName}</div>
+  `;
+  printHTML(html);
+  logAction('طباعة تقرير', `طباعة التقرير المالي والتشغيلي للفترة من ${fromDate} إلى ${toDate}`);
+};
+
+// --- 8. USER MANAGEMENT ---
 function renderUsers() {
   const tbody = document.getElementById('users-table-body');
   if (!tbody) return;
@@ -2192,6 +2343,66 @@ document.getElementById('setting-company-logo-file').addEventListener('change', 
   };
   reader.readAsDataURL(file);
 });
+
+// ================= PRINTING (RECEIPTS & REPORTS) =================
+// آلية طباعة عامة: بنحقن أي محتوى HTML جوه #print-area، وبعدها بنستدعي
+// window.print() فيفتح المتصفح مربع حوار الطباعة اللي فيه خيار "حفظ كـ PDF"
+// بشكل أصلي، من غير أي مكتبة جافاسكريبت خارجية (وبيدعم العربي/RTL بشكل مثالي
+// لأنه بيستخدم محرك عرض المتصفح نفسه).
+function printHTML(innerHtml) {
+  const area = document.getElementById('print-area');
+  if (!area) return;
+  area.innerHTML = innerHtml;
+  setTimeout(() => window.print(), 50);
+}
+
+// طباعة إيصال تحصيل قسط بعد اعتماده
+window.printInstallmentReceipt = function(instId) {
+  const inst = db.installments.find(i => i.id === instId);
+  if (!inst || inst.status !== 'paid') {
+    showToast('❌ لا يمكن طباعة إيصال لقسط غير مسدد بعد.', 'error');
+    return;
+  }
+  const contract = db.contracts.find(c => c.id === inst.contractId);
+  const client = db.clients.find(c => c.id === inst.clientId) || {};
+  const companyName = db.settings.companyName || 'شركة SKY';
+
+  const remainingOnContract = db.installments
+    .filter(i => i.contractId === inst.contractId && i.status !== 'paid')
+    .reduce((sum, i) => sum + i.amount, 0);
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${companyName}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>رقم الإيصال:</strong> ${inst.receiptId || '—'}</div>
+        <div><strong>التاريخ:</strong> ${inst.paidDate || ''}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">إيصال استلام دفعة قسط</div>
+    <div class="print-doc-row"><span>اسم العميل</span><strong>${inst.clientName}</strong></div>
+    <div class="print-doc-row"><span>رقم الهاتف</span><strong>${inst.clientPhone}</strong></div>
+    <div class="print-doc-row"><span>رقم العقد</span><strong>${inst.contractId}</strong></div>
+    <div class="print-doc-row"><span>الجهاز</span><strong>${contract ? contract.deviceInfo : '—'}</strong></div>
+    <div class="print-doc-row"><span>رقم القسط</span><strong>قسط ${inst.installmentNum} من ${contract ? contract.duration : '—'}</strong></div>
+    <div class="print-doc-row"><span>المبلغ المحصَّل</span><strong>${(inst.paidAmount || inst.amount).toLocaleString()} ج.م</strong></div>
+    ${inst.delayFines > 0 ? `<div class="print-doc-row"><span>غرامة تأخير مضمّنة</span><strong>${inst.delayFines.toLocaleString()} ج.م</strong></div>` : ''}
+    <div class="print-doc-row"><span>المحصّل</span><strong>${inst.collectorName || '—'}</strong></div>
+    <div class="print-doc-row" style="border-top:1px dashed #94a3b8; margin-top:8px; padding-top:8px;">
+      <span>إجمالي المتبقي على العقد بعد هذه الدفعة</span><strong>${remainingOnContract.toLocaleString()} ج.م</strong>
+    </div>
+    <div class="print-doc-signatures">
+      <div>توقيع المحصّل: ______________</div>
+      <div>توقيع العميل: ______________</div>
+    </div>
+    <div class="print-doc-footer">تم إصدار هذا الإيصال إلكترونياً من نظام ${companyName} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+  printHTML(html);
+  logAction('طباعة إيصال', `طباعة إيصال تحصيل القسط رقم ${inst.installmentNum} للعقد ${inst.contractId}`);
+};
 
 // ================= WHATSAPP INTEGRATION =================
 let activeWhatsappPayload = { phone: '', text: '' };

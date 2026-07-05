@@ -410,3 +410,54 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Tables scrollable on mobile */
 .table-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll-wrapper table { min-width: 700px; }
+
+/* ================= طباعة الإيصالات والتقارير =================
+   بدل توليد PDF عبر مكتبة جافاسكريبت (اللي بتواجه مشاكل معروفة مع دعم
+   النصوص العربية/RTL)، بنعتمد على محرك طباعة المتصفح نفسه: بنحقن محتوى
+   الإيصال/التقرير جوه #print-area، ووقت الطباعة (Ctrl+P أو "حفظ كـ PDF")
+   بنخفي كل حاجة في الصفحة ما عدا هذا العنصر بالذات. النتيجة: مستند عربي
+   نظيف تماماً وبدون أي تعقيد إضافي أو مكتبات خارجية. */
+#print-area { display: none; }
+
+@media print {
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 20px;
+    direction: rtl;
+    font-family: var(--font-family);
+    color: #000;
+    background: #fff;
+  }
+  .no-print { display: none !important; }
+}
+
+.print-doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #0d9488;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+.print-doc-title {
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin: 10px 0 18px;
+  color: #0d9488;
+}
+.print-doc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.print-doc-table th, .print-doc-table td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  text-align: right;
+}
+.print-doc-table th { background: #f1f5f9; }
+.print-doc-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.9rem; }
+.print-doc-signatures { display: flex; justify-content: space-between; margin-top: 50px; font-size: 0.85rem; }
+.print-doc-footer { margin-top: 24px; font-size: 0.7rem; color: #64748b; text-align: center; }
