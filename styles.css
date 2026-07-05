@@ -85,6 +85,10 @@ body::after {
 .dark ::-webkit-scrollbar-thumb { background: #334165; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #475a85; }
 
+/* إخفاء شريط التمرير لعناصر معينة (مثل صف الشارات العلوي على الموبايل) مع إبقاء إمكانية التمرير */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* ================= Glassmorphism ================= */
 .glass-card {
   background: rgba(255, 255, 255, 0.85);

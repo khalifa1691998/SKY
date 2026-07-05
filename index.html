@@ -130,15 +130,15 @@
     <!-- Sidebar (Right Theme - RTL Layout) -->
     <aside id="app-sidebar" class="md:w-80 glass-sidebar text-white flex flex-col h-screen md:sticky md:top-0">
     <!-- Brand / Logo -->
-    <div class="p-5 border-b border-skyDark-700 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div id="company-logo-container" class="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/30 overflow-hidden">
-          <i id="company-logo-icon" class="ph ph-cloud-lightning text-xl text-white"></i>
+    <div class="p-4 md:p-5 border-b border-skyDark-700 flex items-center justify-between">
+      <div class="flex items-center gap-2.5 md:gap-3">
+        <div id="company-logo-container" class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/30 overflow-hidden shrink-0">
+          <i id="company-logo-icon" class="ph ph-cloud-lightning text-lg md:text-xl text-white"></i>
           <img id="company-logo-img" class="w-full h-full object-cover hidden" src="" alt="شعار الشركة">
         </div>
         <div>
-          <h1 id="company-name-display" class="text-xl font-bold tracking-wider text-teal-400">شركة SKY</h1>
-          <p class="text-xs text-slate-400">نظام إدارة الأقساط والخزينة</p>
+          <h1 id="company-name-display" class="text-base md:text-xl font-bold tracking-wider text-teal-400">شركة SKY</h1>
+          <p class="text-[10px] md:text-xs text-slate-400">نظام إدارة الأقساط والخزينة</p>
         </div>
       </div>
       <button class="text-slate-400 hover:text-white" onclick="closeMobileSidebar()" title="إغلاق القائمة">
@@ -147,53 +147,53 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto" id="sidebar-menu">
-      <a href="#" data-tab="dashboard" class="nav-link nav-link-active flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 active-tab-btn">
-        <i class="ph ph-chart-line text-lg w-5"></i>
+    <nav class="flex-1 px-3 md:px-4 py-4 md:py-6 space-y-1 overflow-y-auto text-sm md:text-base" id="sidebar-menu">
+      <a href="#" data-tab="dashboard" class="nav-link nav-link-active flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-semibold transition-all duration-200 active-tab-btn">
+        <i class="ph ph-chart-line text-base md:text-lg w-5 shrink-0"></i>
         <span>لوحة القيادة</span>
       </a>
-      <a href="#" data-tab="clients" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-users text-lg w-5"></i>
+      <a href="#" data-tab="clients" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-users text-base md:text-lg w-5 shrink-0"></i>
         <span>العملاء والضامنين</span>
       </a>
-      <a href="#" data-tab="client-balances" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-wallet text-lg w-5"></i>
+      <a href="#" data-tab="client-balances" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-wallet text-base md:text-lg w-5 shrink-0"></i>
         <span>أرصدة العملاء</span>
       </a>
-      <a href="#" data-tab="inventory" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-stack text-lg w-5"></i>
+      <a href="#" data-tab="inventory" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-stack text-base md:text-lg w-5 shrink-0"></i>
         <span>المخزون والأجهزة</span>
       </a>
-      <a href="#" data-tab="contracts" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-signature text-lg w-5"></i>
+      <a href="#" data-tab="contracts" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-signature text-base md:text-lg w-5 shrink-0"></i>
         <span>العقود والمبيعات</span>
       </a>
-      <a href="#" data-tab="collections" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-hand-coins text-lg w-5"></i>
+      <a href="#" data-tab="collections" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-hand-coins text-base md:text-lg w-5 shrink-0"></i>
         <span>التحصيلات</span>
       </a>
-      <a href="#" data-tab="treasury" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-lock-key text-lg w-5"></i>
+      <a href="#" data-tab="treasury" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-lock-key text-base md:text-lg w-5 shrink-0"></i>
         <span>الخزينة</span>
       </a>
-      <a href="#" data-tab="investors" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-chart-pie-slice text-lg w-5"></i>
+      <a href="#" data-tab="investors" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-chart-pie-slice text-base md:text-lg w-5 shrink-0"></i>
         <span>المستثمرون ورأس المال</span>
       </a>
-      <a href="#" data-tab="reports" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-chart-bar text-lg w-5"></i>
+      <a href="#" data-tab="reports" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-chart-bar text-base md:text-lg w-5 shrink-0"></i>
         <span>التقارير</span>
       </a>
-      <a href="#" data-tab="users" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-user-gear text-lg w-5"></i>
+      <a href="#" data-tab="users" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-user-gear text-base md:text-lg w-5 shrink-0"></i>
         <span>إدارة المستخدمين</span>
       </a>
-      <a href="#" data-tab="audit-log" class="admin-only flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-clock-counter-clockwise text-lg w-5"></i>
+      <a href="#" data-tab="audit-log" class="admin-only flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-clock-counter-clockwise text-base md:text-lg w-5 shrink-0"></i>
         <span>سجل العمليات</span>
       </a>
-      <a href="#" data-tab="settings" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
-        <i class="ph ph-sliders text-lg w-5"></i>
+      <a href="#" data-tab="settings" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-sliders text-base md:text-lg w-5 shrink-0"></i>
         <span>إعدادات النظام</span>
       </a>
     </nav>
@@ -219,161 +219,161 @@
   <!-- Main Content Area -->
   <main class="flex-1 flex flex-col min-w-0 overflow-y-auto dark:bg-skyDark-950 transition-colors duration-300 pt-14 md:pt-0">
     <!-- Top Header -->
-    <header class="p-6 bg-white dark:bg-skyDark-900 border-b border-slate-100 dark:border-skyDark-800 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-300">
+    <header class="p-4 md:p-6 bg-white dark:bg-skyDark-900 border-b border-slate-100 dark:border-skyDark-800 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 transition-colors duration-300">
       <div>
-        <h2 class="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+        <h2 class="text-lg md:text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
           أهلاً بك، <span id="header-username">...</span> 👋
         </h2>
-        <p id="header-company-subtitle" class="text-sm text-slate-500 dark:text-slate-400 mt-1">تتابع الآن لوحة التحكم المالية الموحدة والرقابة الإدارية الذكية لمبيعات التقسيط وحسابات الأمانة لدى شركة SKY.</p>
+        <p id="header-company-subtitle" class="hidden md:block text-sm text-slate-500 dark:text-slate-400 mt-1">تتابع الآن لوحة التحكم المالية الموحدة والرقابة الإدارية الذكية لمبيعات التقسيط وحسابات الأمانة لدى شركة SKY.</p>
       </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <button id="theme-toggle-btn" class="p-2 rounded-xl bg-slate-100 dark:bg-skyDark-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-skyDark-700 transition-colors" title="تبديل الوضع الليلي/النهاري">
+      <div class="flex items-center gap-2 md:gap-3 overflow-x-auto md:flex-wrap no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+        <button id="theme-toggle-btn" class="shrink-0 p-2 rounded-xl bg-slate-100 dark:bg-skyDark-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-skyDark-700 transition-colors" title="تبديل الوضع الليلي/النهاري">
           <i id="theme-toggle-icon" class="ph ph-moon"></i>
         </button>
-        <span id="header-sync-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200"></span>
-        <span id="header-role-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-100 dark:border-teal-800/50">
+        <span id="header-sync-badge" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold transition-all duration-200"></span>
+        <span id="header-role-badge" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-100 dark:border-teal-800/50">
           <span class="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-ping"></span>
           الوصول: رئيسي (ADMIN)
         </span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
+        <span class="shrink-0 hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
           أمن النظام ونزاهة التدقيق مفعلان 🔒
         </span>
       </div>
     </header>
 
     <!-- Main Dynamic Section -->
-    <div class="p-6 space-y-6 flex-1" id="main-content-tabs">
+    <div class="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 flex-1" id="main-content-tabs">
 
       <!-- ================= TAB: DASHBOARD ================= -->
       <section id="tab-dashboard" class="space-y-6">
         <!-- KPI Cards Grid (8 metrics) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
           <!-- 1. Available Treasury Balance -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">رصيد الخزينة المتاح</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-treasury-balance">0.00 ج.م</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">رصيد الخزينة المتاح</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-treasury-balance">0.00 ج.م</h3>
               </div>
-              <div class="p-3 bg-emerald-50 text-emerald-500 rounded-xl">
-                <i class="ph ph-lock-key text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-emerald-50 text-emerald-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-lock-key text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4 flex items-center gap-1 text-xs text-emerald-600">
-              <i class="ph ph-circle text-[8px] animate-pulse"></i>
+            <div class="mt-1.5 sm:mt-4 flex items-center gap-1 text-[10px] sm:text-xs text-emerald-600">
+              <i class="ph ph-circle text-[8px] animate-pulse hidden sm:inline"></i>
               <span>مؤمن بالكامل</span>
             </div>
           </div>
 
           <!-- 2. Total Sales -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">إجمالي المبيعات</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-total-sales">0.00 ج.م</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي المبيعات</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-total-sales">0.00 ج.م</h3>
               </div>
-              <div class="p-3 bg-teal-50 text-teal-500 rounded-xl">
-                <i class="ph ph-shopping-cart text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-teal-50 text-teal-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-shopping-cart text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4 text-xs text-slate-400">
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
               <span>عقود وبيعات مباشرة</span>
             </div>
           </div>
 
           <!-- 3. Active Collections -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">إجمالي التحصيلات الفعالة</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-active-collections">0.00 ج.م</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي التحصيلات الفعالة</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-active-collections">0.00 ج.م</h3>
               </div>
-              <div class="p-3 bg-blue-50 text-blue-500 rounded-xl">
-                <i class="ph ph-receipt text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-blue-50 text-blue-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-receipt text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4 text-xs text-slate-400">
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
               <span>تتضمن تحصيلات عهد معتمدة</span>
             </div>
           </div>
 
           <!-- 4. Total Expenses -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">إجمالي المصروفات</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-total-expenses">0.00 ج.م</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي المصروفات</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-total-expenses">0.00 ج.م</h3>
               </div>
-              <div class="p-3 bg-rose-50 text-rose-500 rounded-xl">
-                <i class="ph ph-trend-down text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-rose-50 text-rose-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-trend-down text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4 text-xs text-rose-600">
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-rose-600 truncate">
               <span>نثريات ومشتريات بضائع</span>
             </div>
           </div>
 
           <!-- 5. Total Overdue Installments -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1" id="kpi-overdue-container">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">إجمالي الأقساط المتأخرة</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-overdue-installments">0.00 ج.م</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1" id="kpi-overdue-container">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي الأقساط المتأخرة</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-overdue-installments">0.00 ج.م</h3>
               </div>
-              <div class="p-3 bg-amber-50 text-amber-500 rounded-xl" id="kpi-overdue-icon-bg">
-                <i class="ph ph-warning-circle text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-amber-50 text-amber-500 rounded-lg sm:rounded-xl shrink-0" id="kpi-overdue-icon-bg">
+                <i class="ph ph-warning-circle text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4 text-xs text-amber-600 flex items-center gap-1" id="kpi-overdue-alert-text">
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-amber-600 flex items-center gap-1 truncate" id="kpi-overdue-alert-text">
               <span>خارج فترة السماح المحددة</span>
             </div>
           </div>
 
           <!-- 6. Working Capital in Inventory -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">رأس المال العامل بالمخزون</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-inventory-capital">0.00 ج.م</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">رأس المال العامل بالمخزون</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-inventory-capital">0.00 ج.م</h3>
               </div>
-              <div class="p-3 bg-teal-50 text-teal-500 rounded-xl">
-                <i class="ph ph-cube text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-teal-50 text-teal-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-cube text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4 text-xs text-slate-400">
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
               <span>قيمة البضاعة المتوفرة بالتكلفة</span>
             </div>
           </div>
 
           <!-- 7. Expected Remaining Profits -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">مجموع الأرباح المتبقية المتوقعة</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-expected-profits">0.00 ج.م</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">مجموع الأرباح المتبقية المتوقعة</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-expected-profits">0.00 ج.م</h3>
               </div>
-              <div class="p-3 bg-purple-50 text-purple-500 rounded-xl">
-                <i class="ph ph-hand-coins text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-purple-50 text-purple-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-hand-coins text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4 text-xs text-slate-400">
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
               <span>أرباح معلقة بانتظار التحصيل</span>
             </div>
           </div>
 
           <!-- 8. Bad Debt Rate -->
-          <div class="glass-card rounded-2xl p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="text-xs font-semibold text-slate-500">معدل الديون المتعثرة</p>
-                <h3 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-bad-debt-rate">0%</h3>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">معدل الديون المتعثرة</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-bad-debt-rate">0%</h3>
               </div>
-              <div class="p-3 bg-red-50 text-red-500 rounded-xl">
-                <i class="ph ph-warning text-xl"></i>
+              <div class="p-1.5 sm:p-3 bg-red-50 text-red-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-warning text-sm sm:text-xl"></i>
               </div>
             </div>
-            <div class="mt-4">
-              <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div class="mt-1.5 sm:mt-4">
+              <div class="w-full bg-slate-100 rounded-full h-1.5 mt-1 sm:mt-2 overflow-hidden">
                 <div class="bg-red-500 h-1.5 rounded-full transition-all duration-500" id="kpi-bad-debt-bar" style="width: 0%"></div>
               </div>
             </div>
@@ -383,9 +383,9 @@
         <!-- Dashboard Bottom Split Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-10 gap-6">
           <!-- Right Side: Chart (60% width) -->
-          <div class="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="font-bold text-slate-800 text-lg">التمثيل البياني لأصول الأنشطة والأرباح</h3>
+          <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm flex flex-col">
+            <div class="flex items-center justify-between mb-4 sm:mb-6">
+              <h3 class="font-bold text-slate-800 text-sm sm:text-lg">التمثيل البياني لأصول الأنشطة والأرباح</h3>
               <div class="flex gap-2">
                 <span class="w-3.5 h-3.5 rounded-full bg-teal-500 inline-block align-middle"></span>
                 <span class="text-xs text-slate-500">المبيعات</span>
@@ -399,9 +399,9 @@
           </div>
 
           <!-- Left Side: Audit Log Timeline (40% width) -->
-          <div class="lg:col-span-4 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="font-bold text-slate-800 text-lg">سجل التدقيق والمتابعة الأمني</h3>
+          <div class="lg:col-span-4 bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm flex flex-col">
+            <div class="flex items-center justify-between mb-4 sm:mb-6">
+              <h3 class="font-bold text-slate-800 text-sm sm:text-lg">سجل التدقيق والمتابعة الأمني</h3>
               <span class="text-xs text-slate-400">آخر 5 عمليات</span>
             </div>
             <div class="flex-1 space-y-4 overflow-y-auto max-h-[350px] pr-2" id="dashboard-audit-timeline">
@@ -520,33 +520,33 @@
         </div>
 
         <!-- Inventory Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="p-3 rounded-lg bg-teal-50 text-teal-600"><i class="ph ph-stack"></i></div>
-            <div>
-              <p class="text-xs text-slate-500">إجمالي الأنواع</p>
-              <p class="font-bold text-slate-800" id="inv-total-count">0</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
+          <div class="bg-white p-2.5 sm:p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2 sm:gap-3">
+            <div class="p-2 sm:p-3 rounded-lg bg-teal-50 text-teal-600 shrink-0"><i class="ph ph-stack text-sm sm:text-base"></i></div>
+            <div class="min-w-0">
+              <p class="text-[10px] sm:text-xs text-slate-500 truncate">إجمالي الأنواع</p>
+              <p class="font-bold text-slate-800 text-sm sm:text-base" id="inv-total-count">0</p>
             </div>
           </div>
-          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="p-3 rounded-lg bg-emerald-50 text-emerald-600"><i class="ph ph-check-circle"></i></div>
-            <div>
-              <p class="text-xs text-slate-500">إجمالي القطع المتاحة</p>
-              <p class="font-bold text-slate-800" id="inv-available-count">0</p>
+          <div class="bg-white p-2.5 sm:p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2 sm:gap-3">
+            <div class="p-2 sm:p-3 rounded-lg bg-emerald-50 text-emerald-600 shrink-0"><i class="ph ph-check-circle text-sm sm:text-base"></i></div>
+            <div class="min-w-0">
+              <p class="text-[10px] sm:text-xs text-slate-500 truncate">إجمالي القطع المتاحة</p>
+              <p class="font-bold text-slate-800 text-sm sm:text-base" id="inv-available-count">0</p>
             </div>
           </div>
-          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="p-3 rounded-lg bg-rose-50 text-rose-600"><i class="ph ph-currency-dollar"></i></div>
-            <div>
-              <p class="text-xs text-slate-500">القطع المباعة (قسط/كاش)</p>
-              <p class="font-bold text-slate-800" id="inv-sold-count">0</p>
+          <div class="bg-white p-2.5 sm:p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2 sm:gap-3">
+            <div class="p-2 sm:p-3 rounded-lg bg-rose-50 text-rose-600 shrink-0"><i class="ph ph-currency-dollar text-sm sm:text-base"></i></div>
+            <div class="min-w-0">
+              <p class="text-[10px] sm:text-xs text-slate-500 truncate">القطع المباعة (قسط/كاش)</p>
+              <p class="font-bold text-slate-800 text-sm sm:text-base" id="inv-sold-count">0</p>
             </div>
           </div>
-          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-            <div class="p-3 rounded-lg bg-amber-50 text-amber-600"><i class="ph ph-truck"></i></div>
-            <div>
-              <p class="text-xs text-slate-500">الموردين المسجلين</p>
-              <p class="font-bold text-slate-800" id="inv-suppliers-count">0</p>
+          <div class="bg-white p-2.5 sm:p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2 sm:gap-3">
+            <div class="p-2 sm:p-3 rounded-lg bg-amber-50 text-amber-600 shrink-0"><i class="ph ph-truck text-sm sm:text-base"></i></div>
+            <div class="min-w-0">
+              <p class="text-[10px] sm:text-xs text-slate-500 truncate">الموردين المسجلين</p>
+              <p class="font-bold text-slate-800 text-sm sm:text-base" id="inv-suppliers-count">0</p>
             </div>
           </div>
         </div>
@@ -691,25 +691,25 @@
         </div>
 
         <!-- Balances Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-36">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-6">
+          <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-24 sm:h-36">
             <div>
-              <p class="text-xs text-slate-400 font-semibold">حالة الخزينة الرئيسية</p>
-              <h4 class="text-3xl font-extrabold mt-3 text-teal-400" id="treasury-balance-card">0.00 ج.م</h4>
+              <p class="text-[10px] sm:text-xs text-slate-400 font-semibold truncate">حالة الخزينة الرئيسية</p>
+              <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-teal-400 truncate" id="treasury-balance-card">0.00 ج.م</h4>
             </div>
-            <p class="text-xs text-slate-400">السيولة المتاحة للاستخدام والدفع والإنفاق</p>
+            <p class="text-[10px] sm:text-xs text-slate-400 hidden sm:block">السيولة المتاحة للاستخدام والدفع والإنفاق</p>
           </div>
 
-          <div class="bg-teal-900/90 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-36">
+          <div class="bg-teal-900/90 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-24 sm:h-36">
             <div>
-              <p class="text-xs text-teal-200 font-semibold">عهد المحصلين المعلقة</p>
-              <h4 class="text-3xl font-extrabold mt-3 text-amber-400" id="treasury-pending-custody">0.00 ج.م</h4>
+              <p class="text-[10px] sm:text-xs text-teal-200 font-semibold truncate">عهد المحصلين المعلقة</p>
+              <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-amber-400 truncate" id="treasury-pending-custody">0.00 ج.م</h4>
             </div>
-            <p class="text-xs text-teal-200">مبالغ تم تحصيلها وبانتظار اعتماد الأدمن</p>
+            <p class="text-[10px] sm:text-xs text-teal-200 hidden sm:block">مبالغ تم تحصيلها وبانتظار اعتماد الأدمن</p>
           </div>
 
           <!-- Quick Action Buttons -->
-          <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col justify-center gap-3">
+          <div class="col-span-2 md:col-span-1 bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-100 shadow-sm flex flex-col justify-center gap-2 sm:gap-3">
             <button onclick="openModal('expense-modal')" class="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2">
               <i class="ph ph-receipt"></i>
               <span>سند صرف مصروفات الخارج</span>
@@ -722,7 +722,7 @@
         </div>
 
         <!-- Collectors Custody Approval Section -->
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
           <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
             <i class="ph ph-user-check text-teal-600"></i>
             <span>مراجعة وتأكيد عهد المحصلين</span>
@@ -751,7 +751,7 @@
         </div>
 
         <!-- Transaction Logs Table -->
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
           <div class="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 class="font-bold text-slate-800 text-lg">سجل وحركة المقبوضات والمدفوعات الفعلي</h4>
             <button onclick="exportTransactionsCSV()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5">
@@ -793,22 +793,22 @@
         </div>
 
         <!-- Summary KPI Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-32">
-            <p class="text-xs text-slate-400 font-semibold">إجمالي رأس المال المستثمَر</p>
-            <h4 class="text-3xl font-extrabold mt-3 text-teal-400" id="investors-total-capital">0 ج.م</h4>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-6">
+          <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
+            <p class="text-[10px] sm:text-xs text-slate-400 font-semibold truncate">إجمالي رأس المال المستثمَر</p>
+            <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-teal-400 truncate" id="investors-total-capital">0 ج.م</h4>
           </div>
-          <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-32">
-            <p class="text-xs text-slate-400 font-semibold">إجمالي أصول الشركة الحالية</p>
-            <h4 class="text-3xl font-extrabold mt-3 text-sky-400" id="investors-total-assets">0 ج.م</h4>
+          <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
+            <p class="text-[10px] sm:text-xs text-slate-400 font-semibold truncate">إجمالي أصول الشركة الحالية</p>
+            <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-sky-400 truncate" id="investors-total-assets">0 ج.م</h4>
           </div>
-          <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-32">
-            <p class="text-xs text-slate-400 font-semibold">صافي الربح التراكمي</p>
-            <h4 class="text-3xl font-extrabold mt-3 text-emerald-400" id="investors-net-profit">0 ج.م</h4>
+          <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
+            <p class="text-[10px] sm:text-xs text-slate-400 font-semibold truncate">صافي الربح التراكمي</p>
+            <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-emerald-400 truncate" id="investors-net-profit">0 ج.م</h4>
           </div>
-          <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-32">
-            <p class="text-xs text-slate-400 font-semibold">إجمالي الأرباح الموزّعة فعلياً</p>
-            <h4 class="text-3xl font-extrabold mt-3 text-amber-400" id="investors-total-withdrawn">0 ج.م</h4>
+          <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
+            <p class="text-[10px] sm:text-xs text-slate-400 font-semibold truncate">إجمالي الأرباح الموزّعة فعلياً</p>
+            <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-amber-400 truncate" id="investors-total-withdrawn">0 ج.م</h4>
           </div>
         </div>
 
@@ -818,8 +818,8 @@
         </div>
 
         <!-- Investors Table -->
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
-          <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3">تفاصيل المستثمرين ونصيب كل واحد من الأرباح</h4>
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-3 sm:p-6 space-y-3 sm:space-y-4">
+          <h4 class="font-bold text-slate-800 text-sm sm:text-lg border-b border-slate-100 pb-2 sm:pb-3">تفاصيل المستثمرين ونصيب كل واحد من الأرباح</h4>
 
           <div class="table-scroll-wrapper">
             <table class="w-full text-right border-collapse">
@@ -876,27 +876,27 @@
         </div>
 
         <!-- KPI Summary -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="glass-card rounded-2xl p-5">
-            <p class="text-xs font-semibold text-slate-500">مبيعات العقود بالفترة</p>
-            <h4 class="text-xl font-bold text-slate-900 mt-2" id="report-kpi-sales">0.00 ج.م</h4>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-6">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">مبيعات العقود بالفترة</p>
+            <h4 class="text-sm sm:text-xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="report-kpi-sales">0.00 ج.م</h4>
           </div>
-          <div class="glass-card rounded-2xl p-5">
-            <p class="text-xs font-semibold text-slate-500">إجمالي التحصيل بالفترة</p>
-            <h4 class="text-xl font-bold text-emerald-600 mt-2" id="report-kpi-collections">0.00 ج.م</h4>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي التحصيل بالفترة</p>
+            <h4 class="text-sm sm:text-xl font-bold text-emerald-600 mt-1 sm:mt-2 truncate" id="report-kpi-collections">0.00 ج.م</h4>
           </div>
-          <div class="glass-card rounded-2xl p-5">
-            <p class="text-xs font-semibold text-slate-500">إجمالي المصروفات والمشتريات</p>
-            <h4 class="text-xl font-bold text-rose-600 mt-2" id="report-kpi-expenses">0.00 ج.م</h4>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي المصروفات والمشتريات</p>
+            <h4 class="text-sm sm:text-xl font-bold text-rose-600 mt-1 sm:mt-2 truncate" id="report-kpi-expenses">0.00 ج.م</h4>
           </div>
-          <div class="glass-card rounded-2xl p-5">
-            <p class="text-xs font-semibold text-slate-500">صافي التدفق النقدي بالفترة</p>
-            <h4 class="text-xl font-bold text-teal-600 mt-2" id="report-kpi-net">0.00 ج.م</h4>
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">صافي التدفق النقدي بالفترة</p>
+            <h4 class="text-sm sm:text-xl font-bold text-teal-600 mt-1 sm:mt-2 truncate" id="report-kpi-net">0.00 ج.م</h4>
           </div>
         </div>
 
         <!-- Collector Performance -->
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
           <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
             <i class="ph ph-users-three text-teal-600"></i>
             <span>أداء المحصلين خلال الفترة</span>
@@ -919,7 +919,7 @@
         </div>
 
         <!-- Overdue Clients -->
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
           <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
             <i class="ph ph-warning-circle text-rose-600"></i>
             <span>العملاء المتأخرون حالياً (لقطة لحظية)</span>
@@ -1054,7 +1054,7 @@
           <!-- Company Identity & Server Config -->
           <div class="space-y-6">
             <!-- Company settings -->
-            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
               <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
                 <i class="ph ph-building-office text-teal-600 mr-1"></i>
                 هوية وبيانات الشركة
@@ -1079,7 +1079,7 @@
             </div>
 
             <!-- Firebase & Connection settings -->
-            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
               <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
                 <i class="ph ph-cloud text-teal-600 mr-1"></i>
                 إعدادات الاتصال السحابي (Firebase)
@@ -1104,7 +1104,7 @@
             </div>
 
             <!-- Security & Authentication (Admin only) -->
-            <div class="admin-only bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div class="admin-only bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
               <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
                 <i class="ph ph-shield-check text-teal-600 mr-1"></i>
                 الأمان والمصادقة (Firebase Authentication)
@@ -1122,7 +1122,7 @@
             </div>
 
             <!-- Granular Staff Permissions (Admin only) -->
-            <div class="admin-only bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div class="admin-only bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
               <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
                 <i class="ph ph-lock-key-open text-teal-600 mr-1"></i>
                 صلاحيات موظفي الإدخال (دور STAFF)
@@ -1174,7 +1174,7 @@
           <!-- WhatsApp Templates Editor & Data controls -->
           <div class="space-y-6">
             <!-- Templates Editor -->
-            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
               <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
                 <i class="ph ph-whatsapp-logo text-emerald-600 mr-1"></i>
                 قوالب رسائل الواتساب الافتراضية
@@ -1200,7 +1200,7 @@
             </div>
 
             <!-- Database Controls -->
-            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
               <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
                 <i class="ph ph-database text-teal-600 mr-1"></i>
                 التحكم في البيانات المحلية
@@ -1263,7 +1263,7 @@
 
   <!-- MODAL: Backup Restore Confirmation -->
   <div id="backup-restore-confirm-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 text-center">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-4 sm:p-6 text-center">
       <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
         <i class="ph ph-warning text-3xl text-amber-500"></i>
       </div>
@@ -1626,7 +1626,7 @@
 
   <!-- MODAL: ADD CONTRACT -->
   <div id="add-contract-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
         <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
           <i class="ph ph-file-text text-teal-600"></i>
@@ -2138,7 +2138,7 @@
 
   <!-- MODAL: EDIT CONTRACT -->
   <div id="edit-contract-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
         <h4 class="font-bold text-slate-800 text-lg">تعديل بيانات العقد الكاملة</h4>
         <button type="button" onclick="closeModal('edit-contract-modal')" class="text-slate-400 hover:text-slate-600">
@@ -2333,7 +2333,7 @@
 
   <!-- MODAL: CUSTOM CONFIRM (بديل مصمم بهوية الموقع لصندوق تأكيد المتصفح الافتراضي) -->
   <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-4 sm:p-6 text-center">
       <div class="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
         <i class="ph ph-warning-circle text-3xl text-amber-500"></i>
       </div>

@@ -1669,6 +1669,16 @@ function renderCollections() {
     groupedByClient[clientId].installments.push(inst);
   });
 
+  // ترتيب أقساط كل عميل: أولاً حسب العقد/الجهاز، ثم حسب رقم القسط تصاعدياً
+  // (بدون هذا الترتيب كانت الأقساط بتظهر بترتيب إضافتها الأصلي في قاعدة البيانات
+  // مش بترتيبها المنطقي، فيظهر مثلاً قسط 1 ثم قسط 10 ثم قسط 11 قبل قسط 2).
+  Object.values(groupedByClient).forEach(clientGroup => {
+    clientGroup.installments.sort((a, b) => {
+      if (a.contractId !== b.contractId) return a.contractId.localeCompare(b.contractId);
+      return (a.installmentNum || 0) - (b.installmentNum || 0);
+    });
+  });
+
   Object.values(groupedByClient).forEach(clientGroup => {
     const client = db.clients.find(c => c.id === clientGroup.clientId);
     const totalRemaining = clientGroup.installments.filter(i => i.status !== 'paid').reduce((sum, i) => {
@@ -4422,7 +4432,9 @@ window.viewContractDetails = function(contractId) {
   const contract = db.contracts.find(c => c.id === contractId);
   if (!contract) return;
 
-  const contractInsts = db.installments.filter(inst => inst.contractId === contractId);
+  const contractInsts = db.installments
+    .filter(inst => inst.contractId === contractId)
+    .sort((a, b) => (a.installmentNum || 0) - (b.installmentNum || 0));
 
   let instRows = contractInsts.map(inst => {
     const statusInfo = getInstallmentOverdueStatus(inst);
