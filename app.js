@@ -2506,11 +2506,12 @@ function renderInvestors() {
   renderInvestorsCapitalChart(stats);
 }
 
-// رسم بياني (Doughnut) لتوزيع رأس المال المستثمَر بين المستثمرين، بيديك صورة
-// سريعة عن وزن كل مستثمر في رأس مال الشركة.
+// رسم بياني (Doughnut) صغير ومضغوط لتوزيع رأس المال المستثمَر بين المستثمرين،
+// مع قائمة (Legend) مخصصة جنب الرسم بدل الأسفل عشان تاخد مساحة أقل وتفيد أكتر.
 function renderInvestorsCapitalChart(stats) {
   const canvas = document.getElementById('investors-capital-chart');
   const emptyMsg = document.getElementById('investors-chart-empty');
+  const legendBox = document.getElementById('investors-chart-legend');
   if (!canvas) return;
 
   if (investorsCapitalChartInstance) {
@@ -2522,6 +2523,7 @@ function renderInvestorsCapitalChart(stats) {
   if (investors.length === 0 || typeof Chart === 'undefined') {
     canvas.classList.add('hidden');
     if (emptyMsg) emptyMsg.classList.remove('hidden');
+    if (legendBox) legendBox.innerHTML = '';
     return;
   }
   canvas.classList.remove('hidden');
@@ -2543,13 +2545,11 @@ function renderInvestorsCapitalChart(stats) {
       }]
     },
     options: {
-      responsive: true,
+      responsive: false,
       maintainAspectRatio: false,
+      cutout: '68%',
       plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { font: { family: 'Cairo', size: 11 }, color: isDarkMode ? '#a6b2c5' : '#64748b', boxWidth: 12, padding: 10 }
-        },
+        legend: { display: false },
         tooltip: {
           callbacks: {
             label: (ctx2) => `${ctx2.label}: ${ctx2.parsed.toLocaleString()} ج.م`
@@ -2558,6 +2558,25 @@ function renderInvestorsCapitalChart(stats) {
       }
     }
   });
+
+  // Legend مخصصة: نقطة لونية + اسم + نسبة + قيمة، بجانب الرسم مباشرة
+  if (legendBox) {
+    legendBox.innerHTML = investors.map((inv, i) => {
+      const percent = stats.totalCapital > 0 ? (inv.capitalAmount / stats.totalCapital) * 100 : 0;
+      return `
+        <div class="flex items-center justify-between gap-2 py-1 border-b border-slate-50 last:border-0">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${palette[i % palette.length]}"></span>
+            <span class="font-semibold text-slate-700 truncate">${escapeHTML(inv.name)}</span>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 font-mono text-xs">
+            <span class="text-slate-400">${percent.toFixed(1)}%</span>
+            <span class="font-bold text-slate-600">${(inv.capitalAmount || 0).toLocaleString()} ج.م</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
 function nowTimestamp() {

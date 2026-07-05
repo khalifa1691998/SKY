@@ -880,9 +880,12 @@
         <!-- Capital Distribution Chart -->
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-3 sm:p-6">
           <h4 class="font-bold text-slate-800 text-sm sm:text-lg border-b border-slate-100 pb-2 sm:pb-3 mb-4">توزيع رأس المال بين المستثمرين</h4>
-          <div class="relative" style="height: 260px;">
-            <canvas id="investors-capital-chart"></canvas>
-            <div id="investors-chart-empty" class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm hidden">لا توجد بيانات كافية لعرض الرسم البياني بعد.</div>
+          <div class="flex flex-col sm:flex-row items-center gap-6">
+            <div class="relative shrink-0 mx-auto sm:mx-0" style="width: 180px; height: 180px;">
+              <canvas id="investors-capital-chart" width="180" height="180"></canvas>
+              <div id="investors-chart-empty" class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs text-center px-2 hidden">لا توجد بيانات كافية لعرض الرسم البياني بعد.</div>
+            </div>
+            <div id="investors-chart-legend" class="w-full sm:flex-1 space-y-2 text-sm"></div>
           </div>
         </div>
 
