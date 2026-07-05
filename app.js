@@ -3,7 +3,7 @@
  * المطور: Khalifa (ADMIN)
  */
 
-console.log('SKY_BUILD_VERSION: v2-balances-tab-2026-07-05');
+console.log('SKY_BUILD_VERSION: v3-balances-standalone-tab-2026-07-05');
 // ================= STATE MANAGEMENT & INITIAL DATABASE =================
 // متغير عالمي لحالة الاتصال بـ Firebase
 let firebaseSubscriptionActive = false;
@@ -962,9 +962,9 @@ function renderActiveTab(tabName) {
       break;
     case 'clients':
       renderClients();
-      if (!document.getElementById('clients-subtab-balances').classList.contains('hidden')) {
-        renderClientBalances();
-      }
+      break;
+    case 'client-balances':
+      renderClientBalances();
       break;
     case 'inventory':
       renderInventory();
@@ -1192,27 +1192,6 @@ function renderClients() {
     tbody.appendChild(tr);
   });
 }
-
-// ================= CLIENTS SUB-TABS (LIST / BALANCES) =================
-window.switchClientsSubTab = function(which) {
-  const listBtn = document.getElementById('clients-subtab-btn-list');
-  const balBtn = document.getElementById('clients-subtab-btn-balances');
-  const listPane = document.getElementById('clients-subtab-list');
-  const balPane = document.getElementById('clients-subtab-balances');
-
-  if (which === 'balances') {
-    listPane.classList.add('hidden');
-    balPane.classList.remove('hidden');
-    listBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-500 hover:text-slate-700';
-    balBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-slate-800 shadow-sm';
-    renderClientBalances();
-  } else {
-    balPane.classList.add('hidden');
-    listPane.classList.remove('hidden');
-    balBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-500 hover:text-slate-700';
-    listBtn.className = 'px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-slate-800 shadow-sm';
-  }
-};
 
 // بيحسب رصيد عقد واحد: كام اتحصّل (شامل المقدم) وكام متبقي وعدد الأقساط المسددة
 function computeContractBalance(contract) {

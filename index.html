@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SKY_BUILD_VERSION: v2-balances-tab-2026-07-05 (لو مش شايف الكومنت ده في الصفحة المنشورة، يبقى الملف اللي بينشر لسه القديم) -->
+<!-- SKY_BUILD_VERSION: v3-balances-standalone-tab-2026-07-05 (لو مش شايف الكومنت ده في الصفحة المنشورة، يبقى الملف اللي بينشر لسه القديم) -->
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
@@ -155,6 +155,10 @@
       <a href="#" data-tab="clients" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-users text-lg w-5"></i>
         <span>العملاء والضامنين</span>
+      </a>
+      <a href="#" data-tab="client-balances" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-wallet text-lg w-5"></i>
+        <span>أرصدة العملاء</span>
       </a>
       <a href="#" data-tab="inventory" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-stack text-lg w-5"></i>
@@ -416,18 +420,6 @@
           </button>
         </div>
 
-        <!-- Sub-tabs: client list vs client balances -->
-        <div class="flex gap-2 bg-slate-100 p-1.5 rounded-xl w-fit">
-          <button type="button" id="clients-subtab-btn-list" onclick="switchClientsSubTab('list')" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-slate-800 shadow-sm">
-            <i class="ph ph-address-book"></i> قائمة العملاء
-          </button>
-          <button type="button" id="clients-subtab-btn-balances" onclick="switchClientsSubTab('balances')" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-500 hover:text-slate-700">
-            <i class="ph ph-wallet"></i> أرصدة العملاء
-          </button>
-        </div>
-
-        <!-- SUB-TAB: CLIENT LIST -->
-        <div id="clients-subtab-list" class="space-y-6">
         <!-- Search and filters -->
         <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div class="relative w-full sm:w-80">
@@ -466,31 +458,37 @@
             <p>لا يوجد عملاء مسجلين حالياً.</p>
           </div>
         </div>
+      </section>
+
+      <!-- ================= TAB: CLIENT BALANCES (STANDALONE) ================= -->
+      <section id="tab-client-balances" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">أرصدة العملاء</h3>
+            <p class="text-sm text-slate-500">رصيد كل عميل مجمّعاً من كل عقوده وأجهزته: إجمالي القيمة، المحصّل، والمتبقي.</p>
+          </div>
         </div>
 
-        <!-- SUB-TAB: CLIENT BALANCES -->
-        <div id="clients-subtab-balances" class="space-y-6 hidden">
-          <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div class="relative w-full sm:w-80">
-              <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
-                <i class="ph ph-magnifying-glass"></i>
-              </span>
-              <input type="text" id="balance-search-input" placeholder="ابحث باسم العميل أو رقم الهاتف..." class="form-input pr-10">
-            </div>
-            <div class="flex flex-wrap gap-3 text-xs font-semibold">
-              <div class="bg-slate-100 text-slate-700 py-1.5 px-3 rounded-lg">إجمالي قيمة العقود: <span id="balance-summary-total" class="font-black">0</span> ج.م</div>
-              <div class="bg-emerald-50 text-emerald-700 py-1.5 px-3 rounded-lg">إجمالي المحصّل: <span id="balance-summary-paid" class="font-black">0</span> ج.م</div>
-              <div class="bg-amber-50 text-amber-700 py-1.5 px-3 rounded-lg">إجمالي المتبقي: <span id="balance-summary-remaining" class="font-black">0</span> ج.م</div>
-            </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div class="relative w-full sm:w-80">
+            <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <i class="ph ph-magnifying-glass"></i>
+            </span>
+            <input type="text" id="balance-search-input" placeholder="ابحث باسم العميل أو رقم الهاتف..." class="form-input pr-10">
           </div>
+          <div class="flex flex-wrap gap-3 text-xs font-semibold">
+            <div class="bg-slate-100 text-slate-700 py-1.5 px-3 rounded-lg">إجمالي قيمة العقود: <span id="balance-summary-total" class="font-black">0</span> ج.م</div>
+            <div class="bg-emerald-50 text-emerald-700 py-1.5 px-3 rounded-lg">إجمالي المحصّل: <span id="balance-summary-paid" class="font-black">0</span> ج.م</div>
+            <div class="bg-amber-50 text-amber-700 py-1.5 px-3 rounded-lg">إجمالي المتبقي: <span id="balance-summary-remaining" class="font-black">0</span> ج.م</div>
+          </div>
+        </div>
 
-          <div id="client-balances-list" class="space-y-3">
-            <!-- Dynamically populated -->
-          </div>
-          <div id="balances-empty-state" class="p-12 text-center text-slate-400 hidden bg-white rounded-2xl border border-slate-100">
-            <i class="ph ph-wallet text-4xl mb-3"></i>
-            <p>لا يوجد عملاء لديهم عقود مسجلة حالياً.</p>
-          </div>
+        <div id="client-balances-list" class="space-y-3">
+          <!-- Dynamically populated -->
+        </div>
+        <div id="balances-empty-state" class="p-12 text-center text-slate-400 hidden bg-white rounded-2xl border border-slate-100">
+          <i class="ph ph-wallet text-4xl mb-3"></i>
+          <p>لا يوجد عملاء لديهم عقود مسجلة حالياً.</p>
         </div>
       </section>
 
