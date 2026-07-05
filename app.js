@@ -3,6 +3,7 @@
  * المطور: Khalifa (ADMIN)
  */
 
+console.log('SKY_BUILD_VERSION: v2-balances-tab-2026-07-05');
 // ================= STATE MANAGEMENT & INITIAL DATABASE =================
 // متغير عالمي لحالة الاتصال بـ Firebase
 let firebaseSubscriptionActive = false;
