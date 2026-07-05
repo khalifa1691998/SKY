@@ -213,6 +213,44 @@ function generateSeededInstallments() {
   });
 }
 
+// ================= CUSTOM CONFIRM MODAL =================
+// بديل لصندوق confirm() الافتراضي بالمتصفح (اللي بيظهر بشكل نافذة منفصلة
+// وبيكتب اسم الدومين "khalifa1691998.github.io says" - بيحسس المستخدم إنه
+// جزء من المتصفح مش من الموقع). المودال ده مصمم بنفس هوية الموقع بالكامل.
+function customConfirm(message, title) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('custom-confirm-modal');
+    const msgEl = document.getElementById('custom-confirm-message');
+    const titleEl = document.getElementById('custom-confirm-title');
+    const okBtn = document.getElementById('custom-confirm-ok-btn');
+    const cancelBtn = document.getElementById('custom-confirm-cancel-btn');
+
+    if (!modal || !msgEl || !okBtn || !cancelBtn) {
+      // شبكة أمان: لو حصل أي خطأ غير متوقع في تحميل عناصر المودال، نرجع
+      // للسلوك الافتراضي بدل ما نوقف العملية بالكامل
+      resolve(window.confirm(message));
+      return;
+    }
+
+    msgEl.textContent = message;
+    titleEl.textContent = title || 'تأكيد العملية';
+    modal.classList.remove('hidden');
+
+    function cleanup(result) {
+      modal.classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+window.customConfirm = customConfirm;
+
 // ================= SESSION / LOGIN MANAGEMENT (Firebase Authentication) =================
 // تسجيل الدخول أصبح يعتمد بالكامل على Firebase Authentication الحقيقي بدل
 // المقارنة اليدوية لكلمة المرور. لا توجد كلمات مرور نصية تُقرأ من قاعدة البيانات بعد الآن.
@@ -229,6 +267,7 @@ function getCurrentUserName() {
 function hideSessionCheckOverlay() {
   const overlay = document.getElementById('session-check-overlay');
   if (overlay) overlay.classList.add('hidden');
+  if (typeof handleMobileTopbar === 'function') handleMobileTopbar();
 }
 
 function showLoginScreen() {
@@ -238,12 +277,14 @@ function showLoginScreen() {
   document.getElementById('login-username-input').value = '';
   document.getElementById('login-password-input').value = '';
   setLoginLoading(false);
+  if (typeof handleMobileTopbar === 'function') handleMobileTopbar();
 }
 
 function hideLoginScreen() {
   hideSessionCheckOverlay();
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('app-wrapper').classList.remove('hidden');
+  if (typeof handleMobileTopbar === 'function') handleMobileTopbar();
 }
 
 function showLoginError(message) {
@@ -778,6 +819,16 @@ function applyCompanyBranding() {
 function handleMobileTopbar() {
   const topbar = document.getElementById('mobile-topbar');
   if (!topbar) return;
+  // ميظهرش شريط الموبايل العلوي خالص لو لسه واقفين على شاشة التحقق من الجلسة
+  // أو شاشة تسجيل الدخول - عشان ميبانش "بايظ" أو ظاهر تحت شاشة الدخول
+  const sessionOverlay = document.getElementById('session-check-overlay');
+  const loginOverlay = document.getElementById('login-overlay');
+  const stillOnAuthScreen = (sessionOverlay && !sessionOverlay.classList.contains('hidden')) ||
+                             (loginOverlay && !loginOverlay.classList.contains('hidden'));
+  if (stillOnAuthScreen) {
+    topbar.style.display = 'none';
+    return;
+  }
   if (window.innerWidth < 769) {
     topbar.style.display = 'flex';
   } else {
@@ -1310,7 +1361,7 @@ window.deleteDeviceGroup = async function(brand, name) {
     alert('⛔ حذف المخزون مخصص للمشرف (ADMIN) فقط.');
     return;
   }
-  if (confirm(`هل أنت متأكد من حذف جميع القطع المتاحة من (${brand} ${name}) بالمخزن؟`)) {
+  if (await customConfirm(`هل أنت متأكد من حذف جميع القطع المتاحة من (${brand} ${name}) بالمخزن؟`)) {
     const beforeCount = db.inventory.length;
     db.inventory = db.inventory.filter(d => !(d.brand === brand && d.name === name && d.status === 'available'));
     const afterCount = db.inventory.length;
@@ -1815,7 +1866,7 @@ window.openWithdrawProfitModal = function(investorId) {
 window.deleteInvestor = async function(investorId) {
   const inv = db.investors.find(i => i.id === investorId);
   if (!inv) return;
-  if (!confirm(`هل أنت متأكد من حذف المستثمر "${inv.name}" نهائياً؟\n\nملاحظة: حركات رأس المال والسحب السابقة الخاصة به هتفضل موجودة في سجل الخزينة للأرشفة، لكن مش هتتحسب في توزيع الأرباح تاني بعد الحذف.`)) return;
+  if (!(await customConfirm(`هل أنت متأكد من حذف المستثمر "${inv.name}" نهائياً؟\n\nملاحظة: حركات رأس المال والسحب السابقة الخاصة به هتفضل موجودة في سجل الخزينة للأرشفة، لكن مش هتتحسب في توزيع الأرباح تاني بعد الحذف.`))) return;
 
   db.investors = db.investors.filter(i => i.id !== investorId);
   saveToLocalStorage();
@@ -1911,7 +1962,7 @@ document.getElementById('withdraw-profit-form').addEventListener('submit', async
   const stats = computeInvestorFinancials();
   const invStats = stats.investors.find(i => i.id === investorId);
   if (invStats && amount > invStats.remainingDue + 0.01) {
-    if (!confirm(`المبلغ اللي داخله (${amount.toLocaleString()} ج.م) أكبر من نصيب المستثمر المتبقي من الأرباح (${Math.round(invStats.remainingDue).toLocaleString()} ج.م).\n\nتحب تكمل وتسجل السحب برضه؟`)) {
+    if (!(await customConfirm(`المبلغ اللي داخله (${amount.toLocaleString()} ج.م) أكبر من نصيب المستثمر المتبقي من الأرباح (${Math.round(invStats.remainingDue).toLocaleString()} ج.م).\n\nتحب تكمل وتسجل السحب برضه؟`))) {
       return;
     }
   }
@@ -1989,7 +2040,7 @@ window.approveCollectorCustody = async function(id) {
 };
 
 window.rejectCollectorCustody = async function(id) {
-  if (confirm('هل أنت متأكد من حذف وإلغاء معاملة التحصيل هذه من عهدة المحصل؟')) {
+  if (await customConfirm('هل أنت متأكد من حذف وإلغاء معاملة التحصيل هذه من عهدة المحصل؟')) {
     db.collectorCustodies = db.collectorCustodies.filter(c => c.id !== id);
     saveToLocalStorage();
     logAction('إلغاء عهدة معلقة', `إلغاء معاملة تحصيل عهدة برقم ${id}`);
@@ -2178,8 +2229,8 @@ window.viewDocument = function(inputId) {
   openModal('image-preview-modal');
 };
 
-window.removeDocument = function(inputId) {
-  if (confirm('هل أنت متأكد من حذف هذا المستند؟')) {
+window.removeDocument = async function(inputId) {
+  if (await customConfirm('هل أنت متأكد من حذف هذا المستند؟')) {
     if (inputId === 'client-card-img') {
       tempUploads.clientCardImg = '';
       document.getElementById('client-card-img').value = '';
@@ -3050,7 +3101,7 @@ document.getElementById('deposit-form').addEventListener('submit', async (e) => 
 });
 
 window.deleteClient = async function(id) {
-  if (confirm('هل أنت متأكد من حذف هذا العميل نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
+  if (await customConfirm('هل أنت متأكد من حذف هذا العميل نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
     const client = db.clients.find(c => c.id === id);
     db.clients = db.clients.filter(c => c.id !== id);
     saveToLocalStorage();
@@ -3067,7 +3118,7 @@ window.deleteTransaction = async function(id) {
     alert('⛔ حذف الحركات المالية مخصص للمشرف (ADMIN) فقط.');
     return;
   }
-  if (confirm('هل أنت متأكد من حذف هذه حركة المالية؟ سيؤثر هذا على إجمالي رصيد الخزينة.')) {
+  if (await customConfirm('هل أنت متأكد من حذف هذه حركة المالية؟ سيؤثر هذا على إجمالي رصيد الخزينة.')) {
     const tx = db.treasuryTransactions.find(t => t.id === id);
     db.treasuryTransactions = db.treasuryTransactions.filter(t => t.id !== id);
     saveToLocalStorage();
@@ -3122,7 +3173,7 @@ window.deleteUser = async function(id) {
     return;
   }
   try {
-    if (confirm('هل أنت متأكد من حذف هذا المستخدم؟\n\nملاحظة أمنية: سيتم حذف ملف المستخدم من النظام فوراً وفقدانه صلاحية الوصول لبياناته، لكن حساب الدخول الخاص به في Firebase Authentication سيظل موجوداً تقنياً (Firebase لا يسمح بحذف حسابات أخرى من المتصفح لأسباب أمنية). لحذفه نهائياً توجه لـ Firebase Console > Authentication.')) {
+    if (await customConfirm('هل أنت متأكد من حذف هذا المستخدم؟\n\nملاحظة أمنية: سيتم حذف ملف المستخدم من النظام فوراً وفقدانه صلاحية الوصول لبياناته، لكن حساب الدخول الخاص به في Firebase Authentication سيظل موجوداً تقنياً (Firebase لا يسمح بحذف حسابات أخرى من المتصفح لأسباب أمنية). لحذفه نهائياً توجه لـ Firebase Console > Authentication.')) {
       const user = db.users.find(u => u.id === id);
       db.users = db.users.filter(u => u.id !== id);
       saveToLocalStorage();
@@ -3218,7 +3269,7 @@ window.saveContractEdit = async function() {
         return;
       }
       const remainingCountPreview = newDuration - paidCount;
-      if (!confirm(`⚠️ تنبيه هام:\n\nتعديل القيم المالية للعقد سيؤدي إلى:\n• حذف الأقساط "غير المسددة" الحالية (${contractInsts.length - paidCount} قسط)\n• إعادة توليد ${remainingCountPreview} قسط جديد بالقيم المحدّثة\n• الأقساط المسددة فعلاً (${paidCount}) لن تتأثر إطلاقاً\n\nهل أنت متأكد من المتابعة؟`)) {
+      if (!(await customConfirm(`⚠️ تنبيه هام:\n\nتعديل القيم المالية للعقد سيؤدي إلى:\n• حذف الأقساط "غير المسددة" الحالية (${contractInsts.length - paidCount} قسط)\n• إعادة توليد ${remainingCountPreview} قسط جديد بالقيم المحدّثة\n• الأقساط المسددة فعلاً (${paidCount}) لن تتأثر إطلاقاً\n\nهل أنت متأكد من المتابعة؟`))) {
         return;
       }
     }
@@ -3334,7 +3385,7 @@ window.deleteContract = async function(contractId) {
   const c = db.contracts.find(x => x.id === contractId);
   if (!c) return;
 
-  if (confirm(`هل أنت متأكد من حذف العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}؟ سيتم حذف جميع أقساطه.`)) {
+  if (await customConfirm(`هل أنت متأكد من حذف العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}؟ سيتم حذف جميع أقساطه.`)) {
     const dev = db.inventory.find(d => d.id === c.deviceId);
     if (dev && dev.status === 'sold_installment') {
       dev.status = 'available';
@@ -3483,8 +3534,8 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
 // ================= ⚠️ التعديل الجوهري والنهائي للفحص الذكي =================
 // Test connection button removed for Firebase integration.
 
-document.getElementById('btn-seed-data').addEventListener('click', () => {
-  if (confirm('هل ترغب في إعادة حقن البيانات الافتراضية؟ سيؤدي هذا لمسح البيانات الحالية.\n\nملاحظة: المستخدمون التجريبيون سيحتاجون بعدها لضغط زرار "ترحيل المستخدمين لـ Firebase Authentication" في إعدادات الأمان لتفعيل تسجيل الدخول الآمن.')) {
+document.getElementById('btn-seed-data').addEventListener('click', async () => {
+  if (await customConfirm('هل ترغب في إعادة حقن البيانات الافتراضية؟ سيؤدي هذا لمسح البيانات الحالية.\n\nملاحظة: المستخدمون التجريبيون سيحتاجون بعدها لضغط زرار "ترحيل المستخدمين لـ Firebase Authentication" في إعدادات الأمان لتفعيل تسجيل الدخول الآمن.')) {
     db = defaultSeedData;
     generateSeededInstallments();
     saveToLocalStorage();
@@ -3494,8 +3545,8 @@ document.getElementById('btn-seed-data').addEventListener('click', () => {
   }
 });
 
-document.getElementById('btn-clear-db').addEventListener('click', () => {
-  if (confirm('هل أنت متأكد من مسح جميع البيانات المحلية نهائياً؟')) {
+document.getElementById('btn-clear-db').addEventListener('click', async () => {
+  if (await customConfirm('هل أنت متأكد من مسح جميع البيانات المحلية نهائياً؟')) {
     localStorage.removeItem('sky_erp_db');
     alert('تم مسح البيانات بنجاح! سيتم إحياء النظام بقيم فارغة.');
     location.reload();
@@ -3524,7 +3575,7 @@ window.migrateUsersToFirebaseAuth = async function() {
   }
 
   const confirmMsg = `سيتم إنشاء حسابات Firebase Authentication آمنة لعدد ${legacyUsers.length} مستخدم (${legacyUsers.map(u => u.username).join('، ')})، ثم حذف كلمات المرور النصية القديمة الخاصة بهم نهائياً من قاعدة البيانات.\n\nهام: كل مستخدم سيستمر بتسجيل الدخول بنفس اسم المستخدم وكلمة المرور الحاليين تماماً، فقط طريقة التحقق ستصبح آمنة عبر Firebase.\n\nهل تريد المتابعة؟`;
-  if (!confirm(confirmMsg)) return;
+  if (!(await customConfirm(confirmMsg))) return;
 
   let successCount = 0;
   const failedUsers = [];
@@ -3867,8 +3918,8 @@ themeToggleBtn.addEventListener('click', () => {
   }
 });
 
-document.getElementById('logout-btn').addEventListener('click', () => {
-  if (confirm('هل ترغب في تسجيل الخروج؟')) {
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  if (await customConfirm('هل ترغب في تسجيل الخروج؟')) {
     handleUserLogout();
   }
 });

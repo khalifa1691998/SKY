@@ -2016,6 +2016,21 @@
     </div>
   </div>
 
+  <!-- MODAL: CUSTOM CONFIRM (بديل مصمم بهوية الموقع لصندوق تأكيد المتصفح الافتراضي) -->
+  <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+        <i class="ph ph-warning-circle text-3xl text-amber-500"></i>
+      </div>
+      <h4 id="custom-confirm-title" class="font-bold text-slate-800 text-lg mb-2">تأكيد العملية</h4>
+      <p id="custom-confirm-message" class="text-sm text-slate-500 leading-relaxed whitespace-pre-line mb-6"></p>
+      <div class="flex gap-3">
+        <button id="custom-confirm-cancel-btn" type="button" class="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors">إلغاء</button>
+        <button id="custom-confirm-ok-btn" type="button" class="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition-colors">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase Compat SDKs (work on local file:// protocol without CORS block) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
