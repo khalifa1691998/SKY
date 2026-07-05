@@ -188,6 +188,10 @@
         <i class="ph ph-user-gear text-lg w-5"></i>
         <span>إدارة المستخدمين</span>
       </a>
+      <a href="#" data-tab="audit-log" class="admin-only flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-clock-counter-clockwise text-lg w-5"></i>
+        <span>سجل العمليات</span>
+      </a>
       <a href="#" data-tab="settings" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-sliders text-lg w-5"></i>
         <span>إعدادات النظام</span>
@@ -977,6 +981,68 @@
         </div>
       </section>
 
+      <!-- ================= TAB: AUDIT LOG (سجل العمليات - Admin Only) ================= -->
+      <section id="tab-audit-log" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">سجل العمليات (Audit Log)</h3>
+            <p class="text-sm text-slate-500">سجل كامل لكل العمليات الحساسة اللي تمت في النظام: مين عملها، وإمتى، وتفاصيلها. متاح للمشرف (Admin) فقط.</p>
+          </div>
+          <button onclick="printAuditLog()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold text-sm shadow-lg transition-all duration-200 flex items-center gap-2">
+            <i class="ph ph-printer"></i>
+            <span>طباعة / تصدير PDF</span>
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label class="form-label">بحث (مستخدم / نوع العملية / تفاصيل)</label>
+            <input type="text" id="audit-log-search-input" class="form-input" placeholder="اكتب اسم مستخدم أو كلمة من التفاصيل...">
+          </div>
+          <div>
+            <label class="form-label">من تاريخ</label>
+            <input type="date" id="audit-log-from-date" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">إلى تاريخ</label>
+            <input type="date" id="audit-log-to-date" class="form-input">
+          </div>
+          <div class="flex items-end">
+            <button onclick="resetAuditLogFilters()" class="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition-all">
+              <i class="ph ph-x-circle mr-1"></i> إلغاء الفلاتر
+            </button>
+          </div>
+        </div>
+
+        <!-- Log Table -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
+                  <th class="p-4">التاريخ والوقت</th>
+                  <th class="p-4">المستخدم</th>
+                  <th class="p-4">نوع العملية</th>
+                  <th class="p-4">التفاصيل</th>
+                </tr>
+              </thead>
+              <tbody id="audit-log-table-body" class="text-sm divide-y divide-slate-100">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div id="audit-log-empty-state" class="hidden p-10 text-center text-slate-400">
+            <i class="ph ph-clock-counter-clockwise text-4xl mb-2"></i>
+            <p class="text-sm">لا توجد عمليات مطابقة لبحثك أو الفترة المحددة.</p>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-400">
+          <i class="ph ph-info"></i>
+          يحتفظ النظام تلقائياً بآخر 100 عملية فقط في هذا السجل للحفاظ على الأداء. لأرشفة كاملة طويلة المدى، استخدم "تصدير نسخة Excel منظمة" من الإعدادات بشكل دوري.
+        </p>
+      </section>
+
       <!-- ================= TAB: SYSTEM SETTINGS ================= -->
       <section id="tab-settings" class="space-y-6 hidden">
         <div>
@@ -1053,6 +1119,55 @@
               <button onclick="migrateUsersToFirebaseAuth()" class="px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-lg text-xs font-semibold transition-all duration-200">
                 <i class="ph ph-arrows-clockwise mr-1"></i> ترحيل المستخدمين القدام إلى Firebase Authentication
               </button>
+            </div>
+
+            <!-- Granular Staff Permissions (Admin only) -->
+            <div class="admin-only bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
+                <i class="ph ph-lock-key-open text-teal-600 mr-1"></i>
+                صلاحيات موظفي الإدخال (دور STAFF)
+              </h4>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                حدد التبويبات المسموح لدور "موظف إدخال بيانات" (STAFF) الوصول إليها. تبويبات "إدارة المستخدمين" و"إعدادات النظام" و"سجل العمليات" متاحة للمشرف (Admin) فقط دائماً ولا يمكن منحها لأي دور آخر لأسباب أمنية.
+              </p>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-clients" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>العملاء والضامنين</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-client-balances" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>أرصدة العملاء</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-inventory" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>المخزون والأجهزة</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-contracts" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>العقود والمبيعات</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-collections" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>التحصيلات</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-treasury" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>الخزينة</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-investors" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>المستثمرون ورأس المال</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-reports" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>التقارير</span>
+                </label>
+              </div>
+              <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 text-[11px] text-amber-700 flex items-start gap-2">
+                <i class="ph ph-info mt-0.5"></i>
+                <span>اضغط زرار "حفظ إعدادات النظام" بالأعلى بعد تعديل هذه الصلاحيات حتى يتم حفظها وتطبيقها فوراً على كل مستخدمي STAFF.</span>
+              </div>
             </div>
           </div>
 

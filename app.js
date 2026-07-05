@@ -25,6 +25,16 @@ let db = {
     offlineMode: false,
     companyName: 'شركة SKY',
     companyLogo: '', // Base64 or URL
+    staffPermissions: {
+      'clients': true,
+      'client-balances': true,
+      'inventory': true,
+      'contracts': true,
+      'collections': true,
+      'treasury': false,
+      'investors': false,
+      'reports': true
+    },
     templates: {
       reminder: `مرحباً أ/ {{الاسم}}،
 نود تذكيركم بموعد استحقاق القسط الشهري لعقدكم رقم {{العقد}} لدى {{اسم_الشركة}}.
@@ -48,6 +58,35 @@ let db = {
     }
   }
 };
+
+// ================= GRANULAR PERMISSIONS (دور STAFF) =================
+// التبويبات دي هي الوحيدة القابلة للتحكم فيها من شاشة الإعدادات لدور "موظف
+// إدخال بيانات" (STAFF). تبويبات users / settings / audit-log مقفولة دايماً
+// على المشرف (Admin) فقط ومش قابلة للمنح لأي دور تاني لأسباب أمنية.
+const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'contracts', 'collections', 'treasury', 'investors', 'reports'];
+const ADMIN_ONLY_TABS = ['users', 'settings', 'audit-log'];
+
+function getDefaultStaffPermissions() {
+  const perms = {};
+  STAFF_PERMISSION_TABS.forEach(t => perms[t] = true);
+  return perms;
+}
+
+// نقطة مركزية واحدة لتحديد هل المستخدم الحالي مسموح له يشوف تبويب معين ولا لأ،
+// بتستخدمها كل من إخفاء/إظهار الروابط في القائمة الجانبية ومنع التنقل المباشر
+// لأي تبويب غير مصرح به (حتى لو حاول حد يستدعي switchTab برمجياً أو من history).
+function isTabAllowedForCurrentUser(tabName) {
+  if (!currentUser) return false;
+  if (currentUser.role === 'ADMIN') return true;
+  if (currentUser.role === 'COLLECTOR') return tabName === 'collections';
+  if (currentUser.role === 'STAFF') {
+    if (tabName === 'dashboard') return true;
+    if (ADMIN_ONLY_TABS.includes(tabName)) return false;
+    const perms = (db.settings && db.settings.staffPermissions) ? db.settings.staffPermissions : getDefaultStaffPermissions();
+    return perms[tabName] !== false;
+  }
+  return false;
+}
 
 // Temp file upload storage (base64)
 let tempUploads = {
@@ -81,6 +120,16 @@ const defaultSeedData = {
     offlineMode: false,
     companyName: 'شركة SKY',
     companyLogo: '',
+    staffPermissions: {
+      'clients': true,
+      'client-balances': true,
+      'inventory': true,
+      'contracts': true,
+      'collections': true,
+      'treasury': false,
+      'investors': false,
+      'reports': true
+    },
     templates: {
       reminder: `مرحباً أ/ {{الاسم}}،
 نود تذكيركم بموعد استحقاق القسط الشهري لعقدكم رقم {{العقد}} لدى {{اسم_الشركة}}.
@@ -355,18 +404,14 @@ function updateUIForRole() {
     }
   });
   
-  // 2. إخفاء التبويبات غير المصرح بها للمحصل من القائمة الجانبية
+  // 2. إخفاء التبويبات غير المصرح بها حسب دور المستخدم وصلاحياته الدقيقة
   const sidebarLinks = document.querySelectorAll('#sidebar-menu a');
   sidebarLinks.forEach(link => {
     const tab = link.getAttribute('data-tab');
-    if (isCollector) {
-      if (tab === 'collections') {
-        link.classList.remove('hidden');
-      } else {
-        link.classList.add('hidden');
-      }
-    } else {
+    if (isTabAllowedForCurrentUser(tab)) {
       link.classList.remove('hidden');
+    } else {
+      link.classList.add('hidden');
     }
   });
   
@@ -400,6 +445,9 @@ function initDatabase() {
     if (!db.settings.companyLogo) db.settings.companyLogo = '';
     if (!db.settings.templates) {
       db.settings.templates = defaultSeedData.settings.templates;
+    }
+    if (!db.settings.staffPermissions) {
+      db.settings.staffPermissions = getDefaultStaffPermissions();
     }
     // هجرة البيانات: التأكد من أن جميع الحسابات القديمة تمتلك كلمة مرور لمنع فشل تسجيل الدخول
     if (db.users) {
@@ -648,6 +696,7 @@ window.handleRestoreFileSelected = function(event) {
           offlineMode: db.settings.offlineMode
         };
         db.settings = { ...restoredData.settings, ...currentConnectionSettings };
+        if (!db.settings.staffPermissions) db.settings.staffPermissions = getDefaultStaffPermissions();
       }
 
       saveToLocalStorage();
@@ -986,6 +1035,9 @@ function renderActiveTab(tabName) {
       break;
     case 'users':
       renderUsers();
+      break;
+    case 'audit-log':
+      renderAuditLog();
       break;
     case 'settings':
       renderSettings();
@@ -2391,6 +2443,99 @@ window.saveUserEdits = async function() {
   }
 };
 
+// --- 7.5 AUDIT LOG (سجل العمليات - Admin Only) ---
+function renderAuditLog() {
+  const tbody = document.getElementById('audit-log-table-body');
+  const emptyState = document.getElementById('audit-log-empty-state');
+  if (!tbody) return;
+
+  const searchVal = (document.getElementById('audit-log-search-input').value || '').trim().toLowerCase();
+  const fromDate = document.getElementById('audit-log-from-date').value;
+  const toDate = document.getElementById('audit-log-to-date').value;
+
+  let filtered = sortByTimestampDesc([...db.auditLogs]);
+
+  if (searchVal) {
+    filtered = filtered.filter(log =>
+      (log.user || '').toLowerCase().includes(searchVal) ||
+      (log.actionType || '').toLowerCase().includes(searchVal) ||
+      (log.details || '').toLowerCase().includes(searchVal)
+    );
+  }
+
+  if (fromDate) {
+    filtered = filtered.filter(log => (log.timestamp || '').split(' ')[0] >= fromDate);
+  }
+  if (toDate) {
+    filtered = filtered.filter(log => (log.timestamp || '').split(' ')[0] <= toDate);
+  }
+
+  tbody.innerHTML = '';
+
+  if (filtered.length === 0) {
+    emptyState.classList.remove('hidden');
+    return;
+  }
+  emptyState.classList.add('hidden');
+
+  filtered.forEach(log => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition-colors';
+    tr.innerHTML = `
+      <td class="p-4 font-mono text-slate-500 whitespace-nowrap">${escapeHTML(log.timestamp)}</td>
+      <td class="p-4 font-bold text-slate-800 whitespace-nowrap">${escapeHTML(log.user)}</td>
+      <td class="p-4"><span class="badge bg-slate-100 text-slate-700 font-semibold">${escapeHTML(log.actionType)}</span></td>
+      <td class="p-4 text-slate-600">${escapeHTML(log.details)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.resetAuditLogFilters = function() {
+  document.getElementById('audit-log-search-input').value = '';
+  document.getElementById('audit-log-from-date').value = '';
+  document.getElementById('audit-log-to-date').value = '';
+  renderAuditLog();
+};
+
+// طباعة/تصدير سجل العمليات الظاهر حالياً (بعد تطبيق الفلاتر) كمستند PDF/ورقي
+window.printAuditLog = function() {
+  if (!isAdmin()) {
+    showToast('❌ سجل العمليات متاح للمشرف (Admin) فقط.', 'error');
+    return;
+  }
+  const companyName = db.settings.companyName || 'شركة SKY';
+  const rows = document.getElementById('audit-log-table-body').innerHTML;
+  const isEmpty = !document.getElementById('audit-log-empty-state').classList.contains('hidden');
+  const fromDate = document.getElementById('audit-log-from-date').value || '(البداية)';
+  const toDate = document.getElementById('audit-log-to-date').value || '(الآن)';
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>الفترة:</strong> ${escapeHTML(fromDate)} إلى ${escapeHTML(toDate)}</div>
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">سجل العمليات (Audit Log)</div>
+    ${isEmpty ? '<p style="font-size:0.85rem; color:#64748b;">لا توجد عمليات مطابقة للفلاتر المحددة.</p>' : `
+    <table class="print-doc-table">
+      <thead><tr><th>التاريخ والوقت</th><th>المستخدم</th><th>نوع العملية</th><th>التفاصيل</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`}
+    <div class="print-doc-footer">تم إصدار هذا السجل إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+  printHTML(html);
+};
+
+document.getElementById('audit-log-search-input').addEventListener('input', renderAuditLog);
+document.getElementById('audit-log-from-date').addEventListener('change', renderAuditLog);
+document.getElementById('audit-log-to-date').addEventListener('change', renderAuditLog);
+
 // --- 8. SYSTEM SETTINGS ---
 function renderSettings() {
   document.getElementById('setting-company-name').value = db.settings.companyName || 'شركة SKY';
@@ -2402,6 +2547,13 @@ function renderSettings() {
   document.getElementById('template-reminder').value = t.reminder;
   document.getElementById('template-warning').value = t.warning;
   document.getElementById('template-receipt').value = t.receipt;
+
+  // تحميل صلاحيات دور STAFF الحالية في خانات الاختيار
+  const perms = db.settings.staffPermissions || getDefaultStaffPermissions();
+  STAFF_PERMISSION_TABS.forEach(tabKey => {
+    const checkbox = document.getElementById(`perm-${tabKey}`);
+    if (checkbox) checkbox.checked = perms[tabKey] !== false;
+  });
 }
 
 // ================= MODAL INTERACTIONS =================
@@ -3926,10 +4078,18 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
   db.settings.templates.warning = document.getElementById('template-warning').value;
   db.settings.templates.receipt = document.getElementById('template-receipt').value;
 
+  // حفظ صلاحيات دور STAFF الدقيقة (لو الخانات موجودة في الصفحة، يعني المستخدم أدمن)
+  if (!db.settings.staffPermissions) db.settings.staffPermissions = getDefaultStaffPermissions();
+  STAFF_PERMISSION_TABS.forEach(tabKey => {
+    const checkbox = document.getElementById(`perm-${tabKey}`);
+    if (checkbox) db.settings.staffPermissions[tabKey] = checkbox.checked;
+  });
+
   saveToLocalStorage();
   applyCompanyBranding();
   updateSyncStatusUI();
-  logAction('تعديل إعدادات', `تحديث إعدادات النظام واسم الشركة والتوريد السحابي`);
+  updateUIForRole();
+  logAction('تعديل إعدادات', `تحديث إعدادات النظام واسم الشركة والتوريد السحابي وصلاحيات الموظفين`);
   alert('تم حفظ إعدادات النظام وهوية الشركة بنجاح!');
   
   syncWithAppsScript('updateSettings', {
@@ -3937,7 +4097,8 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
     companyName: db.settings.companyName,
     companyLogo: db.settings.companyLogo,
     offlineMode: db.settings.offlineMode,
-    templates: db.settings.templates
+    templates: db.settings.templates,
+    staffPermissions: db.settings.staffPermissions
   });
 
   if (!offline) {
@@ -4334,9 +4495,9 @@ window.viewContractDetails = function(contractId) {
 
 // ================= ROUTING & TAB NAVIGATION =================
 window.switchTab = function(tabName) {
-  // منع المحصل من الانتقال إلى أي تبويب آخر غير التحصيلات
-  if (currentUser && currentUser.role === 'COLLECTOR' && tabName !== 'collections') {
-    tabName = 'collections';
+  // منع أي مستخدم من الانتقال إلى تبويب غير مصرح له به حسب دوره وصلاحياته
+  if (currentUser && !isTabAllowedForCurrentUser(tabName)) {
+    tabName = currentUser.role === 'COLLECTOR' ? 'collections' : 'dashboard';
   }
   
   document.querySelectorAll('#sidebar-menu a').forEach(b => {
