@@ -38,188 +38,13 @@
   <!-- FontAwesome Icons -->
   <!-- Phosphor Icons (نمط أيقونات نظيف واحترافي أقرب لأسلوب Apple) -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  
-  <!-- Embedded Styles -->
+
+  <!-- Design System: ثيم زجاجي داكن بلمسة نيون (نفس الملف يغطي الوضع الليلي والنهاري) -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- إعدادات إضافية خفيفة خاصة بهذه الصفحة فقط (مش جزء من الثيم العام) -->
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
-    
-    :root {
-      --font-family: 'Cairo', sans-serif;
-    }
-    
-    body {
-      font-family: var(--font-family);
-      direction: rtl;
-      overflow-x: hidden;
-    }
-    
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    .dark ::-webkit-scrollbar-thumb { background: #475569; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    
-    /* Glassmorphism */
-    .glass-card {
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
-    }
-    .dark .glass-card {
-      background: rgba(30, 41, 59, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .glass-sidebar {
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(16px);
-      border-left: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    
-    /* Animations */
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
-    .animate-pulse-warning { animation: pulse-ring 2s infinite; }
-    
-    /* Forms */
-    .form-input {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      background-color: #ffffff;
-      color: #0f172a;
-      transition: all 0.2s ease;
-      font-size: 0.875rem;
-    }
-    .dark .form-input {
-      background-color: #0f172a;
-      border-color: #334155;
-      color: #f8fafc;
-    }
-    .form-input:focus {
-      outline: none;
-      border-color: #4f46e5;
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-    }
-    .dark .form-input:focus {
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.4);
-    }
-    
-    .form-label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #334155;
-      margin-bottom: 0.5rem;
-    }
-    .dark .form-label {
-      color: #cbd5e1;
-    }
-    
-    /* Timeline */
-    .timeline-item::after {
-      content: '';
-      position: absolute;
-      top: 1.25rem;
-      bottom: -1.25rem;
-      right: 1.25rem;
-      width: 2px;
-      background-color: #e2e8f0;
-    }
-    .dark .timeline-item::after { background-color: #334155; }
-    .timeline-item:last-child::after { display: none; }
-    
-    /* GLOBAL DARK MODE OVERRIDES */
-    .dark .text-slate-900, 
-    .dark .text-slate-800, 
-    .dark .text-slate-700 {
-      color: #f8fafc !important;
-    }
-    .dark .text-slate-600, 
-    .dark .text-slate-500 {
-      color: #cbd5e1 !important;
-    }
-    .dark .bg-white {
-      background-color: #0f172a !important;
-    }
-    .dark .bg-slate-50 {
-      background-color: #020617 !important;
-    }
-    .dark .bg-slate-100 {
-      background-color: #1e293b !important;
-    }
-    .dark .border-slate-100, 
-    .dark .border-slate-200 {
-      border-color: #334155 !important;
-    }
-    .dark table th {
-      background-color: #1e293b !important;
-      color: #cbd5e1 !important;
-      border-color: #334155 !important;
-    }
-    .dark table td {
-      border-color: #334155 !important;
-    }
-
-    /* ======= MOBILE SIDEBAR ======= */
-    @media (max-width: 768px) {
-      /* Sidebar becomes a fixed overlay on mobile */
-      aside#app-sidebar {
-        position: fixed;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: 280px;
-        z-index: 40;
-        transform: translateX(100%);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        overflow-y: auto;
-      }
-      aside#app-sidebar.sidebar-open {
-        transform: translateX(0);
-      }
-      /* Overlay backdrop */
-      #sidebar-backdrop {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.55);
-        z-index: 39;
-        backdrop-filter: blur(2px);
-      }
-      #sidebar-backdrop.visible {
-        display: block;
-      }
-      /* Mobile top bar */
-      #mobile-topbar {
-        display: flex;
-      }
-    }
-    @media (min-width: 769px) {
-      #mobile-topbar { display: none; }
-      #sidebar-backdrop { display: none !important; }
-      aside#app-sidebar {
-        position: sticky;
-        top: 0;
-        transform: none !important;
-      }
-    }
-
-    /* Tables scrollable on mobile */
-    .table-scroll-wrapper {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .table-scroll-wrapper table {
-      min-width: 700px;
-    }
+    /* كل الثيم موجود الآن في styles.css - هذا البلوك متعمد تركه فاضي لأي تخصيصات مستقبلية سريعة */
   </style>
 
 </head>
@@ -229,7 +54,7 @@
   <div id="login-overlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50 px-4 py-12">
     <div class="bg-white/10 backdrop-blur-md border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden text-center text-white">
       <div class="mb-6 flex flex-col items-center">
-        <div class="w-16 h-16 rounded-2xl bg-indigo-650 bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-4 animate-bounce">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-4 animate-bounce">
           <i class="ph ph-cloud-lightning text-3xl text-white"></i>
         </div>
         <h2 class="text-2xl font-black text-indigo-400">شركة SKY للتقسيط</h2>
@@ -309,7 +134,7 @@
 
     <!-- Navigation Tabs -->
     <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto" id="sidebar-menu">
-      <a href="#" data-tab="dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold transition-all duration-200 shadow-lg shadow-indigo-600/20 active-tab-btn">
+      <a href="#" data-tab="dashboard" class="nav-link nav-link-active flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 active-tab-btn">
         <i class="ph ph-chart-line text-lg w-5"></i>
         <span>لوحة القيادة</span>
       </a>
@@ -621,7 +446,7 @@
             <p class="text-sm text-slate-500">إدارة البضائع، الأصناف، الأسعار والتجار الشركاء.</p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <button onclick="openModal('add-brand-modal')" class="px-4 py-2 bg-slate-850 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+            <button onclick="openModal('add-brand-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
               <i class="ph ph-tag"></i>
               <span>+ صنف جديد</span>
             </button>

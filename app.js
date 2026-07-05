@@ -863,7 +863,7 @@ function updateSyncStatusUI() {
     icon = '<i class="ph ph-warning animate-pulse"></i>';
   } else if (isFirebaseAvailable) {
     text = 'متصل بقاعدة Firebase سحابياً 🟢';
-    badgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-250 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/55';
+    badgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/55';
     icon = '<span class="w-2 h-2 rounded-full bg-emerald-600 animate-ping"></span>';
   } else {
     text = 'متصل بالخادم المحلي 🟢';
@@ -1090,6 +1090,13 @@ function renderDashboard() {
   const collectionData = [80000, 110000, 130000, 160000, 200000, activeCollections];
 
   if (typeof Chart !== 'undefined') {
+    // نضبط ألوان الشبكة والنصوص حسب الوضع الحالي (ليلي/نهاري) عشان الرسم
+    // البياني يفضل واضح ومقروء في الحالتين، بدل ما يفضل بألوان النهار
+    // الفاتحة فوق خلفية داكنة.
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.12)' : '#f1f5f9';
+    const tickColor = isDarkMode ? '#a6b2c5' : '#64748b';
+
     financialChartInstance = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -1098,7 +1105,7 @@ function renderDashboard() {
           {
             label: 'إجمالي المبيعات',
             data: salesData,
-            backgroundColor: 'rgba(79, 70, 229, 0.85)',
+            backgroundColor: isDarkMode ? 'rgba(129, 140, 248, 0.9)' : 'rgba(79, 70, 229, 0.85)',
             borderRadius: 8,
             borderWidth: 0,
             barPercentage: 0.6
@@ -1106,7 +1113,7 @@ function renderDashboard() {
           {
             label: 'إجمالي التحصيلات الفعالة',
             data: collectionData,
-            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            backgroundColor: isDarkMode ? 'rgba(45, 212, 191, 0.9)' : 'rgba(16, 185, 129, 0.85)',
             borderRadius: 8,
             borderWidth: 0,
             barPercentage: 0.6
@@ -1120,11 +1127,11 @@ function renderDashboard() {
         scales: {
           x: {
             grid: { display: false },
-            ticks: { font: { family: 'Cairo', size: 11 } }
+            ticks: { font: { family: 'Cairo', size: 11 }, color: tickColor }
           },
           y: {
-            grid: { color: '#f1f5f9' },
-            ticks: { font: { family: 'Cairo', size: 10 } }
+            grid: { color: gridColor },
+            ticks: { font: { family: 'Cairo', size: 10 }, color: tickColor }
           }
         }
       }
@@ -1505,7 +1512,7 @@ function renderCollections() {
         <div class="overflow-x-auto">
           <table class="w-full text-right border-collapse text-xs">
             <thead>
-              <tr class="bg-slate-50 border-b border-slate-150 text-slate-500 font-semibold text-[11px]">
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[11px]">
                 <th class="p-2.5">رقم الدفعة</th>
                 <th class="p-2.5">تاريخ الاستحقاق</th>
                 <th class="p-2.5">القسط الأساسي</th>
@@ -3600,7 +3607,7 @@ window.switchTab = function(tabName) {
   
   document.querySelectorAll('#sidebar-menu a').forEach(b => {
     if (b.getAttribute('data-tab') === tabName) {
-      b.className = 'flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold transition-all duration-200 shadow-lg shadow-indigo-600/20 active-tab-btn';
+      b.className = 'nav-link nav-link-active flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 active-tab-btn';
     } else {
       b.className = 'flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200';
     }
@@ -3681,6 +3688,13 @@ themeToggleBtn.addEventListener('click', () => {
   const isDark = document.documentElement.classList.contains('dark');
   localStorage.setItem('sky_erp_theme', isDark ? 'dark' : 'light');
   updateThemeIcon(isDark);
+
+  // إعادة رسم الرسم البياني بالداشبورد بألوان تناسب الوضع الجديد فوراً،
+  // لو التاب المفتوح حالياً هو لوحة القيادة
+  const dashboardSection = document.getElementById('tab-dashboard');
+  if (dashboardSection && !dashboardSection.classList.contains('hidden') && typeof renderDashboard === 'function') {
+    renderDashboard();
+  }
 });
 
 document.getElementById('logout-btn').addEventListener('click', () => {
