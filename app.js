@@ -226,7 +226,13 @@ function getCurrentUserName() {
   return currentUser ? currentUser.name : 'مجهول';
 }
 
+function hideSessionCheckOverlay() {
+  const overlay = document.getElementById('session-check-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
 function showLoginScreen() {
+  hideSessionCheckOverlay();
   document.getElementById('login-overlay').classList.remove('hidden');
   document.getElementById('app-wrapper').classList.add('hidden');
   document.getElementById('login-username-input').value = '';
@@ -235,6 +241,7 @@ function showLoginScreen() {
 }
 
 function hideLoginScreen() {
+  hideSessionCheckOverlay();
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('app-wrapper').classList.remove('hidden');
 }
@@ -3880,6 +3887,18 @@ initDatabase();
 setLoginLoading(true, 'جاري التحقق من الجلسة...');
 handleMobileTopbar(); // Initialize mobile topbar visibility
 
+// شبكة أمان: لو لأي سبب (مفيش إنترنت، سكريبت Firebase اتحجب، إلخ) ملحدث
+// firebase-auth-changed ما اتطلقش خالص خلال 10 ثواني، نوري شاشة الدخول
+// بدل ما نسيب المستخدم واقف على شاشة "جاري التحقق" للأبد.
+setTimeout(() => {
+  const overlay = document.getElementById('session-check-overlay');
+  if (overlay && !overlay.classList.contains('hidden')) {
+    console.warn('لم يتم استلام حدث firebase-auth-changed خلال المهلة المحددة. إظهار شاشة الدخول كإجراء احتياطي.');
+    showLoginScreen();
+    showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنت وحاول مرة أخرى.');
+  }
+}, 10000);
+
 // Custom wrapper to open contract modal and populate dropdowns with latest data
 window.openAddContractModal = function() {
   populateDropdowns();
@@ -3893,8 +3912,8 @@ window.openAddContractModal = function() {
 // تحميل بيانات النظام (مرة واحدة) والاشتراك في التحديثات الفورية بعد تأكيد الدخول
 async function startFirebaseSubscription(uid, email) {
   if (!window.FirebaseService || !window.FirebaseService.isAvailable()) {
+    showLoginScreen();
     showLoginError('❌ تعذر الاتصال بقاعدة البيانات السحابية.');
-    setLoginLoading(false);
     return;
   }
 

@@ -50,8 +50,21 @@
 </head>
 <body class="font-cairo bg-slate-50 text-slate-800 min-h-screen">
 
+  <!-- ================= SESSION CHECK OVERLAY (شاشة تحميل مؤقتة) =================
+       بتظهر أول ما تفتح الصفحة لحد ما نتأكد فعلياً هل فيه جلسة دخول محفوظة ولا لأ.
+       بديل لشاشة الدخول عشان مايظهرش "ومضة" لصفحة الدخول لحد اللي أصلاً مسجل دخول. -->
+  <div id="session-check-overlay" class="fixed inset-0 z-[60] flex items-center justify-center px-4" style="background: linear-gradient(160deg, #030712 0%, #0a1a1f 55%, #030712 100%);">
+    <div class="flex flex-col items-center gap-4 text-center">
+      <div class="w-16 h-16 rounded-2xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/30">
+        <i class="ph ph-cloud-lightning text-3xl text-white"></i>
+      </div>
+      <i class="ph ph-spinner ph-spin text-3xl text-teal-400"></i>
+      <p class="text-xs text-slate-400">جاري التحقق من جلسة الدخول...</p>
+    </div>
+  </div>
+
   <!-- ================= LOGIN SCREEN OVERLAY ================= -->
-  <div id="login-overlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50 px-4 py-12">
+  <div id="login-overlay" class="hidden fixed inset-0 bg-slate-900 flex items-center justify-center z-50 px-4 py-12">
     <div class="bg-white/10 backdrop-blur-md border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden text-center text-white">
       <div class="mb-6 flex flex-col items-center">
         <div class="w-16 h-16 rounded-2xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/30 mb-4 animate-bounce">
