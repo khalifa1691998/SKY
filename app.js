@@ -173,6 +173,21 @@ function customConfirm(message, title) {
 }
 window.customConfirm = customConfirm;
 
+// ================= أمان العرض: تعقيم أي نص قبل حقنه في innerHTML =================
+// أي بيانات كتبها مستخدم (اسم عميل، ملاحظة، اسم مورد، اسم محصل...) لازم تمر
+// من هنا قبل ما تتحط جوه أي innerHTML أو attribute، عشان نمنع حقن HTML/JS
+// (Stored XSS) لو حد كتب مثلاً اسم عميل فيه <script> أو علامة اقتباس.
+function escapeHTML(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.escapeHTML = escapeHTML;
+
 // ================= SESSION / LOGIN MANAGEMENT (Firebase Authentication) =================
 // تسجيل الدخول أصبح يعتمد بالكامل على Firebase Authentication الحقيقي بدل
 // المقارنة اليدوية لكلمة المرور. لا توجد كلمات مرور نصية تُقرأ من قاعدة البيانات بعد الآن.
@@ -1056,10 +1071,10 @@ function renderDashboard() {
       <div class="absolute right-[9px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-400 z-10"></div>
       <div class="flex-1">
         <div class="flex justify-between items-start">
-          <span class="text-xs font-semibold ${colorClass} px-2 py-0.5 rounded">${log.actionType}</span>
-          <span class="text-[10px] text-slate-400 font-mono">${log.timestamp}</span>
+          <span class="text-xs font-semibold ${colorClass} px-2 py-0.5 rounded">${escapeHTML(log.actionType)}</span>
+          <span class="text-[10px] text-slate-400 font-mono">${escapeHTML(log.timestamp)}</span>
         </div>
-        <p class="text-xs text-slate-600 mt-1.5"><span class="font-bold text-slate-700">${log.user}</span>: ${log.details}</p>
+        <p class="text-xs text-slate-600 mt-1.5"><span class="font-bold text-slate-700">${escapeHTML(log.user)}</span>: ${escapeHTML(log.details)}</p>
       </div>
     `;
     timeline.appendChild(item);
@@ -1154,13 +1169,13 @@ function renderClients() {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors';
     tr.innerHTML = `
-      <td class="p-4 font-bold text-slate-800">${c.name}</td>
-      <td class="p-4 text-slate-500 font-mono">${c.nationalId}</td>
-      <td class="p-4 font-mono">${c.phone}</td>
-      <td class="p-4 text-slate-800">${c.guarantorName || '-'}</td>
-      <td class="p-4 text-slate-500">${c.guarantorRelation || '-'}</td>
+      <td class="p-4 font-bold text-slate-800">${escapeHTML(c.name)}</td>
+      <td class="p-4 text-slate-500 font-mono">${escapeHTML(c.nationalId)}</td>
+      <td class="p-4 font-mono">${escapeHTML(c.phone)}</td>
+      <td class="p-4 text-slate-800">${escapeHTML(c.guarantorName) || '-'}</td>
+      <td class="p-4 text-slate-500">${escapeHTML(c.guarantorRelation) || '-'}</td>
       <td class="p-4">
-        ${c.locationUrl ? `<a href="${c.locationUrl}" target="_blank" class="text-teal-600 hover:text-teal-800 flex items-center gap-1 text-xs font-semibold"><i class="ph ph-map-pin-line"></i> عرض الخريطة</a>` : '<span class="text-slate-400">لا يوجد</span>'}
+        ${c.locationUrl && /^https?:\/\//i.test(c.locationUrl) ? `<a href="${escapeHTML(c.locationUrl)}" target="_blank" class="text-teal-600 hover:text-teal-800 flex items-center gap-1 text-xs font-semibold"><i class="ph ph-map-pin-line"></i> عرض الخريطة</a>` : '<span class="text-slate-400">لا يوجد</span>'}
       </td>
       <td class="p-4 text-center">
         <div class="inline-flex gap-1.5">
@@ -1227,15 +1242,15 @@ function renderInventory() {
         bg = 'bg-amber-50 text-amber-700 border border-amber-100';
         title = `كاش لـ: ${d.soldTo}`;
       }
-      return `<span class="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded ${bg} m-0.5" title="${title}">${d.serial}</span>`;
+      return `<span class="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded ${bg} m-0.5" title="${escapeHTML(title)}">${escapeHTML(d.serial)}</span>`;
     }).join(' ');
 
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors';
     tr.innerHTML = `
-      <td class="p-4 font-bold text-slate-800">${group.brand}</td>
-      <td class="p-4">${group.name}</td>
-      <td class="p-4 text-slate-600 text-xs">${group.supplier || '-'}</td>
+      <td class="p-4 font-bold text-slate-800">${escapeHTML(group.brand)}</td>
+      <td class="p-4">${escapeHTML(group.name)}</td>
+      <td class="p-4 text-slate-600 text-xs">${escapeHTML(group.supplier) || '-'}</td>
       <td class="p-4 font-bold font-mono text-emerald-600">${group.costPrice.toLocaleString()} ج.م</td>
       <td class="p-4 font-bold font-mono text-teal-600">${group.sellingPrice.toLocaleString()} ج.م</td>
       <td class="p-4">
@@ -1247,12 +1262,12 @@ function renderInventory() {
       <td class="p-4 text-center">
         <div class="inline-flex gap-1.5">
           ${availQty > 0 ? `
-            <button onclick="openCashSaleModalGrouped('${group.brand}', '${group.name}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
+            <button data-brand="${escapeHTML(group.brand)}" data-name="${escapeHTML(group.name)}" onclick="openCashSaleModalGrouped(this.dataset.brand, this.dataset.name)" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold shadow-sm transition-all flex items-center gap-1">
               <i class="ph ph-money"></i> بيع كاش
             </button>
           ` : `<span class="text-xs text-slate-400 font-semibold">نفذت الكمية</span>`}
-          <button onclick="editDeviceGroup('${group.brand}', '${group.name}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
-          <button onclick="deleteDeviceGroup('${group.brand}', '${group.name}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded transition-colors"><i class="ph ph-trash"></i></button>
+          <button data-brand="${escapeHTML(group.brand)}" data-name="${escapeHTML(group.name)}" onclick="editDeviceGroup(this.dataset.brand, this.dataset.name)" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
+          <button data-brand="${escapeHTML(group.brand)}" data-name="${escapeHTML(group.name)}" onclick="deleteDeviceGroup(this.dataset.brand, this.dataset.name)" class="p-1 text-rose-500 hover:bg-rose-50 rounded transition-colors"><i class="ph ph-trash"></i></button>
         </div>
       </td>
     `;
@@ -1268,11 +1283,11 @@ window.openCashSaleModalGrouped = function(brand, name) {
   const infoEl = document.getElementById('cash-sale-device-info');
   infoEl.innerHTML = `
     <div class="space-y-2">
-      <p>الجهاز: <strong>${brand} ${name}</strong></p>
+      <p>الجهاز: <strong>${escapeHTML(brand)} ${escapeHTML(name)}</strong></p>
       <div>
         <label class="form-label text-xs">اختر الرقم التسلسلي (سيريال) المراد بيعه:</label>
         <select id="cash-sale-serial-select" class="form-input text-xs py-1">
-          ${availableDevices.map(d => `<option value="${d.id}">${d.serial}</option>`).join('')}
+          ${availableDevices.map(d => `<option value="${d.id}">${escapeHTML(d.serial)}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -1375,11 +1390,11 @@ function renderContracts() {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors text-xs sm:text-sm';
     tr.innerHTML = `
-      <td class="p-4 font-bold text-slate-700 font-mono">${c.id.replace('con-', '')}</td>
-      <td class="p-4 font-bold text-slate-800">${c.clientName}</td>
-      <td class="p-4 font-mono text-slate-500">${c.clientPhone}</td>
-      <td class="p-4 font-semibold text-slate-600">${c.collectorName || 'غير مسند'}</td>
-      <td class="p-4 text-slate-600">${c.deviceInfo}</td>
+      <td class="p-4 font-bold text-slate-700 font-mono">${escapeHTML(c.id.replace('con-', ''))}</td>
+      <td class="p-4 font-bold text-slate-800">${escapeHTML(c.clientName)}</td>
+      <td class="p-4 font-mono text-slate-500">${escapeHTML(c.clientPhone)}</td>
+      <td class="p-4 font-semibold text-slate-600">${escapeHTML(c.collectorName) || 'غير مسند'}</td>
+      <td class="p-4 text-slate-600">${escapeHTML(c.deviceInfo)}</td>
       <td class="p-4 font-bold font-mono text-slate-800">${c.totalValue.toLocaleString()} ج.م</td>
       <td class="p-4 font-bold font-mono text-teal-600">${c.monthlyInstallment.toLocaleString()} ج.م</td>
       <td class="p-4 font-mono text-xs text-slate-500">${c.startDate}</td>
@@ -1475,15 +1490,15 @@ function renderCollections() {
             <i class="ph ${isExpanded ? 'ph-folder-open' : 'ph-folder'} text-lg"></i>
           </div>
           <div>
-            <h4 class="font-bold text-slate-800 text-md">${clientGroup.clientName}</h4>
-            <p class="text-xs text-slate-400 font-mono mt-0.5">${client?.address || 'البحيرة'} | هاتف: ${clientGroup.clientPhone}</p>
+            <h4 class="font-bold text-slate-800 text-md">${escapeHTML(clientGroup.clientName)}</h4>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">${escapeHTML(client?.address) || 'البحيرة'} | هاتف: ${escapeHTML(clientGroup.clientPhone)}</p>
           </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-4 text-xs font-semibold">
           <div class="text-slate-500">
-            الضامن: <span class="font-bold text-slate-700">${clientGroup.guarantorName || 'لا يوجد'}</span> 
-            ${clientGroup.guarantorPhone ? `<span class="font-mono font-medium text-slate-500">(${clientGroup.guarantorPhone})</span>` : ''}
+            الضامن: <span class="font-bold text-slate-700">${escapeHTML(clientGroup.guarantorName) || 'لا يوجد'}</span> 
+            ${clientGroup.guarantorPhone ? `<span class="font-mono font-medium text-slate-500">(${escapeHTML(clientGroup.guarantorPhone)})</span>` : ''}
           </div>
           <div class="bg-teal-50 text-teal-700 py-1.5 px-3 rounded-lg">
             إجمالي المستحق حالياً: <span class="font-black text-sm">${totalRemaining.toLocaleString()} ج.م</span>
@@ -1516,7 +1531,7 @@ function renderCollections() {
                 
                 let collectorOptions = db.users
                   .filter(u => u.role === 'COLLECTOR')
-                  .map(u => `<option value="${u.name}" ${inst.collectorName === u.name ? 'selected' : ''}>${u.name}</option>`)
+                  .map(u => `<option value="${escapeHTML(u.name)}" ${inst.collectorName === u.name ? 'selected' : ''}>${escapeHTML(u.name)}</option>`)
                   .join('');
 
                 const isCollectorDisabled = currentUser && currentUser.role === 'COLLECTOR' ? 'disabled class="form-input text-[11px] py-0.5 px-1 border-slate-200 bg-slate-50 cursor-not-allowed"' : 'class="form-input text-[11px] py-0.5 px-1 border-slate-200 bg-white"';
@@ -1611,9 +1626,9 @@ function renderTreasury() {
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-50 transition-colors';
       tr.innerHTML = `
-        <td class="p-3 font-bold text-slate-800">${app.collectorName}</td>
-        <td class="p-3 font-semibold text-slate-700">${app.clientName}</td>
-        <td class="p-3 font-mono">${app.contractId.replace('con-', '')}</td>
+        <td class="p-3 font-bold text-slate-800">${escapeHTML(app.collectorName)}</td>
+        <td class="p-3 font-semibold text-slate-700">${escapeHTML(app.clientName)}</td>
+        <td class="p-3 font-mono">${escapeHTML(app.contractId.replace('con-', ''))}</td>
         <td class="p-3 font-bold font-mono text-teal-600">${app.amount.toLocaleString()} ج.م</td>
         <td class="p-3 text-slate-500 font-mono text-[10px]">${app.date}</td>
         <td class="p-3 text-center">
@@ -1672,7 +1687,7 @@ function renderTreasury() {
     tr.innerHTML = `
       <td class="p-4 font-mono text-xs text-slate-500">${tx.timestamp}</td>
       <td class="p-4"><span class="badge ${typeClass}">${typeText}</span></td>
-      <td class="p-4 text-slate-700 font-medium">${tx.notes}</td>
+      <td class="p-4 text-slate-700 font-medium">${escapeHTML(tx.notes)}</td>
       <td class="p-4 font-bold font-mono ${amountClass}">${amountSign}${Math.abs(tx.amount).toLocaleString()} ج.م</td>
       <td class="p-4 text-center">
         <div class="inline-flex gap-1">${adminActionBtns}</div>
@@ -1750,8 +1765,8 @@ function renderInvestors() {
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-50 transition-colors';
       tr.innerHTML = `
-        <td class="p-4 font-bold text-slate-800">${inv.name}</td>
-        <td class="p-4 text-slate-500 font-mono text-xs">${inv.joinDate || '-'}</td>
+        <td class="p-4 font-bold text-slate-800">${escapeHTML(inv.name)}</td>
+        <td class="p-4 text-slate-500 font-mono text-xs">${escapeHTML(inv.joinDate) || '-'}</td>
         <td class="p-4 font-bold font-mono text-teal-600">${(inv.capitalAmount || 0).toLocaleString()} ج.م</td>
         <td class="p-4 font-mono">${inv.sharePercent.toFixed(1)}%</td>
         <td class="p-4 font-bold font-mono ${inv.profitShare >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${Math.round(inv.profitShare).toLocaleString()} ج.م</td>
@@ -2030,7 +2045,7 @@ function renderReports() {
 
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td class="p-3 font-bold">${col.name}</td>
+      <td class="p-3 font-bold">${escapeHTML(col.name)}</td>
       <td class="p-3 font-mono">${paidInRange.length}</td>
       <td class="p-3 font-mono font-bold text-emerald-600">${collectedAmount.toLocaleString()} ج.م</td>
       <td class="p-3 font-mono ${overdueAssigned > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">${overdueAssigned}</td>
@@ -2066,8 +2081,8 @@ function renderReports() {
     overdueList.forEach(c => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td class="p-3 font-bold">${c.name}</td>
-        <td class="p-3 font-mono">${c.phone}</td>
+        <td class="p-3 font-bold">${escapeHTML(c.name)}</td>
+        <td class="p-3 font-mono">${escapeHTML(c.phone)}</td>
         <td class="p-3 font-mono">${c.count}</td>
         <td class="p-3 font-mono font-bold text-rose-600">${c.totalDue.toLocaleString()} ج.م</td>
         <td class="p-3 font-mono">${c.maxDays} يوم</td>
@@ -2149,11 +2164,11 @@ function renderUsers() {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors';
     tr.innerHTML = `
-      <td class="p-4 font-bold text-slate-800">${u.name}</td>
-      <td class="p-4 font-mono text-slate-500">${u.username}</td>
-      <td class="p-4 font-mono">${u.phone || '-'}</td>
+      <td class="p-4 font-bold text-slate-800">${escapeHTML(u.name)}</td>
+      <td class="p-4 font-mono text-slate-500">${escapeHTML(u.username)}</td>
+      <td class="p-4 font-mono">${escapeHTML(u.phone) || '-'}</td>
       <td class="p-4"><span class="badge ${roleColor}">${roleText}</span></td>
-      <td class="p-4 text-slate-600">${u.area || '-'}</td>
+      <td class="p-4 text-slate-600">${escapeHTML(u.area) || '-'}</td>
       <td class="p-4 text-center">
         <div class="inline-flex gap-1.5">${adminBtns}</div>
       </td>
@@ -2374,23 +2389,23 @@ window.printInstallmentReceipt = function(instId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${companyName}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
-        <div><strong>رقم الإيصال:</strong> ${inst.receiptId || '—'}</div>
-        <div><strong>التاريخ:</strong> ${inst.paidDate || ''}</div>
+        <div><strong>رقم الإيصال:</strong> ${escapeHTML(inst.receiptId) || '—'}</div>
+        <div><strong>التاريخ:</strong> ${escapeHTML(inst.paidDate) || ''}</div>
       </div>
     </div>
     <div class="print-doc-title">إيصال استلام دفعة قسط</div>
-    <div class="print-doc-row"><span>اسم العميل</span><strong>${inst.clientName}</strong></div>
-    <div class="print-doc-row"><span>رقم الهاتف</span><strong>${inst.clientPhone}</strong></div>
-    <div class="print-doc-row"><span>رقم العقد</span><strong>${inst.contractId}</strong></div>
-    <div class="print-doc-row"><span>الجهاز</span><strong>${contract ? contract.deviceInfo : '—'}</strong></div>
+    <div class="print-doc-row"><span>اسم العميل</span><strong>${escapeHTML(inst.clientName)}</strong></div>
+    <div class="print-doc-row"><span>رقم الهاتف</span><strong>${escapeHTML(inst.clientPhone)}</strong></div>
+    <div class="print-doc-row"><span>رقم العقد</span><strong>${escapeHTML(inst.contractId)}</strong></div>
+    <div class="print-doc-row"><span>الجهاز</span><strong>${contract ? escapeHTML(contract.deviceInfo) : '—'}</strong></div>
     <div class="print-doc-row"><span>رقم القسط</span><strong>قسط ${inst.installmentNum} من ${contract ? contract.duration : '—'}</strong></div>
     <div class="print-doc-row"><span>المبلغ المحصَّل</span><strong>${(inst.paidAmount || inst.amount).toLocaleString()} ج.م</strong></div>
     ${inst.delayFines > 0 ? `<div class="print-doc-row"><span>غرامة تأخير مضمّنة</span><strong>${inst.delayFines.toLocaleString()} ج.م</strong></div>` : ''}
-    <div class="print-doc-row"><span>المحصّل</span><strong>${inst.collectorName || '—'}</strong></div>
+    <div class="print-doc-row"><span>المحصّل</span><strong>${escapeHTML(inst.collectorName) || '—'}</strong></div>
     <div class="print-doc-row" style="border-top:1px dashed #94a3b8; margin-top:8px; padding-top:8px;">
       <span>إجمالي المتبقي على العقد بعد هذه الدفعة</span><strong>${remainingOnContract.toLocaleString()} ج.م</strong>
     </div>
@@ -2522,8 +2537,8 @@ function renderBulkClientsList() {
     div.className = 'flex justify-between items-center bg-white p-2 rounded border border-slate-100';
     div.innerHTML = `
       <div>
-        <span class="font-bold text-slate-700">${inst.clientName}</span>
-        <span class="text-slate-400 font-mono">(${inst.dueDate})</span>
+        <span class="font-bold text-slate-700">${escapeHTML(inst.clientName)}</span>
+        <span class="text-slate-400 font-mono">(${escapeHTML(inst.dueDate)})</span>
       </div>
       <div class="font-mono font-bold text-teal-600">${inst.amount.toLocaleString()} ج.م</div>
     `;
@@ -3789,10 +3804,10 @@ window.viewClientDetails = function(clientId) {
   let contractsHtml = clientContracts.map(c => `
     <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 mb-2">
       <div class="flex justify-between font-bold text-xs text-slate-800">
-        <span>رقم العقد: ${c.id.replace('con-', '')}</span>
+        <span>رقم العقد: ${escapeHTML(c.id.replace('con-', ''))}</span>
         <span class="text-teal-600">${c.totalValue.toLocaleString()} ج.م</span>
       </div>
-      <p class="text-[10px] text-slate-500 mt-1">الجهاز: ${c.deviceInfo} | المحصل: ${c.collectorName}</p>
+      <p class="text-[10px] text-slate-500 mt-1">الجهاز: ${escapeHTML(c.deviceInfo)} | المحصل: ${escapeHTML(c.collectorName)}</p>
     </div>
   `).join('');
 
@@ -3821,19 +3836,19 @@ window.viewClientDetails = function(clientId) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <h5 class="font-bold text-teal-600 border-b border-teal-50 pb-1 mb-2">بيانات العميل</h5>
-            <p class="mb-1"><strong>الاسم الرباعي:</strong> ${client.name}</p>
-            <p class="mb-1"><strong>الهوية القومية:</strong> ${client.nationalId}</p>
-            <p class="mb-1"><strong>الهاتف:</strong> ${client.phone}</p>
-            <p class="mb-1"><strong>العنوان:</strong> ${client.address}</p>
-            ${client.locationUrl ? `<a href="${client.locationUrl}" target="_blank" class="text-teal-600 hover:underline text-xs font-semibold"><i class="ph ph-map-pin"></i> عرض خرائط Google</a>` : ''}
+            <p class="mb-1"><strong>الاسم الرباعي:</strong> ${escapeHTML(client.name)}</p>
+            <p class="mb-1"><strong>الهوية القومية:</strong> ${escapeHTML(client.nationalId)}</p>
+            <p class="mb-1"><strong>الهاتف:</strong> ${escapeHTML(client.phone)}</p>
+            <p class="mb-1"><strong>العنوان:</strong> ${escapeHTML(client.address)}</p>
+            ${client.locationUrl && /^https?:\/\//i.test(client.locationUrl) ? `<a href="${escapeHTML(client.locationUrl)}" target="_blank" class="text-teal-600 hover:underline text-xs font-semibold"><i class="ph ph-map-pin"></i> عرض خرائط Google</a>` : ''}
           </div>
           <div>
             <h5 class="font-bold text-emerald-600 border-b border-emerald-50 pb-1 mb-2">بيانات الضامن</h5>
-            <p class="mb-1"><strong>الاسم الرباعي:</strong> ${client.guarantorName || '-'}</p>
-            <p class="mb-1"><strong>الهوية القومية:</strong> ${client.guarantorNationalId || '-'}</p>
-            <p class="mb-1"><strong>الهاتف:</strong> ${client.guarantorPhone || '-'}</p>
-            <p class="mb-1"><strong>صلة القرابة:</strong> ${client.guarantorRelation || '-'}</p>
-            <p class="mb-1"><strong>العنوان:</strong> ${client.guarantorAddress || '-'}</p>
+            <p class="mb-1"><strong>الاسم الرباعي:</strong> ${escapeHTML(client.guarantorName) || '-'}</p>
+            <p class="mb-1"><strong>الهوية القومية:</strong> ${escapeHTML(client.guarantorNationalId) || '-'}</p>
+            <p class="mb-1"><strong>الهاتف:</strong> ${escapeHTML(client.guarantorPhone) || '-'}</p>
+            <p class="mb-1"><strong>صلة القرابة:</strong> ${escapeHTML(client.guarantorRelation) || '-'}</p>
+            <p class="mb-1"><strong>العنوان:</strong> ${escapeHTML(client.guarantorAddress) || '-'}</p>
           </div>
         </div>
 
@@ -3912,15 +3927,15 @@ window.viewContractDetails = function(contractId) {
   detailDiv.innerHTML = `
     <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl p-6 overflow-hidden max-h-[90vh] flex flex-col">
       <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-        <h4 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-file-text text-teal-600"></i> تفاصيل وجدولة أقساط العقد رقم: ${contract.id.replace('con-', '')}</h4>
+        <h4 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-file-text text-teal-600"></i> تفاصيل وجدولة أقساط العقد رقم: ${escapeHTML(contract.id.replace('con-', ''))}</h4>
         <button onclick="document.getElementById('contract-detail-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
       </div>
       <div class="flex-1 overflow-y-auto space-y-4">
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl text-xs">
-          <p><strong>العميل المشتري:</strong> ${contract.clientName}</p>
-          <p><strong>المحصل المسند:</strong> ${contract.collectorName}</p>
-          <p><strong>الجهاز المباع:</strong> ${contract.deviceInfo}</p>
-          <p><strong>تاريخ العقد:</strong> ${contract.startDate}</p>
+          <p><strong>العميل المشتري:</strong> ${escapeHTML(contract.clientName)}</p>
+          <p><strong>المحصل المسند:</strong> ${escapeHTML(contract.collectorName)}</p>
+          <p><strong>الجهاز المباع:</strong> ${escapeHTML(contract.deviceInfo)}</p>
+          <p><strong>تاريخ العقد:</strong> ${escapeHTML(contract.startDate)}</p>
           <p><strong>قيمة العقد الإجمالية:</strong> ${contract.totalValue.toLocaleString()} ج.م</p>
           <p><strong>الدفعة المقدمة:</strong> ${contract.downPayment.toLocaleString()} ج.م</p>
           <p><strong>المبلغ المتبقي للتقسيط:</strong> ${contract.remainingAmount.toLocaleString()} ج.م</p>
