@@ -60,99 +60,21 @@ let tempUploads = {
 let expandedClients = new Set();
 
 // Default Seed Data
+// ملاحظة: تم حذف كل بيانات المستخدمين/العملاء/العقود التجريبية (وكلمات المرور
+// النصية المصاحبة لها) اللي كانت هنا سابقاً. زرار "إعادة حقن البيانات
+// الافتراضية" في الإعدادات دلوقتي بيرجع النظام لحالة فاضية تماماً بدل ما
+// يحقن حسابات وهمية بكلمة مرور "123" كانت ظاهرة لأي حد يفتح مصدر الصفحة.
 const defaultSeedData = {
-  users: [
-    { id: 'usr-1', name: 'Khalifa (ADMIN)', username: 'khalifa', password: '123', role: 'ADMIN', phone: '01012345678', area: 'الإدارة الرئيسية' },
-    { id: 'usr-2', name: 'أحمد الجمل', username: 'ahmed_gamal', password: '123', role: 'COLLECTOR', phone: '01011042041', area: 'البحيرة / دمنهور' },
-    { id: 'usr-3', name: 'محمد علي', username: 'mohamed_ali', password: '123', role: 'COLLECTOR', phone: '01222223344', area: 'كفر الدوار' },
-    { id: 'usr-4', name: 'مصطفى محمود', username: 'mostafa_m', password: '123', role: 'COLLECTOR', phone: '01555556677', area: 'الإسكندرية' }
-  ],
+  users: [],
   brands: ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'],
-  suppliers: [
-    { name: 'شركة الفتح للاستيراد', phone: '01144445555', notes: 'مورد أجهزة Oppo و Samsung' },
-    { name: 'المتحدة لتوزيع الإلكترونيات', phone: '01099998888', notes: 'مورد أجهزة Xiaomi و Apple' }
-  ],
-  clients: [
-    {
-      id: 'cli-1',
-      name: 'محمد بطيخه',
-      nationalId: '29012345678901',
-      phone: '01011042041',
-      address: 'البحيرة - دمنهور - شارع الجمهورية',
-      locationUrl: 'https://maps.google.com/?q=31.041381,30.470438',
-      nationalIdImg: 'id_card_mohamed.jpg',
-      contractImg: 'signed_contract_mohamed.pdf',
-      guarantorName: 'محمد (صديق)',
-      guarantorNationalId: '29209876543210',
-      guarantorPhone: '0111111111111',
-      guarantorRelation: 'صديق مقرب',
-      guarantorJob: 'محاسب بشركة الكهرباء',
-      guarantorAddress: 'البحيرة - دمنهور - خلف المحافظة',
-      guarantorCardImg: 'id_card_guarantor.jpg',
-      guarantorContractImg: ''
-    },
-    {
-      id: 'cli-2',
-      name: 'أحمد خليل',
-      nationalId: '29509876543210',
-      phone: '01222223344',
-      address: 'كفر الدوار - شارع بورسعيد',
-      locationUrl: 'https://maps.google.com/?q=31.1345,30.1287',
-      nationalIdImg: 'id_card_ahmed.jpg',
-      contractImg: '',
-      guarantorName: 'علي خليل (أخ)',
-      guarantorNationalId: '28809876543211',
-      guarantorPhone: '01555556677',
-      guarantorRelation: 'شقيق',
-      guarantorJob: 'تاجر ملابس',
-      guarantorAddress: 'كفر الدوار - الميدان الرئيسي',
-      guarantorCardImg: '',
-      guarantorContractImg: ''
-    }
-  ],
-  inventory: [
-    { id: 'dev-1', brand: 'Oppo', name: 'a3x 128/4', serial: 'SN-OPPO-A3X-001', costPrice: 4000, sellingPrice: 5000, supplier: 'شركة الفتح للاستيراد', status: 'sold_installment', soldTo: 'محمد بطيخه' },
-    { id: 'dev-2', brand: 'Samsung', name: 'Galaxy A15 128GB', serial: 'SN-SAMS-A15-002', costPrice: 5500, sellingPrice: 7000, supplier: 'المتحدة لتوزيع الإلكترونيات', status: 'available', soldTo: '' },
-    { id: 'dev-3', brand: 'Oppo', name: 'Reno 11 F', serial: 'SN-OPPO-R11-003', costPrice: 10000, sellingPrice: 13000, supplier: 'شركة الفتح للاستيراد', status: 'available', soldTo: '' },
-    { id: 'dev-4', brand: 'iPhone', name: 'Pro Max 256GB 13', serial: 'SN-APPL-IP13-004', costPrice: 28000, sellingPrice: 35000, supplier: 'المتحدة لتوزيع الإلكترونيات', status: 'available', soldTo: '' }
-  ],
-  contracts: [
-    {
-      id: 'con-218360',
-      clientId: 'cli-1',
-      clientName: 'محمد بطيخه',
-      clientPhone: '01011042041',
-      deviceId: 'dev-1',
-      deviceInfo: 'Oppo a3x 128/4',
-      totalValue: 74100,
-      downPayment: 5000,
-      remainingAmount: 69100,
-      monthlyInstallment: 6175,
-      duration: 12,
-      graceDays: 5,
-      fineType: 'flat',
-      fineValue: 10,
-      collectorId: 'usr-2',
-      collectorName: 'أحمد الجمل',
-      startDate: '2026-05-09',
-      status: 'active'
-    }
-  ],
+  suppliers: [],
+  clients: [],
+  inventory: [],
+  contracts: [],
   installments: [],
   collectorCustodies: [],
-  treasuryTransactions: [
-    { id: 'tx-1', timestamp: '2026-06-09 18:14', type: 'deposit', amount: 500000, notes: 'رأس مال افتتاحي للشركة' },
-    { id: 'tx-2', timestamp: '2026-06-09 18:15', type: 'inventory_purchase', amount: -4000, notes: 'شراء Oppo a3x 128/4 من شركة الفتح للاستيراد' },
-    { id: 'tx-3', timestamp: '2026-06-09 18:15', type: 'inventory_purchase', amount: -5500, notes: 'شراء Galaxy A15 من المتحدة لتوزيع الإلكترونيات' },
-    { id: 'tx-4', timestamp: '2026-06-09 18:15', type: 'inventory_purchase', amount: -10000, notes: 'شراء Reno 11 F من شركة الفتح للاستيراد' },
-    { id: 'tx-5', timestamp: '2026-06-09 18:15', type: 'inventory_purchase', amount: -28000, notes: 'شراء iPhone 13 Pro Max من المتحدة لتوزيع الإلكترونيات' },
-    { id: 'tx-6', timestamp: '2026-06-09 18:16', type: 'collection', amount: 5000, notes: 'دفعة مقدمة لعقد رقم 218360 للعميل محمد بطيخه' }
-  ],
-  auditLogs: [
-    { user: 'خليفة (ADMIN)', actionType: 'تهيئة النظام', details: 'تهيئة النظام الافتراضي للشركة بنجاح', timestamp: '2026-06-09 18:00' },
-    { user: 'خليفة (ADMIN)', actionType: 'إضافة قطعة', details: 'إضافة قطعة بسيريال SN-OPPO-A3X-001 للصنف Oppo a3x 128/4', timestamp: '2026-06-09 18:10' },
-    { user: 'خليفة (ADMIN)', actionType: 'إنشاء عقد', details: 'إنشاء عقد تقسيط رقم 218360 للعميل محمد بطيخه لجهاز Oppo a3x 128/4', timestamp: '2026-06-09 18:16' }
-  ],
+  treasuryTransactions: [],
+  auditLogs: [],
   investors: [],
   settings: {
     offlineMode: false,
@@ -381,6 +303,8 @@ async function resolveCurrentUserFromAuth(uid, email) {
   updateUIForRole();
   document.getElementById('current-user-display').textContent = `${user.name} (${user.role})`;
   document.getElementById('header-username').textContent = user.name;
+  const avatarEl = document.getElementById('sidebar-user-avatar');
+  if (avatarEl) avatarEl.textContent = (user.name || '').trim().charAt(0) || '؟';
 
   // فتح الصفحة الأخيرة النشطة المفتوحة مسبقاً أو فتح لوحة القيادة كوضع افتراضي
   let savedTab = localStorage.getItem('sky_erp_active_tab') || 'dashboard';
@@ -3535,7 +3459,7 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
 // Test connection button removed for Firebase integration.
 
 document.getElementById('btn-seed-data').addEventListener('click', async () => {
-  if (await customConfirm('هل ترغب في إعادة حقن البيانات الافتراضية؟ سيؤدي هذا لمسح البيانات الحالية.\n\nملاحظة: المستخدمون التجريبيون سيحتاجون بعدها لضغط زرار "ترحيل المستخدمين لـ Firebase Authentication" في إعدادات الأمان لتفعيل تسجيل الدخول الآمن.')) {
+  if (await customConfirm('هل ترغب في إعادة تهيئة النظام؟ سيؤدي هذا لمسح جميع البيانات الحالية (يوزرات، عملاء، عقود، مخزون...) وإرجاع النظام لحالة فارغة تماماً. هذا الإجراء لا يمكن التراجع عنه.')) {
     db = defaultSeedData;
     generateSeededInstallments();
     saveToLocalStorage();
