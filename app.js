@@ -2763,11 +2763,83 @@ function renderTreasury() {
 // الحالية ناقص إجمالي رأس المال المستثمَر، زائد أي أرباح اتسحبت فعلاً قبل كده
 // (عشان نرجعها للحساب لأنها كانت أرباح مكتسبة).
 //
-// توزيع الربح: كل مستثمر بياخد نصيبه حسب نسبة رأس ماله من إجمالي رأس المال،
-// إلا لو كان له "نسبة شراكة ثابتة" (fixedSharePercent) متفق عليها بعقد مستقل
-// عن رأس ماله المالي - في الحالة دي بياخد نسبته الثابتة، والباقي (100% ناقص
-// مجموع النسب الثابتة) بيتوزع على باقي المستثمرين (اللي بدون نسبة ثابتة) حسب
-// نسبة رأس مال كل واحد منهم من إجمالي رأس مال هذه المجموعة فقط.
+// توزيع الربح بالوقت (Time-Weighted / رأس مال × أيام):
+// بدل ما نوزع كل صافي الربح التراكمي بنسبة رأس المال *الحالية* (وده كان بيدي
+// أي مستثمر جديد نصيب من أرباح اتحققت قبل ما يدخل أصلاً)، بقينا نقسم الخط
+// الزمني لفترات: كل "تجميد أرباح" (Snapshot) بيقفل فترة ويثبّت نصيب كل مستثمر
+// فيها. الفترة المفتوحة الحالية (من آخر تجميد لحد النهارده، أو من أول تاريخ
+// انضمام مستثمر لو مفيش تجميد خالص) بيتوزع ربحها على المستثمرين اللي كانوا
+// موجودين فيها فقط، وبنسبة "رأس ماله × عدد الأيام اللي فضل بيها" وقت الفترة
+// دي (مش رأس ماله اللحظي)، عشان مين ما دخل يشارك بس في الربح اللي اتحقق بعد
+// دخوله فعلاً.
+//
+// نصيب المستثمر الكلي = نصيبه المجمّد من الفترات القديمة (لو موجودة) + نصيبه
+// من الفترة المفتوحة الحالية.
+//
+// أصحاب "نسبة شراكة ثابتة" (fixedSharePercent) متفق عليها بعقد مستقل عن رأس
+// المال بياخدوا نسبتهم الثابتة من ربح كل فترة (مش محسوبة بالأيام لأنها اتفاق
+// تعاقدي بغض النظر عن التوقيت)، والباقي (100% ناقص مجموع النسب الثابتة)
+// بيتوزع على باقي المستثمرين حسب رأس مال-أيام كل واحد فيهم من إجمالي رأس
+// مال-أيام هذه المجموعة فقط.
+function parseDateSafe(str) {
+  if (!str) return null;
+  const d = new Date(String(str).trim().replace(' ', 'T'));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// إرجاع الخط الزمني لحركات رأس مال مستثمر معين (ضخ/سحب) مرتبة تصاعدياً بالتاريخ.
+// أول حركة (الضخ الابتدائي وقت إنشاء المستثمر) بناخد تاريخها الفعلي من
+// "تاريخ الانضمام" المُدخل يدوياً (لو موجود) بدل تاريخ تسجيل الحركة في
+// النظام، عشان لو الأدمن سجّل مستثمر بأثر رجعي يتحسب من تاريخ دخوله الحقيقي.
+function getInvestorCapitalTimeline(investorId, investor) {
+  const txs = (db.treasuryTransactions || [])
+    .filter(tx => tx.investorId === investorId && (tx.type === 'capital_injection' || tx.type === 'capital_withdrawal'))
+    .slice()
+    .sort((a, b) => (parseDateSafe(a.timestamp) || 0) - (parseDateSafe(b.timestamp) || 0));
+
+  return txs.map((tx, idx) => {
+    let effectiveDate = parseDateSafe(tx.timestamp);
+    if (idx === 0 && investor && investor.joinDate) {
+      const jd = parseDateSafe(investor.joinDate);
+      if (jd) effectiveDate = jd;
+    }
+    return { date: effectiveDate, amount: tx.amount };
+  }).filter(e => e.date);
+}
+
+// أقرب تاريخ انضمام بين كل المستثمرين (بيُستخدم كبداية الفترة المفتوحة الأولى
+// لو لسه معملناش أي تجميد أرباح خالص).
+function getEarliestInvestorDate(investors) {
+  let earliest = null;
+  (investors || []).forEach(inv => {
+    const d = parseDateSafe(inv.joinDate);
+    if (d && (!earliest || d < earliest)) earliest = d;
+  });
+  return earliest || new Date();
+}
+
+// حساب "رأس مال × أيام" لمستثمر معين خلال فترة [periodStart, periodEnd]:
+// بنمشي على الخط الزمني بتاعه ونجمع (الرصيد الفعلي وقتها × عدد الأيام) لكل
+// فترة فرعية فيها الرصيد ثابت.
+function computeCapitalDays(timeline, periodStart, periodEnd) {
+  if (!periodStart || !periodEnd || !(periodEnd > periodStart)) return 0;
+
+  let balance = timeline.filter(e => e.date <= periodStart).reduce((s, e) => s + e.amount, 0);
+  const events = timeline.filter(e => e.date > periodStart && e.date <= periodEnd);
+
+  let cursor = periodStart;
+  let capitalDays = 0;
+  events.forEach(ev => {
+    const days = (ev.date - cursor) / 86400000;
+    capitalDays += Math.max(0, balance) * days;
+    balance += ev.amount;
+    cursor = ev.date;
+  });
+  const remainingDays = (periodEnd - cursor) / 86400000;
+  capitalDays += Math.max(0, balance) * remainingDays;
+  return capitalDays;
+}
+
 function computeInvestorFinancials() {
   const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
   const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + dev.costPrice, 0);
@@ -2782,6 +2854,15 @@ function computeInvestorFinancials() {
 
   const netProfit = totalAssets - totalCapital + totalWithdrawn;
 
+  // ---- تحديد الفترة المفتوحة الحالية (من آخر تجميد أو من أول انضمام) ----
+  const snapshots = (db.investorSnapshots || []).slice().sort((a, b) => (parseDateSafe(a.timestamp) || 0) - (parseDateSafe(b.timestamp) || 0));
+  const lastSnapshot = snapshots.length ? snapshots[snapshots.length - 1] : null;
+
+  const periodStart = lastSnapshot ? parseDateSafe(lastSnapshot.timestamp) : getEarliestInvestorDate(investors);
+  const periodEnd = new Date();
+  const lockedNetProfit = lastSnapshot ? (lastSnapshot.netProfit || 0) : 0;
+  const periodProfit = netProfit - lockedNetProfit;
+
   const hasFixedShare = (inv) => inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null && inv.fixedSharePercent !== '' && !isNaN(inv.fixedSharePercent);
 
   const fixedInvestors = investors.filter(hasFixedShare);
@@ -2790,23 +2871,90 @@ function computeInvestorFinancials() {
   const remainingPoolPercent = 100 - sumFixedPercent;
   const variableCapitalTotal = variableInvestors.reduce((sum, inv) => sum + (inv.capitalAmount || 0), 0);
 
+  // رأس مال-أيام لكل مستثمر متغير خلال الفترة المفتوحة الحالية
+  const capitalDaysByInvestor = {};
+  let totalVariableCapitalDays = 0;
+  variableInvestors.forEach(inv => {
+    const timeline = getInvestorCapitalTimeline(inv.id, inv);
+    const cd = computeCapitalDays(timeline, periodStart, periodEnd);
+    capitalDaysByInvestor[inv.id] = cd;
+    totalVariableCapitalDays += cd;
+  });
+
   const investorsWithShares = investors.map(inv => {
-    let sharePercent;
+    let sharePercent, periodProfitShare;
     if (hasFixedShare(inv)) {
       sharePercent = Number(inv.fixedSharePercent);
+      periodProfitShare = periodProfit * (sharePercent / 100);
     } else {
+      // نسبة الملكية المعروضة (لأغراض العرض والرسم البياني) بتفضل بنسبة رأس
+      // المال اللحظية من إجمالي رأس المال المتغير. أما توزيع ربح الفترة نفسه
+      // فبيعتمد على رأس مال-أيام (أدق وقت دخول/خروج مستثمرين في نفس الفترة).
       sharePercent = variableCapitalTotal > 0 ? (inv.capitalAmount / variableCapitalTotal) * remainingPoolPercent : 0;
+      const cd = capitalDaysByInvestor[inv.id] || 0;
+      const fraction = totalVariableCapitalDays > 0
+        ? (cd / totalVariableCapitalDays)
+        : (variableCapitalTotal > 0 ? (inv.capitalAmount / variableCapitalTotal) : 0); // fallback لو الفترة قصيرة جداً بحيث الأيام = صفر
+      periodProfitShare = periodProfit * (remainingPoolPercent / 100) * fraction;
     }
-    const profitShare = netProfit * (sharePercent / 100);
+
+    const lockedEntry = lastSnapshot ? (lastSnapshot.perInvestor || []).find(p => p.investorId === inv.id) : null;
+    const lockedShare = lockedEntry ? (lockedEntry.profitShare || 0) : 0;
+
+    const profitShare = lockedShare + periodProfitShare;
     const withdrawn = inv.totalWithdrawn || 0;
     const remainingDue = profitShare - withdrawn;
-    return { ...inv, sharePercent, profitShare, withdrawn, remainingDue };
+    return { ...inv, sharePercent, profitShare, withdrawn, remainingDue, periodProfitShare, lockedShare };
   });
 
   return {
     treasuryBalance, inventoryCapital, outstandingInstallments, pendingCustody,
     totalAssets, totalCapital, totalWithdrawn, netProfit, sumFixedPercent,
+    periodStart, periodEnd, periodProfit, lastSnapshot,
     investors: investorsWithShares
+  };
+}
+
+// ================= تقرير خروج/تصفية مستثمر (Exit / Liquidation Report) =================
+// لما مستثمر يحب يخرج، محتاجين نوريله: (1) إجمالي المستحق له = رأس ماله +
+// نصيبه المتبقي من الأرباح، و(2) تفصيل: قد إيه من المستحق ده متاح كاش فوراً
+// من الخزينة، وقد إيه لسه "شغال" في بضاعة لسه ما اتباعتش أو أقساط لسه ما
+// اتحصلتش أو عهد محصلين معلقة. بنفترض إن أصول الشركة موزعة بالتناسب على كل
+// المستحقات (رأس مال + أرباح مستحقة لكل المستثمرين) عشان نديله تقدير عادل
+// لنصيبه من كل نوع أصل.
+function computeInvestorExitReport(investorId) {
+  const stats = computeInvestorFinancials();
+  const inv = stats.investors.find(i => i.id === investorId);
+  if (!inv) return null;
+
+  const totalCapitalReturn = inv.capitalAmount || 0;
+  const totalDue = totalCapitalReturn + Math.max(0, inv.remainingDue);
+  // إجمالي مستحقات كل المستثمرين مجتمعين (رأس المال + الأرباح غير المسحوبة)
+  const totalAllInvestorsDue = stats.investors.reduce((sum, i) => sum + (i.capitalAmount || 0) + Math.max(0, i.remainingDue), 0);
+
+  const fractionOfAssets = totalAllInvestorsDue > 0 ? (totalDue / totalAllInvestorsDue) : 0;
+
+  const cashPortion = stats.treasuryBalance * fractionOfAssets;
+  const inventoryPortion = stats.inventoryCapital * fractionOfAssets;
+  const installmentsPortion = stats.outstandingInstallments * fractionOfAssets;
+  const custodyPortion = stats.pendingCustody * fractionOfAssets;
+  const nonLiquidPortion = inventoryPortion + installmentsPortion + custodyPortion;
+
+  return {
+    investor: inv,
+    periodStart: stats.periodStart,
+    periodEnd: stats.periodEnd,
+    capitalAmount: totalCapitalReturn,
+    profitShare: inv.profitShare,
+    withdrawn: inv.withdrawn,
+    remainingDue: inv.remainingDue,
+    totalDue,
+    fractionOfAssets,
+    cashPortion,
+    inventoryPortion,
+    installmentsPortion,
+    custodyPortion,
+    nonLiquidPortion
   };
 }
 
@@ -2857,6 +3005,7 @@ function renderInvestors() {
       const readOnlyBtns = `
         <button onclick="viewInvestorLedger('${inv.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="سجل حركاته"><i class="ph ph-list-bullets"></i> السجل</button>
         <button onclick="printInvestorStatement('${inv.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="طباعة كشف حساب"><i class="ph ph-printer"></i> كشف حساب</button>
+        <button onclick="viewInvestorExitReport('${inv.id}')" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded text-xs font-semibold transition-all flex items-center gap-1" title="تقرير خروج / تصفية"><i class="ph ph-door-open"></i> تقرير خروج</button>
       `;
       const adminActionBtns = admin ? `
         <button onclick="openEditInvestorModal('${inv.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs font-semibold transition-all flex items-center gap-1" title="تعديل البيانات"><i class="ph ph-pencil-simple"></i> تعديل</button>
@@ -3140,13 +3289,121 @@ window.printInvestorStatement = function(investorId) {
   logAction('طباعة كشف حساب', `طباعة كشف حساب للمستثمر ${inv.name}`);
 };
 
+// ================= تقرير خروج / تصفية مستثمر (عرض في مودال) =================
+window.viewInvestorExitReport = function(investorId) {
+  const report = computeInvestorExitReport(investorId);
+  if (!report) return;
+  const inv = report.investor;
+
+  const fmt = (n) => Math.round(n).toLocaleString();
+  const periodStartText = report.periodStart ? report.periodStart.toLocaleDateString('ar-EG') : '-';
+  const periodEndText = report.periodEnd ? report.periodEnd.toLocaleDateString('ar-EG') : '-';
+
+  document.getElementById('investor-exit-title').textContent = `تقرير خروج / تصفية: ${inv.name}`;
+  document.getElementById('investor-exit-body').innerHTML = `
+    <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm space-y-2">
+      <div class="flex justify-between"><span class="text-slate-500">رأس المال المسترد</span><strong class="text-teal-600">${fmt(report.capitalAmount)} ج.م</strong></div>
+      <div class="flex justify-between"><span class="text-slate-500">نصيبه من الأرباح (من ${escapeHTML(periodStartText)} حتى ${escapeHTML(periodEndText)})</span><strong class="${report.profitShare >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(report.profitShare)} ج.م</strong></div>
+      <div class="flex justify-between"><span class="text-slate-500">المسحوب فعلاً من الأرباح قبل كده</span><strong>${fmt(report.withdrawn)} ج.م</strong></div>
+      <div class="flex justify-between border-t border-slate-200 pt-2"><span class="text-slate-600 font-semibold">إجمالي المستحق له عند الخروج</span><strong class="text-slate-900">${fmt(report.totalDue)} ج.م</strong></div>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-800 flex items-start gap-2">
+      <i class="ph ph-info mt-0.5"></i>
+      <span>المستحق مش كله كاش جاهز فوراً — جزء منه شغال في بضاعة لسه ما اتباعتش وأقساط لسه ما اتحصلتش. التقسيم تحت تقديري بالتناسب مع نصيب المستثمر من إجمالي مستحقات كل المستثمرين.</span>
+    </div>
+
+    <div class="space-y-2">
+      <div class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+        <span class="text-sm font-semibold text-emerald-800 flex items-center gap-2"><i class="ph ph-money"></i> متاح كاش فوراً (من الخزينة)</span>
+        <strong class="text-emerald-700 font-mono">${fmt(report.cashPortion)} ج.م</strong>
+      </div>
+      <div class="flex items-center justify-between p-3 bg-sky-50 border border-sky-100 rounded-lg">
+        <span class="text-sm font-semibold text-sky-800 flex items-center gap-2"><i class="ph ph-package"></i> شغال في بضاعة متاحة لسه ما اتباعتش</span>
+        <strong class="text-sky-700 font-mono">${fmt(report.inventoryPortion)} ج.م</strong>
+      </div>
+      <div class="flex items-center justify-between p-3 bg-violet-50 border border-violet-100 rounded-lg">
+        <span class="text-sm font-semibold text-violet-800 flex items-center gap-2"><i class="ph ph-receipt"></i> شغال في أقساط لسه ما اتحصلتش من العملاء</span>
+        <strong class="text-violet-700 font-mono">${fmt(report.installmentsPortion)} ج.م</strong>
+      </div>
+      <div class="flex items-center justify-between p-3 bg-orange-50 border border-orange-100 rounded-lg">
+        <span class="text-sm font-semibold text-orange-800 flex items-center gap-2"><i class="ph ph-user-focus"></i> عهد محصلين معلقة</span>
+        <strong class="text-orange-700 font-mono">${fmt(report.custodyPortion)} ج.م</strong>
+      </div>
+      <div class="flex items-center justify-between p-3 bg-slate-100 border border-slate-200 rounded-lg">
+        <span class="text-sm font-bold text-slate-700">إجمالي غير سائل (شغال برّه)</span>
+        <strong class="text-slate-800 font-mono">${fmt(report.nonLiquidPortion)} ج.م</strong>
+      </div>
+    </div>
+  `;
+  document.getElementById('investor-exit-print-btn').setAttribute('onclick', `printInvestorExitStatement('${investorId}')`);
+  openModal('investor-exit-modal');
+};
+
+// ================= تقرير خروج / تصفية مستثمر (نسخة قابلة للطباعة) =================
+window.printInvestorExitStatement = function(investorId) {
+  const report = computeInvestorExitReport(investorId);
+  if (!report) return;
+  const inv = report.investor;
+  const companyName = db.settings.companyName || 'شركة SKY';
+  const fmt = (n) => Math.round(n).toLocaleString();
+  const periodStartText = report.periodStart ? report.periodStart.toLocaleDateString('ar-EG') : '-';
+  const periodEndText = report.periodEnd ? report.periodEnd.toLocaleDateString('ar-EG') : '-';
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">تقرير خروج / تصفية مستثمر</div>
+
+    <div class="print-doc-row"><span>اسم المستثمر</span><strong>${escapeHTML(inv.name)}</strong></div>
+    <div class="print-doc-row"><span>فترة احتساب الأرباح</span><strong>${escapeHTML(periodStartText)} — ${escapeHTML(periodEndText)}</strong></div>
+
+    <div style="margin-top:14px; padding:10px 12px; background:#ecfdf5; border-radius:8px; display:flex; justify-content:space-around; text-align:center; font-size:0.85rem; flex-wrap:wrap; gap:8px;">
+      <div><div style="color:#64748b; font-size:0.7rem;">رأس المال المسترد</div><strong>${fmt(report.capitalAmount)} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">نصيبه من الأرباح</div><strong style="color:#059669;">${fmt(report.profitShare)} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">المسحوب فعلاً</div><strong style="color:#d97706;">${fmt(report.withdrawn)} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المستحق</div><strong>${fmt(report.totalDue)} ج.م</strong></div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <strong style="font-size:0.9rem;">تفصيل المستحق: سائل مقابل شغال في الأصول</strong>
+      <table class="print-doc-table" style="margin-top:8px;">
+        <thead><tr><th>البند</th><th>القيمة</th></tr></thead>
+        <tbody>
+          <tr><td>متاح كاش فوراً (خزينة)</td><td>${fmt(report.cashPortion)} ج.م</td></tr>
+          <tr><td>شغال في بضاعة متاحة</td><td>${fmt(report.inventoryPortion)} ج.م</td></tr>
+          <tr><td>شغال في أقساط عملاء</td><td>${fmt(report.installmentsPortion)} ج.م</td></tr>
+          <tr><td>عهد محصلين معلقة</td><td>${fmt(report.custodyPortion)} ج.م</td></tr>
+          <tr><td><strong>إجمالي غير سائل</strong></td><td><strong>${fmt(report.nonLiquidPortion)} ج.م</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="print-doc-signatures">
+      <div>توقيع مسؤول الحسابات: ______________</div>
+      <div>توقيع المستثمر: ______________</div>
+    </div>
+    <div class="print-doc-footer">تم إصدار هذا التقرير إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')}. القيم غير السائلة تقديرية بالتناسب وقابلة للتغيير حسب سرعة تحصيل الأقساط وبيع البضاعة.</div>
+  `;
+
+  printHTML(html);
+  logAction('طباعة تقرير خروج', `طباعة تقرير خروج/تصفية للمستثمر ${inv.name}`);
+};
+
 // ================= تجميد صافي الربح (Snapshot دوري) =================
 // آلية بسيطة لتثبيت "صورة" من صافي الربح والأرصدة الحالية بتاريخ معين، عشان
 // يكون عندك مرجع تاريخي ثابت (شهري/ربع سنوي) مش متأثر بتقلبات المخزون
 // والخزينة اليومية اللي بيتأثر بيها الحساب اللحظي.
 window.freezeInvestorProfitSnapshot = async function() {
   const stats = computeInvestorFinancials();
-  if (!(await customConfirm(`هيتم تجميد صافي الربح الحالي (${Math.round(stats.netProfit).toLocaleString()} ج.م) وتوزيعه على المستثمرين كصورة تاريخية بتاريخ اليوم.\n\nده مجرد سجل مرجعي للمراجعة ومش بيغيّر أي أرصدة فعلية. تحب تكمل؟`))) return;
+  if (!(await customConfirm(`هيتم تجميد صافي الربح الحالي (${Math.round(stats.netProfit).toLocaleString()} ج.م) وقفل الفترة المحاسبية الحالية بتاريخ اليوم.\n\nنصيب كل مستثمر لحد دلوقتي هيتثبّت، وأي مستثمر جديد يدخل بعد كده هيشارك بس في الأرباح اللي هتتحقق من بعد تاريخ التجميد ده (مش قبله). تحب تكمل؟`))) return;
 
   const snapshotId = `snap-${Date.now()}`;
   const snapshot = {
