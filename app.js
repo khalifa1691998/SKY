@@ -14,6 +14,7 @@ let db = {
   inventory: [],
   brands: ['Oppo', 'Samsung', 'iPhone'], // Default Brands/Categories
   suppliers: [],
+  supplierTransactions: [], // سجل حركات الموردين: مشتريات آجل/كاش وسدادات { id, supplierId, supplierName, type, method, amount, timestamp, notes }
   contracts: [],
   installments: [],
   collectorCustodies: [],
@@ -30,6 +31,7 @@ let db = {
       'clients': true,
       'client-balances': true,
       'inventory': true,
+      'suppliers': true,
       'contracts': true,
       'collections': true,
       'treasury': false,
@@ -64,7 +66,7 @@ let db = {
 // التبويبات دي هي الوحيدة القابلة للتحكم فيها من شاشة الإعدادات لدور "موظف
 // إدخال بيانات" (STAFF). تبويبات users / settings / audit-log مقفولة دايماً
 // على المشرف (Admin) فقط ومش قابلة للمنح لأي دور تاني لأسباب أمنية.
-const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'contracts', 'collections', 'treasury', 'investors', 'reports'];
+const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'suppliers', 'contracts', 'collections', 'treasury', 'investors', 'reports'];
 const ADMIN_ONLY_TABS = ['users', 'settings', 'audit-log'];
 
 function getDefaultStaffPermissions() {
@@ -109,6 +111,7 @@ const defaultSeedData = {
   users: [],
   brands: ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'],
   suppliers: [],
+  supplierTransactions: [],
   clients: [],
   inventory: [],
   contracts: [],
@@ -126,6 +129,7 @@ const defaultSeedData = {
       'clients': true,
       'client-balances': true,
       'inventory': true,
+      'suppliers': true,
       'contracts': true,
       'collections': true,
       'treasury': false,
@@ -443,6 +447,14 @@ function initDatabase() {
     }
     if (!db.brands) db.brands = ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'];
     if (!db.investors) db.investors = [];
+    if (!db.suppliers) db.suppliers = [];
+    if (!db.supplierTransactions) db.supplierTransactions = [];
+    // هجرة بيانات الموردين القدامى: إضافة id ونوع تعامل افتراضي وعنوان لو ناقصين
+    db.suppliers.forEach(s => {
+      if (!s.id) s.id = `sup-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      if (!s.type) s.type = 'credit';
+      if (s.address === undefined) s.address = '';
+    });
     if (!db.investorSnapshots) db.investorSnapshots = [];
     if (!db.settings.companyName) db.settings.companyName = 'شركة SKY';
     if (!db.settings.companyLogo) db.settings.companyLogo = '';
@@ -499,6 +511,7 @@ window.exportBackup = function() {
       inventory: db.inventory,
       brands: db.brands,
       suppliers: db.suppliers,
+      supplierTransactions: db.supplierTransactions,
       contracts: db.contracts,
       installments: db.installments,
       collectorCustodies: db.collectorCustodies,
@@ -548,6 +561,7 @@ window.exportExcelBackup = function() {
   const typeLabels = {
     deposit: 'إيداع / رأس مال', expense: 'مصروفات خارجية', collection: 'تحصيل أقساط',
     cash_sale: 'بيع كاش فوري', inventory_purchase: 'شراء بضاعة ومخزون',
+    supplier_payment: 'سداد دفعة لمورد',
     capital_injection: 'ضخ رأس مال (مستثمر)', capital_withdrawal: 'سحب رأس مال (مستثمر)',
     profit_withdrawal: 'سحب أرباح (مستثمر)'
   };
@@ -566,7 +580,7 @@ window.exportExcelBackup = function() {
   // 1. ملخص عام
   const totalTreasury = db.treasuryTransactions.reduce((s, t) => s + t.amount, 0);
   const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection').reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase').reduce((s, t) => s + t.amount, 0));
+  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'supplier_payment').reduce((s, t) => s + t.amount, 0));
   const overdueInsts = db.installments.filter(i => i.status !== 'paid' && new Date(i.dueDate) < now).length;
   addSheet('ملخص عام', [{
     'اسم الشركة': db.settings.companyName || 'شركة SKY',
@@ -645,6 +659,25 @@ window.exportExcelBackup = function() {
     return rows;
   })());
 
+  // 9ب. أرصدة الموردين
+  addSheet('أرصدة الموردين', db.suppliers.map(s => {
+    const bal = computeSupplierBalance(s.id);
+    return {
+      'اسم المورد': s.name, 'الهاتف': s.phone, 'العنوان': s.address || '',
+      'طريقة التعامل': s.type === 'cash' ? 'كاش' : s.type === 'both' ? 'كاش/آجل' : 'آجل',
+      'إجمالي المشتريات': bal.totalPurchases, 'إجمالي المسدد': bal.totalPaid,
+      'الرصيد المستحق': bal.balance, 'ملاحظات': s.notes || ''
+    };
+  }));
+
+  // 9ج. حركات الموردين (كشف حساب تفصيلي)
+  addSheet('حركات الموردين', sortByTimestampDesc(db.supplierTransactions).map(t => ({
+    'التاريخ': t.timestamp, 'المورد': t.supplierName,
+    'نوع الحركة': t.type === 'purchase' ? 'شراء بضاعة' : 'سداد دفعة',
+    'طريقة الدفع': t.type === 'purchase' ? (t.method === 'credit' ? 'آجل' : 'كاش') : 'سداد نقدي',
+    'المبلغ': t.amount, 'ملاحظات': t.notes || ''
+  })));
+
   // 10. سجل التدقيق (الأحدث أولاً)
   addSheet('سجل التدقيق', sortByTimestampDesc([...db.auditLogs]).map(l => ({
     'التاريخ والوقت': l.timestamp, 'المستخدم': l.user, 'نوع العملية': l.actionType, 'التفاصيل': l.details
@@ -702,6 +735,7 @@ window.handleRestoreFileSelected = function(event) {
       if (restoredData.inventory) db.inventory = restoredData.inventory;
       if (restoredData.brands) db.brands = restoredData.brands;
       if (restoredData.suppliers) db.suppliers = restoredData.suppliers;
+      if (restoredData.supplierTransactions) db.supplierTransactions = restoredData.supplierTransactions;
       if (restoredData.contracts) db.contracts = restoredData.contracts;
       if (restoredData.installments) db.installments = restoredData.installments;
       if (restoredData.collectorCustodies) db.collectorCustodies = restoredData.collectorCustodies;
@@ -1039,6 +1073,9 @@ function renderActiveTab(tabName) {
     case 'inventory':
       renderInventory();
       break;
+    case 'suppliers':
+      renderSuppliers();
+      break;
     case 'contracts':
       renderContracts();
       break;
@@ -1092,8 +1129,12 @@ function renderDashboard() {
   const activeCollections = db.treasuryTransactions.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
   document.getElementById('kpi-active-collections').textContent = `${activeCollections.toLocaleString()} ج.م`;
 
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase').reduce((sum, tx) => sum + tx.amount, 0));
+  const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
   document.getElementById('kpi-total-expenses').textContent = `${totalExpenses.toLocaleString()} ج.م`;
+
+  const totalSuppliersDue = db.suppliers.reduce((sum, s) => sum + computeSupplierBalance(s.id).balance, 0);
+  const suppliersDueEl = document.getElementById('kpi-suppliers-due');
+  if (suppliersDueEl) suppliersDueEl.textContent = `${totalSuppliersDue.toLocaleString()} ج.م`;
 
   let totalOverdueVal = 0;
   let overdueCount = 0;
@@ -2018,6 +2059,345 @@ window.submitImportInventory = async function() {
   renderDashboard();
 };
 
+// --- 3B. SUPPLIERS (الموردين) ---
+// نظام إدارة الموردين: بيانات + فواتير شراء (كاش/آجل) + أرصدة مستحقة + سدادات.
+// المنطق المحاسبي: كل عملية شراء "كاش" بتتخصم فوراً من الخزينة (زي ما كان الحال
+// قبل كده) ومالهاش أي أثر على رصيد المورد. كل عملية شراء "آجل" بتتسجل كمستحق
+// على المورد (تزود رصيده) من غير ما تلمس الخزينة إطلاقاً، لحد ما يتم سداد دفعة
+// فعلية للمورد من تبويب الموردين، وهي اللي بتخصم من الخزينة وتقلل رصيده.
+function computeSupplierBalance(supplierId) {
+  const txs = db.supplierTransactions.filter(t => t.supplierId === supplierId);
+  const creditPurchases = txs.filter(t => t.type === 'purchase' && t.method === 'credit');
+  const cashPurchases = txs.filter(t => t.type === 'purchase' && t.method === 'cash');
+  const payments = txs.filter(t => t.type === 'payment');
+
+  const totalCreditPurchases = creditPurchases.reduce((s, t) => s + t.amount, 0);
+  const totalCashPurchases = cashPurchases.reduce((s, t) => s + t.amount, 0);
+  const totalPaid = payments.reduce((s, t) => s + t.amount, 0);
+  const totalPurchases = totalCreditPurchases + totalCashPurchases;
+  const balance = Math.max(0, totalCreditPurchases - totalPaid);
+
+  return {
+    transactions: sortByTimestampDesc(txs),
+    totalCreditPurchases,
+    totalCashPurchases,
+    totalPurchases,
+    totalPaid,
+    balance
+  };
+}
+
+let expandedSupplierIds = new Set();
+window.toggleSupplierRow = function(supplierId) {
+  if (expandedSupplierIds.has(supplierId)) {
+    expandedSupplierIds.delete(supplierId);
+  } else {
+    expandedSupplierIds.add(supplierId);
+  }
+  renderSuppliers();
+};
+
+const SUPPLIER_TYPE_LABELS = { credit: 'آجل', cash: 'كاش', both: 'كاش / آجل' };
+const SUPPLIER_TYPE_BADGE_CLASS = { credit: 'badge-warning', cash: 'badge-success', both: 'badge-info' };
+
+function renderSuppliers() {
+  const searchVal = (document.getElementById('supplier-search-input').value || '').toLowerCase();
+  const listContainer = document.getElementById('suppliers-list');
+  const emptyState = document.getElementById('suppliers-empty-state');
+  listContainer.innerHTML = '';
+
+  const filtered = db.suppliers.filter(s =>
+    (s.name || '').toLowerCase().includes(searchVal) || (s.phone || '').includes(searchVal)
+  );
+
+  document.getElementById('supplier-summary-count').textContent = db.suppliers.length;
+
+  if (db.suppliers.length === 0) {
+    emptyState.classList.remove('hidden');
+    document.getElementById('supplier-summary-total-purchases').textContent = '0';
+    document.getElementById('supplier-summary-paid').textContent = '0';
+    document.getElementById('supplier-summary-due').textContent = '0';
+    return;
+  }
+  emptyState.classList.add('hidden');
+
+  let grandPurchases = 0, grandPaid = 0, grandDue = 0;
+
+  filtered.forEach(supplier => {
+    const bal = computeSupplierBalance(supplier.id);
+    grandPurchases += bal.totalPurchases;
+    grandPaid += bal.totalPaid;
+    grandDue += bal.balance;
+
+    const isExpanded = expandedSupplierIds.has(supplier.id);
+    const typeLabel = SUPPLIER_TYPE_LABELS[supplier.type] || 'آجل';
+    const typeBadge = SUPPLIER_TYPE_BADGE_CLASS[supplier.type] || 'badge-warning';
+
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden';
+    card.innerHTML = `
+      <div class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+        <div onclick="toggleSupplierRow('${supplier.id}')" class="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
+          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm shrink-0">
+            <i class="ph ${isExpanded ? 'ph-folder-open' : 'ph-truck'} text-lg"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h4 class="font-bold text-slate-800 text-md truncate">${escapeHTML(supplier.name)}</h4>
+              <span class="badge ${typeBadge}">${typeLabel}</span>
+            </div>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">هاتف: ${escapeHTML(supplier.phone) || '-'} ${supplier.address ? '| ' + escapeHTML(supplier.address) : ''}</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div class="bg-slate-100 text-slate-700 py-1.5 px-3 rounded-lg">إجمالي المشتريات: <span class="font-black text-sm">${bal.totalPurchases.toLocaleString()} ج.م</span></div>
+          <div class="bg-emerald-50 text-emerald-700 py-1.5 px-3 rounded-lg">المسدد: <span class="font-black text-sm">${bal.totalPaid.toLocaleString()} ج.م</span></div>
+          <div class="bg-amber-50 text-amber-700 py-1.5 px-3 rounded-lg">المستحق: <span class="font-black text-sm">${bal.balance.toLocaleString()} ج.م</span></div>
+          <div class="inline-flex gap-1.5">
+            ${bal.balance > 0 ? `<button onclick="openSupplierPaymentModal('${supplier.id}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-hand-coins"></i> سداد</button>` : ''}
+            <button onclick="printSupplierStatement('${supplier.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-printer"></i></button>
+            <button onclick="editSupplier('${supplier.id}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i></button>
+            <button onclick="deleteSupplier('${supplier.id}')" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md text-xs transition-all"><i class="ph ph-trash"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 bg-white space-y-2">
+        ${bal.transactions.length === 0 ? '<p class="text-xs text-slate-400 text-center py-4">لا توجد حركات مسجلة لهذا المورد بعد.</p>' : `
+        <div class="overflow-x-auto">
+          <table class="w-full text-right border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[11px]">
+                <th class="p-2.5">التاريخ</th>
+                <th class="p-2.5">نوع الحركة</th>
+                <th class="p-2.5">البيان</th>
+                <th class="p-2.5">طريقة الدفع</th>
+                <th class="p-2.5">المبلغ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700">
+              ${bal.transactions.map(t => `
+                <tr>
+                  <td class="p-2.5 font-mono text-slate-500">${escapeHTML(t.timestamp)}</td>
+                  <td class="p-2.5 font-bold">${t.type === 'purchase' ? 'شراء بضاعة' : 'سداد دفعة'}</td>
+                  <td class="p-2.5">${escapeHTML(t.notes) || '-'}</td>
+                  <td class="p-2.5">${t.type === 'purchase' ? (t.method === 'credit' ? '<span class="badge badge-warning">آجل</span>' : '<span class="badge badge-success">كاش</span>') : '<span class="badge badge-info">سداد نقدي</span>'}</td>
+                  <td class="p-2.5 font-mono font-bold ${t.type === 'payment' ? 'text-emerald-600' : (t.method === 'credit' ? 'text-amber-600' : 'text-slate-600')}">${t.amount.toLocaleString()} ج.م</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        `}
+      </div>
+    `;
+    listContainer.appendChild(card);
+  });
+
+  document.getElementById('supplier-summary-total-purchases').textContent = grandPurchases.toLocaleString();
+  document.getElementById('supplier-summary-paid').textContent = grandPaid.toLocaleString();
+  document.getElementById('supplier-summary-due').textContent = grandDue.toLocaleString();
+}
+
+document.getElementById('supplier-search-input').addEventListener('input', renderSuppliers);
+
+window.openAddSupplierModal = function() {
+  document.getElementById('supplier-edit-id').value = '';
+  document.getElementById('add-supplier-form').reset();
+  document.getElementById('supplier-modal-title').textContent = 'تسجيل تاجر / مورد جديد';
+  openModal('add-supplier-modal');
+};
+
+window.editSupplier = function(supplierId) {
+  const s = db.suppliers.find(x => x.id === supplierId);
+  if (!s) return;
+  document.getElementById('supplier-edit-id').value = s.id;
+  document.getElementById('supplier-name').value = s.name || '';
+  document.getElementById('supplier-phone').value = s.phone || '';
+  document.getElementById('supplier-type').value = s.type || 'credit';
+  document.getElementById('supplier-address').value = s.address || '';
+  document.getElementById('supplier-notes').value = s.notes || '';
+  document.getElementById('supplier-modal-title').textContent = 'تعديل بيانات المورد';
+  openModal('add-supplier-modal');
+};
+
+window.deleteSupplier = async function(supplierId) {
+  const bal = computeSupplierBalance(supplierId);
+  if (bal.balance > 0) {
+    alert(`⛔ لا يمكن حذف هذا المورد لأن له رصيداً مستحقاً قدره ${bal.balance.toLocaleString()} ج.م. برجاء سداد الرصيد أولاً.`);
+    return;
+  }
+  if (await customConfirm('هل أنت متأكد من حذف هذا المورد نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
+    const supplier = db.suppliers.find(s => s.id === supplierId);
+    db.suppliers = db.suppliers.filter(s => s.id !== supplierId);
+    saveToLocalStorage();
+    if (supplier) logAction('حذف مورد', `حذف المورد ${supplier.name} من السجلات`);
+    renderSuppliers();
+    populateDropdowns();
+    await syncWithAppsScript('deleteSupplier', { id: supplierId, name: supplier ? supplier.name : '' });
+  }
+};
+
+document.getElementById('add-supplier-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const editId = document.getElementById('supplier-edit-id').value;
+  const name = document.getElementById('supplier-name').value;
+  const phone = document.getElementById('supplier-phone').value;
+  const type = document.getElementById('supplier-type').value || 'credit';
+  const address = document.getElementById('supplier-address').value;
+  const notes = document.getElementById('supplier-notes').value;
+
+  if (editId) {
+    const s = db.suppliers.find(x => x.id === editId);
+    if (!s) return;
+    s.name = name; s.phone = phone; s.type = type; s.address = address; s.notes = notes;
+    saveToLocalStorage();
+    logAction('تعديل مورد', `تعديل بيانات المورد ${name}`);
+    await syncWithAppsScript('updateSupplier', s);
+  } else {
+    const supplierObj = {
+      id: `sup-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      name, phone, type, address, notes
+    };
+    db.suppliers.push(supplierObj);
+    saveToLocalStorage();
+    logAction('إضافة مورد', `تم إضافة مورد جديد ${name} (${SUPPLIER_TYPE_LABELS[type] || type})`);
+    await syncWithAppsScript('addSupplier', supplierObj);
+  }
+
+  closeModal('add-supplier-modal');
+  document.getElementById('add-supplier-form').reset();
+  populateDropdowns();
+  renderSuppliers();
+  renderInventory();
+});
+
+window.openSupplierPaymentModal = function(supplierId) {
+  const s = db.suppliers.find(x => x.id === supplierId);
+  if (!s) return;
+  const bal = computeSupplierBalance(supplierId);
+  document.getElementById('supplier-payment-form').reset();
+  document.getElementById('supplier-payment-id').value = supplierId;
+  document.getElementById('supplier-payment-name').textContent = s.name;
+  document.getElementById('supplier-payment-current-balance').textContent = `${bal.balance.toLocaleString()} ج.م`;
+  document.getElementById('supplier-payment-amount').max = bal.balance;
+  openModal('supplier-payment-modal');
+};
+
+document.getElementById('supplier-payment-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const supplierId = document.getElementById('supplier-payment-id').value;
+  const amount = parseFloat(document.getElementById('supplier-payment-amount').value);
+  const notes = document.getElementById('supplier-payment-notes').value;
+  const supplier = db.suppliers.find(s => s.id === supplierId);
+  if (!supplier || !amount || amount <= 0) return;
+
+  const bal = computeSupplierBalance(supplierId);
+  if (amount > bal.balance) {
+    alert(`⚠️ المبلغ المدخل (${amount.toLocaleString()} ج.م) أكبر من الرصيد المستحق فعلياً للمورد (${bal.balance.toLocaleString()} ج.م).`);
+    return;
+  }
+
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const treasuryTx = {
+    id: `tx-suppay-${Date.now()}`,
+    timestamp,
+    type: 'supplier_payment',
+    amount: -amount,
+    notes: `سداد دفعة للمورد ${supplier.name}${notes ? ' - ' + notes : ''}`
+  };
+  db.treasuryTransactions.unshift(treasuryTx);
+
+  const supplierTx = {
+    id: `sptx-pay-${Date.now()}`,
+    supplierId,
+    supplierName: supplier.name,
+    type: 'payment',
+    method: 'cash',
+    amount,
+    timestamp,
+    date: todayDate,
+    notes: notes || 'سداد دفعة نقدية',
+    relatedTreasuryTxId: treasuryTx.id
+  };
+  db.supplierTransactions.unshift(supplierTx);
+
+  saveToLocalStorage();
+  logAction('سداد مورد', `سداد مبلغ ${amount.toLocaleString()} ج.م للمورد ${supplier.name} من الخزينة`);
+
+  await syncWithAppsScript('supplierPayment', { transaction: treasuryTx, supplierTransaction: supplierTx });
+
+  closeModal('supplier-payment-modal');
+  document.getElementById('supplier-payment-form').reset();
+  renderSuppliers();
+  renderTreasury();
+  renderDashboard();
+});
+
+window.printSupplierStatement = function(supplierId) {
+  const supplier = db.suppliers.find(s => s.id === supplierId);
+  if (!supplier) return;
+  const bal = computeSupplierBalance(supplierId);
+  const companyName = db.settings.companyName || 'شركة SKY';
+
+  if (bal.transactions.length === 0) {
+    showToast('❌ لا توجد حركات مسجلة لهذا المورد لإصدار كشف حساب.', 'error');
+    return;
+  }
+
+  const rows = bal.transactions.map(t => `
+    <tr>
+      <td>${escapeHTML(t.timestamp)}</td>
+      <td>${t.type === 'purchase' ? 'شراء بضاعة' : 'سداد دفعة'}</td>
+      <td>${escapeHTML(t.notes) || '-'}</td>
+      <td>${t.type === 'purchase' ? (t.method === 'credit' ? 'آجل' : 'كاش') : 'سداد نقدي'}</td>
+      <td>${t.amount.toLocaleString()} ج.م</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">كشف حساب مورد</div>
+
+    <div class="print-doc-row"><span>اسم المورد</span><strong>${escapeHTML(supplier.name)}</strong></div>
+    <div class="print-doc-row"><span>رقم الهاتف</span><strong>${escapeHTML(supplier.phone) || '—'}</strong></div>
+    <div class="print-doc-row"><span>العنوان</span><strong>${escapeHTML(supplier.address) || '—'}</strong></div>
+
+    <div style="margin-top:14px; padding:10px 12px; background:#ecfdf5; border-radius:8px; display:flex; justify-content:space-around; text-align:center; font-size:0.85rem;">
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المشتريات</div><strong>${bal.totalPurchases.toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المسدد</div><strong style="color:#059669;">${bal.totalPaid.toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">الرصيد المستحق</div><strong style="color:#d97706;">${bal.balance.toLocaleString()} ج.م</strong></div>
+    </div>
+
+    <table class="print-doc-table" style="margin-top:14px;">
+      <thead>
+        <tr><th>التاريخ</th><th>نوع الحركة</th><th>البيان</th><th>طريقة الدفع</th><th>المبلغ</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="print-doc-signatures">
+      <div>توقيع مسؤول الحسابات: ______________</div>
+      <div>توقيع المورد: ______________</div>
+    </div>
+    <div class="print-doc-footer">تم إصدار هذا الكشف إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+
+  printHTML(html);
+  logAction('طباعة كشف حساب مورد', `طباعة كشف حساب للمورد ${supplier.name}`);
+};
+
 // --- 4. CONTRACTS & SALES ---
 function renderContracts() {
   const searchVal = document.getElementById('contract-search-input').value.toLowerCase();
@@ -2334,6 +2714,11 @@ function renderTreasury() {
       typeClass = 'badge-success';
     } else if (tx.type === 'inventory_purchase') {
       typeText = 'شراء بضاعة ومخزون';
+      typeClass = 'badge-danger';
+      amountSign = '-';
+      amountClass = 'text-rose-600';
+    } else if (tx.type === 'supplier_payment') {
+      typeText = 'سداد دفعة لمورد';
       typeClass = 'badge-danger';
       amountSign = '-';
       amountClass = 'text-rose-600';
@@ -3120,7 +3505,7 @@ function renderReports() {
     return txDate >= fromDate && txDate <= toDate;
   });
   const collectionsInRange = txInRange.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
-  const expensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase').reduce((sum, tx) => sum + tx.amount, 0));
+  const expensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
   const netInRange = txInRange.reduce((sum, tx) => sum + tx.amount, 0);
 
   document.getElementById('report-kpi-sales').textContent = `${salesInRange.toLocaleString()} ج.م`;
@@ -4334,23 +4719,8 @@ document.getElementById('add-user-form').addEventListener('submit', async (e) =>
   }
 });
 
-document.getElementById('add-supplier-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = document.getElementById('supplier-name').value;
-  const phone = document.getElementById('supplier-phone').value;
-  const notes = document.getElementById('supplier-notes').value;
-
-  const supplierObj = { name, phone, notes };
-  db.suppliers.push(supplierObj);
-  saveToLocalStorage();
-  logAction('إضافة تاجر', `تم إضافة تاجر/مورد جديد ${name}`);
-  await syncWithAppsScript('addSupplier', supplierObj);
-
-  closeModal('add-supplier-modal');
-  document.getElementById('add-supplier-form').reset();
-  populateDropdowns();
-  renderInventory();
-});
+// ملاحظة: معالج (submit) الخاص بنموذج إضافة/تعديل المورد تم نقله وتوحيده
+// بالكامل ضمن قسم "SUPPLIERS" أعلاه (يدعم الإضافة والتعديل ونوع التعامل).
 
 // يتحقق هل رقم تسلسلي معين موجود بالفعل بالمخزن (بأي حالة: متاح أو مباع) عشان
 // نمنع تكرار نفس السيريال بغلط (خصوصاً عند اللصق أو الاستيراد الجماعي).
@@ -4375,12 +4745,20 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
   const serialRaw = document.getElementById('device-serial').value;
   const costPrice = parseFloat(document.getElementById('device-cost').value);
   const sellingPrice = parseFloat(document.getElementById('device-price').value);
-  const supplier = document.getElementById('device-supplier').value;
+  const supplierId = document.getElementById('device-supplier').value;
+  const paymentMethod = document.getElementById('device-payment-method').value || 'cash'; // 'cash' | 'credit'
   const condition = document.getElementById('device-condition').value || 'new';
   const warrantyMonths = parseInt(document.getElementById('device-warranty').value) || 0;
   const branch = document.getElementById('device-branch').value.trim() || 'الفرع الرئيسي';
   const minQty = parseInt(document.getElementById('device-min-qty').value) || 3;
   const notes = document.getElementById('device-notes').value.trim();
+
+  const supplierObj = db.suppliers.find(s => s.id === supplierId);
+  if (!supplierObj) {
+    alert('⚠️ برجاء اختيار مورد صحيح (سجّل مورد أولاً من تبويب "الموردين" لو القائمة فاضية).');
+    return;
+  }
+  const supplier = supplierObj.name;
 
   const rawSerials = serialRaw.split(',')
     .map(s => s.trim())
@@ -4405,6 +4783,8 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
+  const totalCost = costPrice * serials.length;
+
   const syncPromises = [];
   serials.forEach((serial, index) => {
     const newDevice = {
@@ -4415,6 +4795,8 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
       costPrice,
       sellingPrice,
       supplier,
+      supplierId,
+      purchaseMethod: paymentMethod,
       status: 'available',
       soldTo: '',
       condition,
@@ -4425,24 +4807,47 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
       addedDate: todayDate,
       history: []
     };
-    addDeviceHistory(newDevice, 'إضافة للمخزن', `تمت إضافة القطعة من المورد ${supplier}`);
+    addDeviceHistory(newDevice, 'إضافة للمخزن', `تمت إضافة القطعة من المورد ${supplier} (${paymentMethod === 'credit' ? 'آجل' : 'كاش'})`);
 
     db.inventory.push(newDevice);
 
-    const purchaseTx = {
-      id: `tx-pur-${Date.now()}-${index}`,
-      timestamp: timestamp,
-      type: 'inventory_purchase',
-      amount: -costPrice,
-      notes: `شراء قطعة ${brand} ${name} (SN: ${serial}) من التاجر ${supplier}`
+    let purchaseTx = null;
+    // لو الشراء كاش: بيتم خصم قيمتها فوراً من الخزينة زي ما كان بيحصل قبل كده.
+    // لو آجل: القيمة بتتسجل كمستحق على المورد في حسابه ولا تُخصم من الخزينة
+    // إلا وقت السداد الفعلي لاحقاً من تبويب "الموردين".
+    if (paymentMethod === 'credit') {
+      purchaseTx = null;
+    } else {
+      purchaseTx = {
+        id: `tx-pur-${Date.now()}-${index}`,
+        timestamp: timestamp,
+        type: 'inventory_purchase',
+        amount: -costPrice,
+        notes: `شراء قطعة ${brand} ${name} (SN: ${serial}) من التاجر ${supplier}`
+      };
+      db.treasuryTransactions.unshift(purchaseTx);
+    }
+
+    const supplierTx = {
+      id: `sptx-${Date.now()}-${index}`,
+      supplierId,
+      supplierName: supplier,
+      type: 'purchase',
+      method: paymentMethod,
+      amount: costPrice,
+      timestamp,
+      date: todayDate,
+      notes: `شراء قطعة ${brand} ${name} (SN: ${serial})`,
+      relatedDeviceId: newDevice.id
     };
-    db.treasuryTransactions.unshift(purchaseTx);
+    db.supplierTransactions.unshift(supplierTx);
 
     syncPromises.push(syncWithAppsScript('addDevice', { newDevice, timestamp, transaction: purchaseTx }));
+    syncPromises.push(syncWithAppsScript('addSupplierTransaction', { transaction: supplierTx }));
   });
 
   saveToLocalStorage();
-  logAction('إضافة قطعة', `إضافة عدد ${serials.length} قطعة من ${brand} ${name} بمجموع تكلفة ${(costPrice * serials.length)} ج.م`);
+  logAction('إضافة قطعة', `إضافة عدد ${serials.length} قطعة من ${brand} ${name} بمجموع تكلفة ${totalCost} ج.م (${paymentMethod === 'credit' ? 'آجل - مستحق للمورد' : 'كاش'}) من المورد ${supplier}`);
 
   if (syncPromises.length > 0) {
     await Promise.all(syncPromises);
@@ -5019,13 +5424,18 @@ function populateDropdowns() {
 
     const supplierSelect = document.getElementById('device-supplier');
     if (supplierSelect) {
+      const prevVal = supplierSelect.value;
       supplierSelect.innerHTML = '';
+      if (db.suppliers.length === 0) {
+        supplierSelect.innerHTML = '<option value="">لا يوجد موردين مسجلين - أضف مورد أولاً</option>';
+      }
       db.suppliers.forEach(s => {
         const opt = document.createElement('option');
-        opt.value = s.name;
-        opt.textContent = s.name;
+        opt.value = s.id;
+        opt.textContent = `${s.name}${s.type === 'cash' ? ' (كاش)' : s.type === 'both' ? ' (كاش/آجل)' : ' (آجل)'}`;
         supplierSelect.appendChild(opt);
       });
+      if ([...supplierSelect.options].some(o => o.value === prevVal)) supplierSelect.value = prevVal;
     }
 
     const collectorSelect = document.getElementById('contract-collector-select');

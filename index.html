@@ -164,6 +164,10 @@
         <i class="ph ph-stack text-base md:text-lg w-5 shrink-0"></i>
         <span>المخزون والأجهزة</span>
       </a>
+      <a href="#" data-tab="suppliers" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-truck text-base md:text-lg w-5 shrink-0"></i>
+        <span>الموردين</span>
+      </a>
       <a href="#" data-tab="contracts" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-signature text-base md:text-lg w-5 shrink-0"></i>
         <span>العقود والمبيعات</span>
@@ -378,6 +382,21 @@
               </div>
             </div>
           </div>
+          <!-- 9. Suppliers Owed Balance -->
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي المستحق للموردين</p>
+                <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-suppliers-due">0.00 ج.م</h3>
+              </div>
+              <div class="p-1.5 sm:p-3 bg-orange-50 text-orange-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-truck text-sm sm:text-xl"></i>
+              </div>
+            </div>
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
+              <span>مشتريات بالأجل لم تُسدد بعد</span>
+            </div>
+          </div>
         </div>
 
         <!-- Dashboard Bottom Split Layout -->
@@ -508,7 +527,7 @@
               <i class="ph ph-tag"></i>
               <span>+ صنف جديد</span>
             </button>
-            <button onclick="openModal('add-supplier-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+            <button onclick="openAddSupplierModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
               <i class="ph ph-handshake"></i>
               <span>تسجيل تاجر / مورد</span>
             </button>
@@ -636,6 +655,44 @@
             <i class="ph ph-package text-4xl mb-3"></i>
             <p>لا توجد أجهزة متوفرة في المخزون.</p>
           </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: SUPPLIERS (الموردين) ================= -->
+      <section id="tab-suppliers" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">الموردين</h3>
+            <p class="text-sm text-slate-500">إدارة بيانات الموردين (كاش وآجل)، متابعة أرصدتهم المستحقة، وتسجيل عمليات السداد.</p>
+          </div>
+          <button onclick="openAddSupplierModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-600/20 transition-all duration-200 flex items-center gap-2">
+            <i class="ph ph-truck"></i>
+            <span>إضافة مورد جديد</span>
+          </button>
+        </div>
+
+        <!-- Search and summary -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div class="relative w-full sm:w-80">
+            <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <i class="ph ph-magnifying-glass"></i>
+            </span>
+            <input type="text" id="supplier-search-input" placeholder="ابحث باسم المورد أو رقم الهاتف..." class="form-input pr-10">
+          </div>
+          <div class="flex flex-wrap gap-3 text-xs font-semibold">
+            <div class="bg-slate-100 text-slate-700 py-1.5 px-3 rounded-lg">عدد الموردين: <span id="supplier-summary-count" class="font-black">0</span></div>
+            <div class="bg-indigo-50 text-indigo-700 py-1.5 px-3 rounded-lg">إجمالي المشتريات: <span id="supplier-summary-total-purchases" class="font-black">0</span> ج.م</div>
+            <div class="bg-emerald-50 text-emerald-700 py-1.5 px-3 rounded-lg">إجمالي المسدد: <span id="supplier-summary-paid" class="font-black">0</span> ج.م</div>
+            <div class="bg-amber-50 text-amber-700 py-1.5 px-3 rounded-lg">إجمالي المستحق (آجل): <span id="supplier-summary-due" class="font-black">0</span> ج.م</div>
+          </div>
+        </div>
+
+        <div id="suppliers-list" class="space-y-3">
+          <!-- Dynamically populated -->
+        </div>
+        <div id="suppliers-empty-state" class="p-12 text-center text-slate-400 hidden bg-white rounded-2xl border border-slate-100">
+          <i class="ph ph-truck text-4xl mb-3"></i>
+          <p>لا يوجد موردين مسجلين حالياً. ابدأ بإضافة أول مورد.</p>
         </div>
       </section>
 
@@ -1216,6 +1273,10 @@
                   <span>المخزون والأجهزة</span>
                 </label>
                 <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-suppliers" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>الموردين</span>
+                </label>
+                <label class="flex items-center gap-2">
                   <input type="checkbox" id="perm-contracts" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
                   <span>العقود والمبيعات</span>
                 </label>
@@ -1586,19 +1647,34 @@
   <div id="add-supplier-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-        <h4 class="font-bold text-slate-800 text-lg">تسجيل تاجر / مورد جديد</h4>
+        <h4 class="font-bold text-slate-800 text-lg" id="supplier-modal-title">تسجيل تاجر / مورد جديد</h4>
         <button type="button" onclick="closeModal('add-supplier-modal')" class="text-slate-400 hover:text-slate-600">
           <i class="ph ph-x text-lg"></i>
         </button>
       </div>
       <form id="add-supplier-form" class="space-y-4">
+        <input type="hidden" id="supplier-edit-id" value="">
         <div>
           <label class="form-label">اسم التاجر / الشركة الموردة</label>
           <input type="text" id="supplier-name" required class="form-input" placeholder="مثال: شركة الهدى للاستيراد">
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">رقم الهاتف</label>
+            <input type="tel" id="supplier-phone" required class="form-input" placeholder="01xxxxxxxxx">
+          </div>
+          <div>
+            <label class="form-label">طريقة التعامل الأساسية</label>
+            <select id="supplier-type" class="form-input">
+              <option value="credit">آجل (له رصيد مستحق)</option>
+              <option value="cash">كاش فوري</option>
+              <option value="both">الاثنين حسب الفاتورة</option>
+            </select>
+          </div>
+        </div>
         <div>
-          <label class="form-label">رقم الهاتف</label>
-          <input type="tel" id="supplier-phone" required class="form-input" placeholder="01xxxxxxxxx">
+          <label class="form-label">العنوان</label>
+          <input type="text" id="supplier-address" class="form-input" placeholder="عنوان المورد / موقع التوريد">
         </div>
         <div>
           <label class="form-label">ملاحظات / البضاعة الموردة</label>
@@ -1607,6 +1683,39 @@
         <div class="flex justify-end gap-2 pt-3">
           <button type="button" onclick="closeModal('add-supplier-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
           <button type="submit" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ التاجر</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: SUPPLIER PAYMENT (سداد دفعة لمورد) -->
+  <div id="supplier-payment-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">سداد دفعة نقدية لمورد</h4>
+        <button type="button" onclick="closeModal('supplier-payment-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="supplier-payment-form" class="space-y-4">
+        <input type="hidden" id="supplier-payment-id" value="">
+        <div class="bg-slate-50 rounded-lg p-3 text-sm">
+          <p class="text-slate-500 text-xs">المورد</p>
+          <p class="font-bold text-slate-800" id="supplier-payment-name">—</p>
+          <p class="text-slate-500 text-xs mt-2">الرصيد المستحق حالياً</p>
+          <p class="font-bold text-amber-600" id="supplier-payment-current-balance">0 ج.م</p>
+        </div>
+        <div>
+          <label class="form-label">المبلغ المسدد الآن من الخزينة (ج.م)</label>
+          <input type="number" id="supplier-payment-amount" required min="1" class="form-input" placeholder="0.00">
+        </div>
+        <div>
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <input type="text" id="supplier-payment-notes" class="form-input" placeholder="مثال: سداد دفعة على حساب فواتير شهر...">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('supplier-payment-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد السداد من الخزينة</button>
         </div>
       </form>
     </div>
@@ -1649,12 +1758,22 @@
             <input type="number" id="device-price" required min="1" class="form-input" placeholder="قيمة البيع ج.م">
           </div>
         </div>
-        <div>
-          <label class="form-label">التاجر / المورد المشتري منه</label>
-          <select id="device-supplier" required class="form-input">
-            <!-- Populated dynamically -->
-          </select>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">التاجر / المورد المشتري منه</label>
+            <select id="device-supplier" required class="form-input">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div>
+            <label class="form-label">طريقة الدفع لهذه الفاتورة</label>
+            <select id="device-payment-method" class="form-input">
+              <option value="cash">كاش فوري (يخصم من الخزينة الآن)</option>
+              <option value="credit">آجل (يُسجَّل كمستحق للمورد)</option>
+            </select>
+          </div>
         </div>
+        <p class="text-[10px] text-slate-400 -mt-2">لو مفيش مورد مسجل، اقفل النافذة دي وسجّله الأول من تبويب "الموردين".</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label class="form-label">حالة القطعة</label>

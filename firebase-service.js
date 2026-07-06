@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors', 'investorSnapshots'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots'];
       const data = {};
       
       for (const colName of collections) {
@@ -46,7 +46,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'investors', 'investorSnapshots'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots'];
     
     const activeListeners = [];
     
@@ -320,10 +320,26 @@ window.FirebaseService = {
           await db.collection("brands").doc(payload.name).delete();
           break;
         case 'addSupplier':
-          await db.collection("suppliers").doc(payload.name).set(payload);
+          await db.collection("suppliers").doc(payload.id).set(payload);
+          break;
+        case 'updateSupplier':
+          await db.collection("suppliers").doc(payload.id).set(payload, { merge: true });
           break;
         case 'deleteSupplier':
-          await db.collection("suppliers").doc(payload.name).delete();
+          await db.collection("suppliers").doc(payload.id).delete();
+          break;
+        case 'addSupplierTransaction':
+          if (payload.transaction) {
+            await db.collection("supplierTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          break;
+        case 'supplierPayment':
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          if (payload.supplierTransaction) {
+            await db.collection("supplierTransactions").doc(payload.supplierTransaction.id).set(payload.supplierTransaction);
+          }
           break;
 
         // Investors & Company Capital
