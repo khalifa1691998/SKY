@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements'];
       const data = {};
       
       for (const colName of collections) {
@@ -46,7 +46,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements'];
     
     const activeListeners = [];
     
@@ -339,6 +339,44 @@ window.FirebaseService = {
           }
           if (payload.supplierTransaction) {
             await db.collection("supplierTransactions").doc(payload.supplierTransaction.id).set(payload.supplierTransaction);
+          }
+          break;
+
+        // General Products & Categories (الأصناف والمنتجات العامة)
+        case 'addProductCategory':
+          await db.collection("productCategories").doc(payload.id).set(payload);
+          break;
+        case 'updateProductCategory':
+          await db.collection("productCategories").doc(payload.id).set(payload, { merge: true });
+          break;
+        case 'deleteProductCategory':
+          await db.collection("productCategories").doc(payload.id).delete();
+          break;
+        case 'addProduct':
+          await db.collection("products").doc(payload.id).set(payload);
+          break;
+        case 'updateProduct':
+          await db.collection("products").doc(payload.id).set(payload, { merge: true });
+          break;
+        case 'deleteProduct':
+          await db.collection("products").doc(payload.id).delete();
+          break;
+        case 'stockInProduct':
+          await db.collection("productStockMovements").doc(payload.movement.id).set(payload.movement);
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
+          }
+          if (payload.supplierTransaction) {
+            await db.collection("supplierTransactions").doc(payload.supplierTransaction.id).set(payload.supplierTransaction);
+          }
+          if (payload.product) {
+            await db.collection("products").doc(payload.product.id).set(payload.product, { merge: true });
+          }
+          break;
+        case 'stockOutProduct':
+          await db.collection("productStockMovements").doc(payload.movement.id).set(payload.movement);
+          if (payload.transaction) {
+            await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
           }
           break;
 

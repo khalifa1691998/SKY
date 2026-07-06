@@ -15,6 +15,9 @@ let db = {
   brands: ['Oppo', 'Samsung', 'iPhone'], // Default Brands/Categories
   suppliers: [],
   supplierTransactions: [], // سجل حركات الموردين: مشتريات آجل/كاش وسدادات { id, supplierId, supplierName, type, method, amount, timestamp, notes }
+  productCategories: [], // أصناف المنتجات العامة (إكسسوارات/قطع غيار...): { id, name, notes }
+  products: [], // المنتجات العامة تحت كل صنف: { id, categoryId, name, unit, minQty, costPrice, sellingPrice, defaultSupplierId, notes }
+  productStockMovements: [], // حركات وارد/صادر لكل منتج: { id, productId, productName, type: 'in'|'out', reason, quantity, unitCost, totalCost, supplierId, supplierName, timestamp, notes }
   contracts: [],
   installments: [],
   collectorCustodies: [],
@@ -32,6 +35,7 @@ let db = {
       'client-balances': true,
       'inventory': true,
       'suppliers': true,
+      'products': true,
       'contracts': true,
       'collections': true,
       'treasury': false,
@@ -66,7 +70,7 @@ let db = {
 // التبويبات دي هي الوحيدة القابلة للتحكم فيها من شاشة الإعدادات لدور "موظف
 // إدخال بيانات" (STAFF). تبويبات users / settings / audit-log مقفولة دايماً
 // على المشرف (Admin) فقط ومش قابلة للمنح لأي دور تاني لأسباب أمنية.
-const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'suppliers', 'contracts', 'collections', 'treasury', 'investors', 'reports'];
+const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'treasury', 'investors', 'reports'];
 const ADMIN_ONLY_TABS = ['users', 'settings', 'audit-log'];
 
 function getDefaultStaffPermissions() {
@@ -112,6 +116,9 @@ const defaultSeedData = {
   brands: ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'],
   suppliers: [],
   supplierTransactions: [],
+  productCategories: [],
+  products: [],
+  productStockMovements: [],
   clients: [],
   inventory: [],
   contracts: [],
@@ -130,6 +137,7 @@ const defaultSeedData = {
       'client-balances': true,
       'inventory': true,
       'suppliers': true,
+      'products': true,
       'contracts': true,
       'collections': true,
       'treasury': false,
@@ -449,6 +457,9 @@ function initDatabase() {
     if (!db.investors) db.investors = [];
     if (!db.suppliers) db.suppliers = [];
     if (!db.supplierTransactions) db.supplierTransactions = [];
+    if (!db.productCategories) db.productCategories = [];
+    if (!db.products) db.products = [];
+    if (!db.productStockMovements) db.productStockMovements = [];
     // هجرة بيانات الموردين القدامى: إضافة id ونوع تعامل افتراضي وعنوان لو ناقصين
     db.suppliers.forEach(s => {
       if (!s.id) s.id = `sup-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -512,6 +523,9 @@ window.exportBackup = function() {
       brands: db.brands,
       suppliers: db.suppliers,
       supplierTransactions: db.supplierTransactions,
+      productCategories: db.productCategories,
+      products: db.products,
+      productStockMovements: db.productStockMovements,
       contracts: db.contracts,
       installments: db.installments,
       collectorCustodies: db.collectorCustodies,
@@ -561,6 +575,7 @@ window.exportExcelBackup = function() {
   const typeLabels = {
     deposit: 'إيداع / رأس مال', expense: 'مصروفات خارجية', collection: 'تحصيل أقساط',
     cash_sale: 'بيع كاش فوري', inventory_purchase: 'شراء بضاعة ومخزون',
+    product_purchase: 'شراء منتجات (أصناف عامة)', product_sale: 'بيع منتج (صنف عام)',
     supplier_payment: 'سداد دفعة لمورد',
     capital_injection: 'ضخ رأس مال (مستثمر)', capital_withdrawal: 'سحب رأس مال (مستثمر)',
     profit_withdrawal: 'سحب أرباح (مستثمر)'
@@ -580,7 +595,7 @@ window.exportExcelBackup = function() {
   // 1. ملخص عام
   const totalTreasury = db.treasuryTransactions.reduce((s, t) => s + t.amount, 0);
   const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection').reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'supplier_payment').reduce((s, t) => s + t.amount, 0));
+  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'product_purchase' || t.type === 'supplier_payment').reduce((s, t) => s + t.amount, 0));
   const overdueInsts = db.installments.filter(i => i.status !== 'paid' && new Date(i.dueDate) < now).length;
   addSheet('ملخص عام', [{
     'اسم الشركة': db.settings.companyName || 'شركة SKY',
@@ -678,6 +693,28 @@ window.exportExcelBackup = function() {
     'المبلغ': t.amount, 'ملاحظات': t.notes || ''
   })));
 
+  // 9د. الأصناف والمنتجات العامة (إكسسوارات/قطع غيار)
+  addSheet('الأصناف والمنتجات', db.products.map(p => {
+    const cat = db.productCategories.find(c => c.id === p.categoryId);
+    const qty = computeProductQuantity(p.id);
+    const sup = db.suppliers.find(s => s.id === p.defaultSupplierId);
+    return {
+      'الصنف': cat ? cat.name : '', 'اسم المنتج': p.name, 'الوحدة': p.unit || 'قطعة',
+      'الكمية الحالية': qty, 'الحد الأدنى للتنبيه': p.minQty || 0,
+      'سعر التكلفة': p.costPrice || 0, 'سعر البيع': p.sellingPrice || 0,
+      'المورد الافتراضي': sup ? sup.name : '', 'ملاحظات': p.notes || ''
+    };
+  }));
+
+  // 9هـ. حركات المنتجات (وارد/صادر)
+  addSheet('حركات المنتجات', sortByTimestampDesc(db.productStockMovements).map(m => ({
+    'التاريخ': m.timestamp, 'المنتج': m.productName,
+    'نوع الحركة': m.type === 'in' ? 'وارد (شراء)' : 'صادر',
+    'السبب': m.reason || '', 'الكمية': m.quantity,
+    'سعر الوحدة': m.unitCost || 0, 'الإجمالي': m.totalCost || 0,
+    'المورد': m.supplierName || '', 'ملاحظات': m.notes || ''
+  })));
+
   // 10. سجل التدقيق (الأحدث أولاً)
   addSheet('سجل التدقيق', sortByTimestampDesc([...db.auditLogs]).map(l => ({
     'التاريخ والوقت': l.timestamp, 'المستخدم': l.user, 'نوع العملية': l.actionType, 'التفاصيل': l.details
@@ -736,6 +773,9 @@ window.handleRestoreFileSelected = function(event) {
       if (restoredData.brands) db.brands = restoredData.brands;
       if (restoredData.suppliers) db.suppliers = restoredData.suppliers;
       if (restoredData.supplierTransactions) db.supplierTransactions = restoredData.supplierTransactions;
+      if (restoredData.productCategories) db.productCategories = restoredData.productCategories;
+      if (restoredData.products) db.products = restoredData.products;
+      if (restoredData.productStockMovements) db.productStockMovements = restoredData.productStockMovements;
       if (restoredData.contracts) db.contracts = restoredData.contracts;
       if (restoredData.installments) db.installments = restoredData.installments;
       if (restoredData.collectorCustodies) db.collectorCustodies = restoredData.collectorCustodies;
@@ -921,6 +961,9 @@ async function loadFromServer() {
       if (fbData) {
         db.clients = fbData.clients || [];
         db.inventory = fbData.inventory || [];
+        db.productCategories = fbData.productCategories || [];
+        db.products = fbData.products || [];
+        db.productStockMovements = fbData.productStockMovements || [];
         db.contracts = fbData.contracts || [];
         db.installments = fbData.installments || [];
         db.collectorCustodies = fbData.collectorCustodies || [];
@@ -1076,6 +1119,9 @@ function renderActiveTab(tabName) {
     case 'suppliers':
       renderSuppliers();
       break;
+    case 'products':
+      renderProducts();
+      break;
     case 'contracts':
       renderContracts();
       break;
@@ -1129,7 +1175,7 @@ function renderDashboard() {
   const activeCollections = db.treasuryTransactions.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
   document.getElementById('kpi-active-collections').textContent = `${activeCollections.toLocaleString()} ج.م`;
 
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
+  const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
   document.getElementById('kpi-total-expenses').textContent = `${totalExpenses.toLocaleString()} ج.م`;
 
   const totalSuppliersDue = db.suppliers.reduce((sum, s) => sum + computeSupplierBalance(s.id).balance, 0);
@@ -2398,6 +2444,491 @@ window.printSupplierStatement = function(supplierId) {
   logAction('طباعة كشف حساب مورد', `طباعة كشف حساب للمورد ${supplier.name}`);
 };
 
+// --- 3C. GENERAL PRODUCTS & CATEGORIES (الأصناف والمنتجات العامة - إكسسوارات/قطع غيار) ---
+// نظام مستقل تماماً عن مخزون الأجهزة (اللي بيتتبع بالسيريال الفردي)، مخصص
+// للمنتجات اللي بتتباع/تُستخدم بالعدد (كمية) بدون سيريال فردي، زي الإكسسوارات
+// وقطع الغيار ومستلزمات الصيانة. الكمية الحالية لكل منتج بتتحسب دايماً من
+// مجموع حركات الوارد ناقص الصادر (بنفس فلسفة حساب رصيد المورد أعلاه) عشان
+// تفضل متزامنة ودقيقة دايماً بدل ما نخزنها كرقم منفصل ممكن يحصل فيه تعارض.
+
+const PRODUCT_MOVEMENT_REASON_LABELS = {
+  purchase: 'شراء من مورد',
+  cash_sale: 'بيع كاش',
+  consumption: 'استهلاك داخلي',
+  damage: 'تالف / هالك',
+  adjustment: 'تسوية جرد'
+};
+
+function computeProductQuantity(productId) {
+  const movements = db.productStockMovements.filter(m => m.productId === productId);
+  const totalIn = movements.filter(m => m.type === 'in').reduce((s, m) => s + m.quantity, 0);
+  const totalOut = movements.filter(m => m.type === 'out').reduce((s, m) => s + m.quantity, 0);
+  return totalIn - totalOut;
+}
+
+let selectedProductCategoryId = ''; // '' = عرض كل الأصناف
+let expandedProductId = null; // لعرض سجل حركات منتج معين
+
+window.selectProductCategory = function(categoryId) {
+  selectedProductCategoryId = categoryId;
+  renderProducts();
+};
+
+window.toggleProductMovements = function(productId) {
+  expandedProductId = (expandedProductId === productId) ? null : productId;
+  renderProducts();
+};
+
+function renderProductCategoryChips() {
+  const container = document.getElementById('product-categories-chips');
+  if (!container) return;
+  const allCount = db.products.length;
+  let html = `
+    <button onclick="selectProductCategory('')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${selectedProductCategoryId === '' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+      كل الأصناف <span class="opacity-70">(${allCount})</span>
+    </button>
+  `;
+  db.productCategories.forEach(cat => {
+    const count = db.products.filter(p => p.categoryId === cat.id).length;
+    const isActive = selectedProductCategoryId === cat.id;
+    html += `
+      <div class="inline-flex items-center gap-1 ${isActive ? 'bg-teal-600' : 'bg-slate-100'} rounded-lg pr-1 pl-2 py-1">
+        <button onclick="selectProductCategory('${cat.id}')" class="px-2 py-0.5 rounded-md text-xs font-semibold transition-all ${isActive ? 'text-white' : 'text-slate-600 hover:bg-slate-200'}">
+          ${escapeHTML(cat.name)} <span class="opacity-70">(${count})</span>
+        </button>
+        <button onclick="editProductCategory('${cat.id}')" title="تعديل الصنف" class="${isActive ? 'text-teal-100 hover:text-white' : 'text-slate-400 hover:text-teal-600'} text-xs"><i class="ph ph-note-pencil"></i></button>
+        <button onclick="deleteProductCategory('${cat.id}')" title="حذف الصنف" class="${isActive ? 'text-teal-100 hover:text-white' : 'text-slate-400 hover:text-rose-600'} text-xs"><i class="ph ph-trash"></i></button>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function renderProducts() {
+  renderProductCategoryChips();
+
+  const searchInput = document.getElementById('product-search-input');
+  const lowStockInput = document.getElementById('product-filter-lowstock');
+  const searchVal = (searchInput ? searchInput.value : '').toLowerCase();
+  const lowStockOnly = lowStockInput ? lowStockInput.checked : false;
+  const tbody = document.getElementById('products-table-body');
+  const emptyState = document.getElementById('products-empty-state');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  let list = db.products.filter(p => {
+    if (selectedProductCategoryId && p.categoryId !== selectedProductCategoryId) return false;
+    if (searchVal && !(p.name || '').toLowerCase().includes(searchVal)) return false;
+    return true;
+  });
+
+  // ملخصات علوية
+  const summaryCategories = document.getElementById('product-summary-categories');
+  const summaryProducts = document.getElementById('product-summary-products');
+  const summaryLowStock = document.getElementById('product-summary-lowstock');
+  const summaryValue = document.getElementById('product-summary-value');
+  if (summaryCategories) summaryCategories.textContent = db.productCategories.length;
+  if (summaryProducts) summaryProducts.textContent = db.products.length;
+  const lowStockProducts = db.products.filter(p => computeProductQuantity(p.id) <= (p.minQty || 0));
+  if (summaryLowStock) summaryLowStock.textContent = lowStockProducts.length;
+  const totalStockValue = db.products.reduce((sum, p) => sum + (computeProductQuantity(p.id) * (p.costPrice || 0)), 0);
+  if (summaryValue) summaryValue.textContent = totalStockValue.toLocaleString();
+
+  if (lowStockOnly) {
+    list = list.filter(p => computeProductQuantity(p.id) <= (p.minQty || 0));
+  }
+
+  if (list.length === 0) {
+    if (emptyState) emptyState.classList.remove('hidden');
+    return;
+  }
+  if (emptyState) emptyState.classList.add('hidden');
+
+  list.forEach(p => {
+    const cat = db.productCategories.find(c => c.id === p.categoryId);
+    const qty = computeProductQuantity(p.id);
+    const isLow = qty <= (p.minQty || 0);
+    const sup = db.suppliers.find(s => s.id === p.defaultSupplierId);
+    const isExpanded = expandedProductId === p.id;
+
+    const row = document.createElement('tr');
+    row.className = 'hover:bg-slate-50/60 transition-colors';
+    row.innerHTML = `
+      <td class="p-4">
+        <div class="font-bold text-slate-800">${escapeHTML(p.name)}</div>
+        <div class="text-xs text-slate-400">${escapeHTML(cat ? cat.name : 'بدون صنف')}</div>
+      </td>
+      <td class="p-4 text-center">
+        <span class="font-black text-sm ${isLow ? 'text-rose-600' : 'text-slate-700'}">${qty.toLocaleString()}</span>
+        <span class="text-xs text-slate-400"> ${escapeHTML(p.unit || 'قطعة')}</span>
+        ${isLow ? `<div><span class="badge badge-danger mt-1 inline-block">أوشك على النفاد</span></div>` : ''}
+      </td>
+      <td class="p-4 text-center text-slate-500 text-xs">${(p.minQty || 0).toLocaleString()}</td>
+      <td class="p-4 text-slate-600 text-xs">${(p.costPrice || 0).toLocaleString()} ج.م</td>
+      <td class="p-4 text-slate-600 text-xs">${(p.sellingPrice || 0).toLocaleString()} ج.م</td>
+      <td class="p-4 text-slate-600 text-xs">${sup ? escapeHTML(sup.name) : '-'}</td>
+      <td class="p-4">
+        <div class="flex flex-wrap items-center justify-center gap-1.5">
+          <button onclick="openStockInModal('${p.id}')" title="توريد كمية من مورد" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-arrow-down-left"></i> توريد</button>
+          <button onclick="openStockOutModal('${p.id}')" title="صرف / بيع كمية" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-arrow-up-right"></i> صرف</button>
+          <button onclick="toggleProductMovements('${p.id}')" title="سجل الحركات" class="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-md text-xs transition-all"><i class="ph ph-clock-counter-clockwise"></i></button>
+          <button onclick="editProduct('${p.id}')" title="تعديل المنتج" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-md text-xs transition-all"><i class="ph ph-note-pencil"></i></button>
+          <button onclick="deleteProduct('${p.id}')" title="حذف المنتج" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md text-xs transition-all"><i class="ph ph-trash"></i></button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+
+    if (isExpanded) {
+      const movements = sortByTimestampDesc(db.productStockMovements.filter(m => m.productId === p.id));
+      const detailsRow = document.createElement('tr');
+      detailsRow.innerHTML = `
+        <td colspan="7" class="p-0 bg-slate-50/60 border-t border-slate-100">
+          <div class="p-4">
+            ${movements.length === 0 ? '<p class="text-xs text-slate-400 text-center py-3">لا توجد حركات مسجلة لهذا المنتج بعد.</p>' : `
+            <div class="overflow-x-auto">
+            <table class="w-full text-right border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-100 text-slate-500 font-semibold text-[11px]">
+                  <th class="p-2">التاريخ</th><th class="p-2">النوع</th><th class="p-2">السبب</th><th class="p-2">الكمية</th><th class="p-2">سعر الوحدة</th><th class="p-2">الإجمالي</th><th class="p-2">المورد</th><th class="p-2">ملاحظات</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-slate-700">
+                ${movements.map(m => `
+                  <tr>
+                    <td class="p-2 font-mono text-slate-500">${escapeHTML(m.timestamp)}</td>
+                    <td class="p-2">${m.type === 'in' ? '<span class="badge badge-success">وارد</span>' : '<span class="badge badge-warning">صادر</span>'}</td>
+                    <td class="p-2">${escapeHTML(PRODUCT_MOVEMENT_REASON_LABELS[m.reason] || m.reason || '-')}</td>
+                    <td class="p-2 font-bold">${m.quantity.toLocaleString()}</td>
+                    <td class="p-2">${(m.unitCost || 0).toLocaleString()} ج.م</td>
+                    <td class="p-2 font-bold">${(m.totalCost || 0).toLocaleString()} ج.م</td>
+                    <td class="p-2">${escapeHTML(m.supplierName) || '-'}</td>
+                    <td class="p-2">${escapeHTML(m.notes) || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            </div>
+            `}
+          </div>
+        </td>
+      `;
+      tbody.appendChild(detailsRow);
+    }
+  });
+}
+
+const productSearchInputEl = document.getElementById('product-search-input');
+if (productSearchInputEl) productSearchInputEl.addEventListener('input', renderProducts);
+const productLowStockInputEl = document.getElementById('product-filter-lowstock');
+if (productLowStockInputEl) productLowStockInputEl.addEventListener('change', renderProducts);
+
+// ----- إدارة الأصناف (Categories CRUD) -----
+window.openAddProductCategoryModal = function() {
+  document.getElementById('product-category-edit-id').value = '';
+  document.getElementById('add-product-category-form').reset();
+  document.getElementById('product-category-modal-title').textContent = 'إضافة صنف جديد';
+  openModal('add-product-category-modal');
+};
+
+window.editProductCategory = function(categoryId) {
+  const cat = db.productCategories.find(c => c.id === categoryId);
+  if (!cat) return;
+  document.getElementById('product-category-edit-id').value = cat.id;
+  document.getElementById('product-category-name').value = cat.name || '';
+  document.getElementById('product-category-notes').value = cat.notes || '';
+  document.getElementById('product-category-modal-title').textContent = 'تعديل الصنف';
+  openModal('add-product-category-modal');
+};
+
+window.deleteProductCategory = async function(categoryId) {
+  const productsInCategory = db.products.filter(p => p.categoryId === categoryId);
+  if (productsInCategory.length > 0) {
+    alert(`⛔ لا يمكن حذف هذا الصنف لأنه يحتوي على ${productsInCategory.length} منتج. احذف أو انقل المنتجات أولاً.`);
+    return;
+  }
+  const cat = db.productCategories.find(c => c.id === categoryId);
+  if (!cat) return;
+  if (await customConfirm(`هل أنت متأكد من حذف صنف "${cat.name}" نهائياً؟`)) {
+    db.productCategories = db.productCategories.filter(c => c.id !== categoryId);
+    if (selectedProductCategoryId === categoryId) selectedProductCategoryId = '';
+    saveToLocalStorage();
+    logAction('حذف صنف منتجات', `حذف الصنف ${cat.name}`);
+    renderProducts();
+    populateDropdowns();
+    await syncWithAppsScript('deleteProductCategory', { id: categoryId });
+  }
+};
+
+document.getElementById('add-product-category-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const editId = document.getElementById('product-category-edit-id').value;
+  const name = document.getElementById('product-category-name').value.trim();
+  const notes = document.getElementById('product-category-notes').value.trim();
+  if (!name) return;
+
+  if (editId) {
+    const cat = db.productCategories.find(c => c.id === editId);
+    if (!cat) return;
+    cat.name = name; cat.notes = notes;
+    saveToLocalStorage();
+    logAction('تعديل صنف منتجات', `تعديل بيانات الصنف ${name}`);
+    await syncWithAppsScript('updateProductCategory', cat);
+  } else {
+    const newCat = { id: `pcat-${Date.now()}-${Math.floor(Math.random() * 10000)}`, name, notes };
+    db.productCategories.push(newCat);
+    saveToLocalStorage();
+    logAction('إضافة صنف منتجات', `إضافة صنف جديد: ${name}`);
+    await syncWithAppsScript('addProductCategory', newCat);
+  }
+
+  closeModal('add-product-category-modal');
+  renderProducts();
+  populateDropdowns();
+});
+
+// ----- إدارة المنتجات (Products CRUD) -----
+window.openAddProductModal = function() {
+  document.getElementById('product-edit-id').value = '';
+  document.getElementById('add-product-form').reset();
+  document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
+  if (selectedProductCategoryId) document.getElementById('product-category-select').value = selectedProductCategoryId;
+  openModal('add-product-modal');
+};
+
+window.editProduct = function(productId) {
+  const p = db.products.find(x => x.id === productId);
+  if (!p) return;
+  document.getElementById('product-edit-id').value = p.id;
+  document.getElementById('product-name').value = p.name || '';
+  document.getElementById('product-category-select').value = p.categoryId || '';
+  document.getElementById('product-unit').value = p.unit || 'قطعة';
+  document.getElementById('product-min-qty').value = p.minQty || 0;
+  document.getElementById('product-cost-price').value = p.costPrice || 0;
+  document.getElementById('product-selling-price').value = p.sellingPrice || 0;
+  document.getElementById('product-default-supplier').value = p.defaultSupplierId || '';
+  document.getElementById('product-notes').value = p.notes || '';
+  document.getElementById('product-modal-title').textContent = 'تعديل بيانات المنتج';
+  openModal('add-product-modal');
+};
+
+window.deleteProduct = async function(productId) {
+  const qty = computeProductQuantity(productId);
+  if (qty > 0) {
+    alert(`⛔ لا يمكن حذف هذا المنتج لأن رصيده الحالي بالمخزون ${qty}. قم بصرف/تصفير الكمية أولاً قبل الحذف.`);
+    return;
+  }
+  const p = db.products.find(x => x.id === productId);
+  if (!p) return;
+  if (await customConfirm(`هل أنت متأكد من حذف منتج "${p.name}" نهائياً؟`)) {
+    db.products = db.products.filter(x => x.id !== productId);
+    saveToLocalStorage();
+    logAction('حذف منتج', `حذف المنتج ${p.name} من السجلات`);
+    renderProducts();
+    populateDropdowns();
+    await syncWithAppsScript('deleteProduct', { id: productId });
+  }
+};
+
+document.getElementById('add-product-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const editId = document.getElementById('product-edit-id').value;
+  const name = document.getElementById('product-name').value.trim();
+  const categoryId = document.getElementById('product-category-select').value;
+  const unit = document.getElementById('product-unit').value.trim() || 'قطعة';
+  const minQty = parseFloat(document.getElementById('product-min-qty').value) || 0;
+  const costPrice = parseFloat(document.getElementById('product-cost-price').value) || 0;
+  const sellingPrice = parseFloat(document.getElementById('product-selling-price').value) || 0;
+  const defaultSupplierId = document.getElementById('product-default-supplier').value;
+  const notes = document.getElementById('product-notes').value.trim();
+
+  if (!name || !categoryId) { alert('يرجى إدخال اسم المنتج واختيار الصنف التابع له.'); return; }
+
+  if (editId) {
+    const p = db.products.find(x => x.id === editId);
+    if (!p) return;
+    p.name = name; p.categoryId = categoryId; p.unit = unit; p.minQty = minQty;
+    p.costPrice = costPrice; p.sellingPrice = sellingPrice; p.defaultSupplierId = defaultSupplierId; p.notes = notes;
+    saveToLocalStorage();
+    logAction('تعديل منتج', `تعديل بيانات المنتج ${name}`);
+    await syncWithAppsScript('updateProduct', p);
+  } else {
+    const newProduct = {
+      id: `prod-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      categoryId, name, unit, minQty, costPrice, sellingPrice, defaultSupplierId, notes
+    };
+    db.products.push(newProduct);
+    saveToLocalStorage();
+    logAction('إضافة منتج', `إضافة منتج جديد: ${name}`);
+    await syncWithAppsScript('addProduct', newProduct);
+  }
+
+  closeModal('add-product-modal');
+  renderProducts();
+  populateDropdowns();
+});
+
+// ----- توريد كمية من مورد (Stock In) -----
+window.openStockInModal = function(productId) {
+  const p = db.products.find(x => x.id === productId);
+  if (!p) return;
+  document.getElementById('stock-in-product-id').value = p.id;
+  document.getElementById('stock-in-product-name').textContent = p.name;
+  document.getElementById('stock-in-current-qty').textContent = `${computeProductQuantity(p.id).toLocaleString()} ${p.unit || 'قطعة'}`;
+  populateDropdowns();
+  document.getElementById('stock-in-supplier').value = p.defaultSupplierId || '';
+  document.getElementById('stock-in-quantity').value = '';
+  document.getElementById('stock-in-unit-cost').value = p.costPrice || 0;
+  document.getElementById('stock-in-method').value = 'cash';
+  document.getElementById('stock-in-notes').value = '';
+  openModal('stock-in-modal');
+};
+
+document.getElementById('stock-in-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const productId = document.getElementById('stock-in-product-id').value;
+  const p = db.products.find(x => x.id === productId);
+  if (!p) return;
+
+  const supplierId = document.getElementById('stock-in-supplier').value;
+  const supplier = db.suppliers.find(s => s.id === supplierId);
+  const quantity = parseFloat(document.getElementById('stock-in-quantity').value);
+  const unitCost = parseFloat(document.getElementById('stock-in-unit-cost').value) || 0;
+  const method = document.getElementById('stock-in-method').value || 'cash';
+  const notes = document.getElementById('stock-in-notes').value.trim();
+
+  if (!supplierId || !quantity || quantity <= 0) {
+    alert('يرجى اختيار المورد وإدخال كمية صحيحة أكبر من صفر.');
+    return;
+  }
+
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const todayDate = timestamp.split(' ')[0];
+  const totalCost = quantity * unitCost;
+
+  const movement = {
+    id: `pmov-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    productId: p.id, productName: p.name, type: 'in', reason: 'purchase',
+    quantity, unitCost, totalCost, supplierId, supplierName: supplier ? supplier.name : '',
+    timestamp, notes
+  };
+  db.productStockMovements.unshift(movement);
+
+  // نفس منطق شراء الأجهزة بالظبط: كاش يخصم فوراً من الخزينة، آجل يتسجل كمستحق
+  // على المورد فقط (من غير ما يلمس الخزينة إلا وقت السداد الفعلي لاحقاً).
+  let treasuryTx = null;
+  if (method !== 'credit') {
+    treasuryTx = {
+      id: `tx-ppur-${Date.now()}`,
+      timestamp, type: 'product_purchase', amount: -totalCost,
+      notes: `شراء ${quantity} ${p.unit || 'قطعة'} من "${p.name}" من المورد ${supplier ? supplier.name : ''}`
+    };
+    db.treasuryTransactions.unshift(treasuryTx);
+  }
+
+  const supplierTx = {
+    id: `sptx-${Date.now()}`,
+    supplierId, supplierName: supplier ? supplier.name : '',
+    type: 'purchase', method, amount: totalCost, timestamp, date: todayDate,
+    notes: `شراء ${quantity} ${p.unit || 'قطعة'} من "${p.name}"`,
+    relatedProductId: p.id
+  };
+  db.supplierTransactions.unshift(supplierTx);
+
+  // تحديث سعر التكلفة والمورد الافتراضي للمنتج ليعكسوا آخر عملية شراء فعلية
+  p.costPrice = unitCost;
+  p.defaultSupplierId = supplierId;
+
+  saveToLocalStorage();
+  logAction('توريد منتج', `توريد ${quantity} ${p.unit || 'قطعة'} من "${p.name}" من المورد ${supplier ? supplier.name : ''} (${method === 'credit' ? 'آجل' : 'كاش'})`);
+
+  await syncWithAppsScript('stockInProduct', {
+    movement, transaction: treasuryTx, supplierTransaction: supplierTx,
+    product: { id: p.id, costPrice: p.costPrice, defaultSupplierId: p.defaultSupplierId }
+  });
+
+  closeModal('stock-in-modal');
+  renderProducts();
+  renderTreasury();
+  renderDashboard();
+});
+
+// ----- صرف / بيع كمية (Stock Out) -----
+window.openStockOutModal = function(productId) {
+  const p = db.products.find(x => x.id === productId);
+  if (!p) return;
+  document.getElementById('stock-out-product-id').value = p.id;
+  document.getElementById('stock-out-product-name').textContent = p.name;
+  document.getElementById('stock-out-current-qty').textContent = `${computeProductQuantity(p.id).toLocaleString()} ${p.unit || 'قطعة'}`;
+  document.getElementById('stock-out-quantity').value = '';
+  document.getElementById('stock-out-reason').value = 'cash_sale';
+  document.getElementById('stock-out-sale-price').value = p.sellingPrice || 0;
+  document.getElementById('stock-out-notes').value = '';
+  toggleStockOutSalePriceField();
+  openModal('stock-out-modal');
+};
+
+window.toggleStockOutSalePriceField = function() {
+  const reasonEl = document.getElementById('stock-out-reason');
+  const wrapper = document.getElementById('stock-out-sale-price-wrapper');
+  if (!reasonEl || !wrapper) return;
+  wrapper.classList.toggle('hidden', reasonEl.value !== 'cash_sale');
+};
+
+document.getElementById('stock-out-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const productId = document.getElementById('stock-out-product-id').value;
+  const p = db.products.find(x => x.id === productId);
+  if (!p) return;
+
+  const quantity = parseFloat(document.getElementById('stock-out-quantity').value);
+  const reason = document.getElementById('stock-out-reason').value;
+  const salePrice = parseFloat(document.getElementById('stock-out-sale-price').value) || 0;
+  const notes = document.getElementById('stock-out-notes').value.trim();
+
+  if (!quantity || quantity <= 0) { alert('يرجى إدخال كمية صحيحة أكبر من صفر.'); return; }
+
+  const currentQty = computeProductQuantity(p.id);
+  if (quantity > currentQty) {
+    const proceed = await customConfirm(`الكمية المطلوب صرفها (${quantity}) أكبر من الرصيد الحالي بالمخزون (${currentQty}). هل تريد المتابعة رغم ذلك؟`);
+    if (!proceed) return;
+  }
+
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const totalSale = reason === 'cash_sale' ? quantity * salePrice : 0;
+
+  const movement = {
+    id: `pmov-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    productId: p.id, productName: p.name, type: 'out', reason,
+    quantity, unitCost: reason === 'cash_sale' ? salePrice : 0, totalCost: totalSale,
+    supplierId: '', supplierName: '', timestamp, notes
+  };
+  db.productStockMovements.unshift(movement);
+
+  let treasuryTx = null;
+  if (reason === 'cash_sale' && totalSale > 0) {
+    treasuryTx = {
+      id: `tx-psale-${Date.now()}`,
+      timestamp, type: 'product_sale', amount: totalSale,
+      notes: `بيع ${quantity} ${p.unit || 'قطعة'} من "${p.name}" كاش`
+    };
+    db.treasuryTransactions.unshift(treasuryTx);
+  }
+
+  saveToLocalStorage();
+  const reasonLabel = PRODUCT_MOVEMENT_REASON_LABELS[reason] || reason;
+  logAction('صرف منتج', `صرف ${quantity} ${p.unit || 'قطعة'} من "${p.name}" (${reasonLabel})`);
+
+  await syncWithAppsScript('stockOutProduct', { movement, transaction: treasuryTx });
+
+  closeModal('stock-out-modal');
+  renderProducts();
+  renderTreasury();
+  renderDashboard();
+});
+
 // --- 4. CONTRACTS & SALES ---
 function renderContracts() {
   const searchVal = document.getElementById('contract-search-input').value.toLowerCase();
@@ -2717,6 +3248,14 @@ function renderTreasury() {
       typeClass = 'badge-danger';
       amountSign = '-';
       amountClass = 'text-rose-600';
+    } else if (tx.type === 'product_purchase') {
+      typeText = 'شراء منتجات (أصناف عامة)';
+      typeClass = 'badge-danger';
+      amountSign = '-';
+      amountClass = 'text-rose-600';
+    } else if (tx.type === 'product_sale') {
+      typeText = 'بيع منتج (صنف عام)';
+      typeClass = 'badge-success';
     } else if (tx.type === 'supplier_payment') {
       typeText = 'سداد دفعة لمورد';
       typeClass = 'badge-danger';
@@ -3762,7 +4301,7 @@ function renderReports() {
     return txDate >= fromDate && txDate <= toDate;
   });
   const collectionsInRange = txInRange.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
-  const expensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
+  const expensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
   const netInRange = txInRange.reduce((sum, tx) => sum + tx.amount, 0);
 
   document.getElementById('report-kpi-sales').textContent = `${salesInRange.toLocaleString()} ج.م`;
@@ -5694,6 +6233,38 @@ function populateDropdowns() {
       });
       if ([...supplierSelect.options].some(o => o.value === prevVal)) supplierSelect.value = prevVal;
     }
+
+    // قائمة الأصناف داخل نموذج إضافة/تعديل منتج
+    const productCategorySelect = document.getElementById('product-category-select');
+    if (productCategorySelect) {
+      const prevVal = productCategorySelect.value;
+      productCategorySelect.innerHTML = '<option value="">اختر الصنف...</option>';
+      db.productCategories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = cat.name;
+        productCategorySelect.appendChild(opt);
+      });
+      if ([...productCategorySelect.options].some(o => o.value === prevVal)) productCategorySelect.value = prevVal;
+    }
+
+    // قوائم الموردين الخاصة بنموذج المنتج ونموذج التوريد
+    [
+      { id: 'product-default-supplier', placeholder: 'بدون مورد افتراضي' },
+      { id: 'stock-in-supplier', placeholder: 'اختر المورد...' }
+    ].forEach(({ id: selectId, placeholder }) => {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      const prevVal = sel.value;
+      sel.innerHTML = `<option value="">${placeholder}</option>`;
+      db.suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${s.name}${s.type === 'cash' ? ' (كاش)' : s.type === 'both' ? ' (كاش/آجل)' : ' (آجل)'}`;
+        sel.appendChild(opt);
+      });
+      if ([...sel.options].some(o => o.value === prevVal)) sel.value = prevVal;
+    });
 
     const collectorSelect = document.getElementById('contract-collector-select');
     if (collectorSelect) {

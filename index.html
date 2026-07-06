@@ -168,6 +168,10 @@
         <i class="ph ph-truck text-base md:text-lg w-5 shrink-0"></i>
         <span>الموردين</span>
       </a>
+      <a href="#" data-tab="products" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-package text-base md:text-lg w-5 shrink-0"></i>
+        <span>الأصناف والمنتجات</span>
+      </a>
       <a href="#" data-tab="contracts" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-signature text-base md:text-lg w-5 shrink-0"></i>
         <span>العقود والمبيعات</span>
@@ -693,6 +697,91 @@
         <div id="suppliers-empty-state" class="p-12 text-center text-slate-400 hidden bg-white rounded-2xl border border-slate-100">
           <i class="ph ph-truck text-4xl mb-3"></i>
           <p>لا يوجد موردين مسجلين حالياً. ابدأ بإضافة أول مورد.</p>
+        </div>
+      </section>
+
+      <!-- ================= TAB: PRODUCTS & CATEGORIES (الأصناف والمنتجات العامة) ================= -->
+      <section id="tab-products" class="space-y-6 hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">الأصناف والمنتجات</h3>
+            <p class="text-sm text-slate-500">إدارة المنتجات العامة (إكسسوارات، قطع غيار...) مرتبة تحت أصناف، مع متابعة الكميات والربط بالموردين عند التوريد.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="openAddProductCategoryModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-folder-simple-plus"></i>
+              <span>إضافة صنف</span>
+            </button>
+            <button onclick="openAddProductModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-600/20 transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-package"></i>
+              <span>إضافة منتج جديد</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <p class="text-xs text-slate-400 font-semibold">عدد الأصناف</p>
+            <p class="text-xl font-black text-slate-800 mt-1" id="product-summary-categories">0</p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <p class="text-xs text-slate-400 font-semibold">عدد المنتجات</p>
+            <p class="text-xl font-black text-slate-800 mt-1" id="product-summary-products">0</p>
+          </div>
+          <div class="bg-rose-50 rounded-2xl p-4 border border-rose-100 shadow-sm">
+            <p class="text-xs text-rose-500 font-semibold">أوشك على النفاد</p>
+            <p class="text-xl font-black text-rose-700 mt-1" id="product-summary-lowstock">0</p>
+          </div>
+          <div class="bg-indigo-50 rounded-2xl p-4 border border-indigo-100 shadow-sm">
+            <p class="text-xs text-indigo-500 font-semibold">قيمة المخزون (تكلفة)</p>
+            <p class="text-xl font-black text-indigo-700 mt-1"><span id="product-summary-value">0</span> ج.م</p>
+          </div>
+        </div>
+
+        <!-- Category chips -->
+        <div id="product-categories-chips" class="flex flex-wrap gap-2">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Filter bar -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div class="relative w-full sm:w-80">
+            <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <i class="ph ph-magnifying-glass"></i>
+            </span>
+            <input type="text" id="product-search-input" placeholder="ابحث باسم المنتج..." class="form-input pr-10">
+          </div>
+          <label class="flex items-center gap-2 text-sm text-slate-600 font-semibold">
+            <input type="checkbox" id="product-filter-lowstock" class="rounded">
+            عرض الأصناف الأقل من الحد الأدنى فقط
+          </label>
+        </div>
+
+        <!-- Products Table -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div class="table-scroll-wrapper">
+            <table class="w-full text-right border-collapse">
+              <thead>
+                <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
+                  <th class="p-4">المنتج</th>
+                  <th class="p-4 text-center">الكمية الحالية</th>
+                  <th class="p-4 text-center">الحد الأدنى</th>
+                  <th class="p-4">سعر التكلفة</th>
+                  <th class="p-4">سعر البيع</th>
+                  <th class="p-4">المورد الافتراضي</th>
+                  <th class="p-4 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="products-table-body" class="text-sm divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+          <div id="products-empty-state" class="p-12 text-center text-slate-400 hidden">
+            <i class="ph ph-package text-4xl mb-3"></i>
+            <p>لا توجد منتجات مسجلة بعد. ابدأ بإضافة صنف ثم منتج جديد.</p>
+          </div>
         </div>
       </section>
 
@@ -1277,6 +1366,10 @@
                   <span>الموردين</span>
                 </label>
                 <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-products" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>الأصناف والمنتجات</span>
+                </label>
+                <label class="flex items-center gap-2">
                   <input type="checkbox" id="perm-contracts" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
                   <span>العقود والمبيعات</span>
                 </label>
@@ -1716,6 +1809,192 @@
         <div class="flex justify-end gap-2 pt-3">
           <button type="button" onclick="closeModal('supplier-payment-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
           <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد السداد من الخزينة</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD/EDIT PRODUCT CATEGORY (صنف منتجات) -->
+  <div id="add-product-category-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg" id="product-category-modal-title">إضافة صنف جديد</h4>
+        <button type="button" onclick="closeModal('add-product-category-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="add-product-category-form" class="space-y-4">
+        <input type="hidden" id="product-category-edit-id" value="">
+        <div>
+          <label class="form-label">اسم الصنف</label>
+          <input type="text" id="product-category-name" required class="form-input" placeholder="مثال: إكسسوارات، شواحن، جرابات...">
+        </div>
+        <div>
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <input type="text" id="product-category-notes" class="form-input" placeholder="اكتب ملاحظات إضافية...">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('add-product-category-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ الصنف</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD/EDIT PRODUCT (منتج عام) -->
+  <div id="add-product-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg" id="product-modal-title">إضافة منتج جديد</h4>
+        <button type="button" onclick="closeModal('add-product-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="add-product-form" class="space-y-4">
+        <input type="hidden" id="product-edit-id" value="">
+        <div>
+          <label class="form-label">اسم المنتج</label>
+          <input type="text" id="product-name" required class="form-input" placeholder="مثال: شاحن نوع C سريع">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">الصنف التابع له</label>
+            <select id="product-category-select" required class="form-input">
+              <option value="">اختر الصنف...</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">وحدة القياس</label>
+            <input type="text" id="product-unit" class="form-input" placeholder="قطعة / علبة / متر..." value="قطعة">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">سعر التكلفة (ج.م)</label>
+            <input type="number" id="product-cost-price" min="0" step="0.01" class="form-input" placeholder="0.00">
+          </div>
+          <div>
+            <label class="form-label">سعر البيع (ج.م)</label>
+            <input type="number" id="product-selling-price" min="0" step="0.01" class="form-input" placeholder="0.00">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">الحد الأدنى للتنبيه</label>
+            <input type="number" id="product-min-qty" min="0" class="form-input" placeholder="0">
+          </div>
+          <div>
+            <label class="form-label">المورد الافتراضي (اختياري)</label>
+            <select id="product-default-supplier" class="form-input">
+              <option value="">بدون مورد افتراضي</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <input type="text" id="product-notes" class="form-input" placeholder="اكتب ملاحظات إضافية...">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('add-product-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ المنتج</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: STOCK IN (توريد كمية من مورد) -->
+  <div id="stock-in-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">توريد كمية من مورد</h4>
+        <button type="button" onclick="closeModal('stock-in-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="stock-in-form" class="space-y-4">
+        <input type="hidden" id="stock-in-product-id" value="">
+        <div class="bg-slate-50 rounded-lg p-3 text-sm">
+          <p class="text-slate-500 text-xs">المنتج</p>
+          <p class="font-bold text-slate-800" id="stock-in-product-name">—</p>
+          <p class="text-slate-500 text-xs mt-2">الرصيد الحالي بالمخزون</p>
+          <p class="font-bold text-teal-600" id="stock-in-current-qty">0</p>
+        </div>
+        <div>
+          <label class="form-label">المورد</label>
+          <select id="stock-in-supplier" required class="form-input">
+            <option value="">اختر المورد...</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">الكمية الموردة</label>
+            <input type="number" id="stock-in-quantity" required min="0.01" step="0.01" class="form-input" placeholder="0">
+          </div>
+          <div>
+            <label class="form-label">سعر تكلفة الوحدة (ج.م)</label>
+            <input type="number" id="stock-in-unit-cost" min="0" step="0.01" class="form-input" placeholder="0.00">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">طريقة الدفع</label>
+          <select id="stock-in-method" class="form-input">
+            <option value="cash">كاش فوري (يُخصم من الخزينة الآن)</option>
+            <option value="credit">آجل (يُسجل مستحقاً على المورد)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <input type="text" id="stock-in-notes" class="form-input" placeholder="اكتب ملاحظات إضافية...">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('stock-in-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد التوريد</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: STOCK OUT (صرف / بيع كمية) -->
+  <div id="stock-out-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">صرف / بيع كمية</h4>
+        <button type="button" onclick="closeModal('stock-out-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <form id="stock-out-form" class="space-y-4">
+        <input type="hidden" id="stock-out-product-id" value="">
+        <div class="bg-slate-50 rounded-lg p-3 text-sm">
+          <p class="text-slate-500 text-xs">المنتج</p>
+          <p class="font-bold text-slate-800" id="stock-out-product-name">—</p>
+          <p class="text-slate-500 text-xs mt-2">الرصيد الحالي بالمخزون</p>
+          <p class="font-bold text-teal-600" id="stock-out-current-qty">0</p>
+        </div>
+        <div>
+          <label class="form-label">الكمية</label>
+          <input type="number" id="stock-out-quantity" required min="0.01" step="0.01" class="form-input" placeholder="0">
+        </div>
+        <div>
+          <label class="form-label">سبب الصرف</label>
+          <select id="stock-out-reason" onchange="toggleStockOutSalePriceField()" class="form-input">
+            <option value="cash_sale">بيع كاش (يُضاف للخزينة)</option>
+            <option value="consumption">استهلاك داخلي</option>
+            <option value="damage">تالف / هالك</option>
+            <option value="adjustment">تسوية جرد</option>
+          </select>
+        </div>
+        <div id="stock-out-sale-price-wrapper">
+          <label class="form-label">سعر بيع الوحدة (ج.م)</label>
+          <input type="number" id="stock-out-sale-price" min="0" step="0.01" class="form-input" placeholder="0.00">
+        </div>
+        <div>
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <input type="text" id="stock-out-notes" class="form-input" placeholder="اكتب ملاحظات إضافية...">
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('stock-out-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+          <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد الصرف</button>
         </div>
       </form>
     </div>
