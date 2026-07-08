@@ -380,6 +380,34 @@ async function resolveCurrentUserFromAuth(uid, email) {
   }
 
   if (!user) {
+    // FIX: ميزة الإنشاء التلقائي لبروفايل الأدمن المفقود
+    // لو المستخدم مسجل دخول ومالهوش ملف في users، بس ليه مستند في userRoles بيقول إنه ADMIN،
+    // بنعمله ملف بروفايل تلقائي بدل ما نطلعه بره، عشان يحل مشكلة "أول أدمن" للنظام.
+    try {
+      const roleDoc = await window.firebaseDB.collection('userRoles').doc(uid).get();
+      if (roleDoc.exists && roleDoc.data().role === 'ADMIN') {
+        console.warn("الأدمن الحالي ملوش بروفايل في مجموعة users. جاري إنشاء بروفايل تلقائي...");
+        const adminUsername = email.split('@')[0]; // نستخدم الجزء الأول من الإيميل كاسم مستخدم
+        user = {
+          id: `usr-admin-${Date.now()}`,
+          authUid: uid,
+          name: 'مدير النظام (تلقائي)',
+          username: adminUsername,
+          phone: '',
+          role: 'ADMIN',
+          area: 'المركز الرئيسي'
+        };
+        db.users.push(user);
+        saveToLocalStorage();
+        // نحفظه في Firestore كمان عشان المرة الجاية يتلاقى عادي
+        await syncWithAppsScript('addUser', user);
+      }
+    } catch (e) {
+      console.error("فشل التحقق من دور المستخدم أو إنشاء بروفايل تلقائي:", e);
+    }
+  }
+
+  if (!user) {
     showLoginError('⚠️ تم التحقق من هويتك بنجاح، لكن لا يوجد ملف مستخدم مرتبط بحسابك في النظام. تواصل مع المشرف.');
     setLoginLoading(false);
     if (window.FirebaseAuthService) await window.FirebaseAuthService.signOut();
