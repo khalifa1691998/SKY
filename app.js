@@ -26,6 +26,7 @@ let db = {
   auditLogs: [],
   investors: [], // المستثمرون ورأس مال الشركة: { id, name, capitalAmount, joinDate, notes, totalWithdrawn, fixedSharePercent }
   investorSnapshots: [], // تجميدات دورية لصافي الربح: { id, timestamp, totalAssets, totalCapital, totalWithdrawn, netProfit, perInvestor: [...] }
+  expenses: [], // سجل المصروفات التشغيلية: { id, category, amount, date, description, paidBy, timestamp }
   settings: {
     offlineMode: false,
     companyName: 'شركة SKY',
@@ -40,6 +41,7 @@ let db = {
       'collections': true,
       'treasury': false,
       'investors': false,
+      'expenses': false,
       'reports': true
     },
     templates: {
@@ -70,7 +72,7 @@ let db = {
 // التبويبات دي هي الوحيدة القابلة للتحكم فيها من شاشة الإعدادات لدور "موظف
 // إدخال بيانات" (STAFF). تبويبات users / settings / audit-log مقفولة دايماً
 // على المشرف (Admin) فقط ومش قابلة للمنح لأي دور تاني لأسباب أمنية.
-const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'treasury', 'investors', 'reports'];
+const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'treasury', 'investors', 'expenses', 'reports'];
 const ADMIN_ONLY_TABS = ['users', 'settings', 'audit-log'];
 
 function getDefaultStaffPermissions() {
@@ -128,6 +130,7 @@ const defaultSeedData = {
   auditLogs: [],
   investors: [],
   investorSnapshots: [],
+  expenses: [],
   settings: {
     offlineMode: false,
     companyName: 'شركة SKY',
@@ -142,6 +145,7 @@ const defaultSeedData = {
       'collections': true,
       'treasury': false,
       'investors': false,
+      'expenses': false,
       'reports': true
     },
     templates: {
@@ -504,6 +508,7 @@ function initDatabase() {
       if (s.address === undefined) s.address = '';
     });
     if (!db.investorSnapshots) db.investorSnapshots = [];
+    if (!db.expenses) db.expenses = [];
     if (!db.settings.companyName) db.settings.companyName = 'شركة SKY';
     if (!db.settings.companyLogo) db.settings.companyLogo = '';
     if (!db.settings.templates) {
@@ -1171,6 +1176,9 @@ function renderActiveTab(tabName) {
     case 'investors':
       renderInvestors();
       break;
+    case 'expenses':
+      renderExpenses();
+      break;
     case 'reports':
       renderReports();
       break;
@@ -1214,6 +1222,21 @@ function renderDashboard() {
 
   const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
   document.getElementById('kpi-total-expenses').textContent = `${totalExpenses.toLocaleString()} ج.م`;
+
+  // حساب صافي الربح الحقيقي = إجمالي التحصيلات - إجمالي المصروفات والمشتريات
+  const netProfit = activeCollections - totalExpenses;
+  const netProfitEl = document.getElementById('kpi-net-profit');
+  if (netProfitEl) {
+    netProfitEl.textContent = `${netProfit.toLocaleString()} ج.م`;
+    // تلوين الرقم حسب الخسارة أو الربح
+    if (netProfit < 0) {
+      netProfitEl.classList.remove('text-emerald-700');
+      netProfitEl.classList.add('text-rose-600');
+    } else {
+      netProfitEl.classList.remove('text-rose-600');
+      netProfitEl.classList.add('text-emerald-700');
+    }
+  }
 
   const totalSuppliersDue = db.suppliers.reduce((sum, s) => sum + computeSupplierBalance(s.id).balance, 0);
   const suppliersDueEl = document.getElementById('kpi-suppliers-due');
@@ -4338,12 +4361,18 @@ function renderReports() {
     return txDate >= fromDate && txDate <= toDate;
   });
   const collectionsInRange = txInRange.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
-  const expensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
-  const netInRange = txInRange.reduce((sum, tx) => sum + tx.amount, 0);
+  // إجمالي المصروفات والمشتريات = حركات الخزينة (مشتريات/سدادات) + المصروفات التشغيلية المسجلة بالفترة
+  const opsExpensesInRange = db.expenses
+    .filter(e => e.date >= fromDate && e.date <= toDate)
+    .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  const treasuryExpensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
+  
+  const totalExpensesInRange = opsExpensesInRange + treasuryExpensesInRange;
+  const netInRange = collectionsInRange - totalExpensesInRange;
 
   document.getElementById('report-kpi-sales').textContent = `${salesInRange.toLocaleString()} ج.م`;
   document.getElementById('report-kpi-collections').textContent = `${collectionsInRange.toLocaleString()} ج.م`;
-  document.getElementById('report-kpi-expenses').textContent = `${expensesInRange.toLocaleString()} ج.م`;
+  document.getElementById('report-kpi-expenses').textContent = `${totalExpensesInRange.toLocaleString()} ج.م`;
   document.getElementById('report-kpi-net').textContent = `${netInRange.toLocaleString()} ج.م`;
 
   // ---- أداء المحصلين خلال الفترة ----
@@ -4618,6 +4647,164 @@ window.resetAuditLogFilters = function() {
 };
 
 // طباعة/تصدير سجل العمليات الظاهر حالياً (بعد تطبيق الفلاتر) كمستند PDF/ورقي
+// --- 7.6 EXPENSES (إدارة المصروفات) ---
+function renderExpenses() {
+  const tbody = document.getElementById('expenses-table-body');
+  const emptyState = document.getElementById('expenses-empty-state');
+  if (!tbody) return;
+
+  const categoryFilter = document.getElementById('expense-filter-category').value;
+  const monthFilter = document.getElementById('expense-filter-month').value;
+
+  let filtered = sortByTimestampDesc([...db.expenses]);
+
+  if (categoryFilter !== 'all') {
+    filtered = filtered.filter(e => e.category === categoryFilter);
+  }
+  if (monthFilter) {
+    filtered = filtered.filter(e => (e.date || '').substring(0, 7) === monthFilter);
+  }
+
+  tbody.innerHTML = '';
+  
+  // تحديث الإحصائيات في تبويب المصروفات
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const thisMonthStr = todayStr.substring(0, 7);
+
+  const totalMonth = db.expenses
+    .filter(e => (e.date || '').substring(0, 7) === thisMonthStr)
+    .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  
+  const totalToday = db.expenses
+    .filter(e => e.date === todayStr)
+    .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+
+  // حساب أكبر بند صرف
+  const catTotals = {};
+  db.expenses.forEach(e => {
+    catTotals[e.category] = (catTotals[e.category] || 0) + parseFloat(e.amount || 0);
+  });
+  let topCat = '---';
+  let maxVal = 0;
+  for (const cat in catTotals) {
+    if (catTotals[cat] > maxVal) {
+      maxVal = catTotals[cat];
+      topCat = cat;
+    }
+  }
+
+  document.getElementById('stats-expenses-month').textContent = formatCurrency(totalMonth);
+  document.getElementById('stats-expenses-today').textContent = formatCurrency(totalToday);
+  document.getElementById('stats-expenses-top-category').textContent = topCat;
+
+  if (filtered.length === 0) {
+    emptyState.classList.remove('hidden');
+    return;
+  }
+  emptyState.classList.add('hidden');
+
+  filtered.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50/50 transition-colors';
+    tr.innerHTML = `
+      <td class="p-4 font-semibold text-slate-700">${e.date}</td>
+      <td class="p-4">
+        <span class="px-2 py-1 rounded-md bg-rose-50 text-rose-600 text-xs font-bold border border-rose-100">${e.category}</span>
+      </td>
+      <td class="p-4 font-bold text-rose-600">${formatCurrency(e.amount)} ج.م</td>
+      <td class="p-4 text-slate-600 text-xs max-w-xs truncate" title="${escapeHTML(e.description || '')}">${escapeHTML(e.description || 'بدون تفاصيل')}</td>
+      <td class="p-4 text-slate-500 text-xs">${e.paidBy || 'غير معروف'}</td>
+      <td class="p-4 text-center">
+        <button onclick="deleteExpense('${e.id}')" class="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all admin-only" title="حذف المصروف">
+          <i class="ph ph-trash text-lg"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  updateUIForRole(); // لضمان إخفاء أزرار الحذف لغير الأدمن
+}
+
+window.resetExpenseFilters = function() {
+  document.getElementById('expense-filter-category').value = 'all';
+  document.getElementById('expense-filter-month').value = '';
+  renderExpenses();
+};
+
+document.getElementById('add-expense-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const category = document.getElementById('expense-category').value;
+  const amount = parseFloat(document.getElementById('expense-amount').value);
+  const date = document.getElementById('expense-date').value;
+  const description = document.getElementById('expense-description').value.trim();
+
+  if (!category || isNaN(amount) || amount <= 0 || !date) {
+    alert('⚠️ يرجى إكمال جميع الحقول المطلوبة بشكل صحيح.');
+    return;
+  }
+
+  try {
+    const expenseId = `exp-${Date.now()}`;
+    const newExpense = {
+      id: expenseId,
+      category,
+      amount,
+      date,
+      description,
+      paidBy: currentUser ? currentUser.name : 'مجهول',
+      timestamp: formatFullTimestamp(new Date())
+    };
+
+    db.expenses.push(newExpense);
+
+    // ربط المصروف بالخزينة: إضافة حركة خروج نقدية
+    const treasuryAction = {
+      id: `tr-${Date.now()}`,
+      type: 'out',
+      amount: amount,
+      category: 'مصروفات تشغيلية',
+      method: 'cash',
+      details: `مصروف: ${category} - ${description}`,
+      user: currentUser ? currentUser.name : 'مجهول',
+      timestamp: formatFullTimestamp(new Date())
+    };
+    db.treasuryTransactions.push(treasuryAction);
+
+    saveToLocalStorage();
+    logAction('تسجيل مصروف', `صرف مبلغ ${amount} ج.م لبند ${category}`);
+    
+    // المزامنة مع Firestore
+    await syncWithAppsScript('addExpense', newExpense);
+    await syncWithAppsScript('addTreasuryTransaction', treasuryAction);
+
+    closeModal('add-expense-modal');
+    document.getElementById('add-expense-form').reset();
+    renderExpenses();
+    renderTreasury();
+    showToast('✅ تم تسجيل المصروف وخصمه من الخزينة بنجاح', 'success');
+  } catch (err) {
+    console.error('Error adding expense:', err);
+    alert('❌ فشل تسجيل المصروف. يرجى المحاولة مرة أخرى.');
+  }
+});
+
+window.deleteExpense = async function(id) {
+  if (!isAdmin()) return;
+  if (!(await customConfirm('هل أنت متأكد من حذف هذا المصروف؟ (لن يتم استرداد المبلغ للخزينة تلقائياً)'))) return;
+
+  try {
+    db.expenses = db.expenses.filter(e => e.id !== id);
+    saveToLocalStorage();
+    logAction('حذف مصروف', `حذف سجل مصروف بمعرف ${id}`);
+    await syncWithAppsScript('deleteExpense', { id });
+    renderExpenses();
+    showToast('✅ تم حذف سجل المصروف بنجاح', 'success');
+  } catch (err) {
+    console.error('Error deleting expense:', err);
+  }
+};
+
 window.printAuditLog = function() {
   if (!isAdmin()) {
     showToast('❌ سجل العمليات متاح للمشرف (Admin) فقط.', 'error');
@@ -4654,6 +4841,12 @@ window.printAuditLog = function() {
 document.getElementById('audit-log-search-input').addEventListener('input', renderAuditLog);
 document.getElementById('audit-log-from-date').addEventListener('change', renderAuditLog);
 document.getElementById('audit-log-to-date').addEventListener('change', renderAuditLog);
+
+// Expenses filters
+const expCatFilter = document.getElementById('expense-filter-category');
+if (expCatFilter) expCatFilter.addEventListener('change', renderExpenses);
+const expMonthFilter = document.getElementById('expense-filter-month');
+if (expMonthFilter) expMonthFilter.addEventListener('change', renderExpenses);
 
 // --- 8. SYSTEM SETTINGS ---
 function renderSettings() {
@@ -6267,6 +6460,16 @@ function populateDropdowns() {
       });
     }
 
+    // تهيئة فلاتر المصروفات لو مش مهيئة
+    const expFilterMonth = document.getElementById('expense-filter-month');
+    if (expFilterMonth && !expFilterMonth.value) {
+      expFilterMonth.value = new Date().toISOString().substring(0, 7);
+    }
+    const expInputDate = document.getElementById('expense-date');
+    if (expInputDate && !expInputDate.value) {
+      expInputDate.value = new Date().toISOString().split('T')[0];
+    }
+
     const supplierSelect = document.getElementById('device-supplier');
     if (supplierSelect) {
       const prevVal = supplierSelect.value;
@@ -6434,6 +6637,7 @@ document.getElementById('btn-clear-db').addEventListener('click', async () => {
     db.suppliers = [];
     db.collectorCustodies = [];
     db.treasuryTransactions = [];
+    db.expenses = [];
     db.auditLogs = [];
     
     // الحفاظ على db.users و db.settings
