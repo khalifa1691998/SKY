@@ -98,6 +98,24 @@ function usernameToAuthEmail(username) {
         } finally {
           await secondary.delete();
         }
+      },
+
+      // ============================================================
+      // FIX: إنشاء/تحديث مستند userRoles في Firestore لمستخدم معين.
+      // هذه الدالة ضرورية لأن قواعد الأمان (Rules) تعتمد على مجموعة userRoles
+      // للتحقق من صلاحية أي مستخدم قبل السماح له بأي عملية كتابة.
+      // إذا لم يكن هذا المستند موجوداً، سيتم رفض كل عمليات الكتابة حتى للأدمن.
+      // ============================================================
+      ensureUserRoleDoc: async function(uid, role) {
+        if (!uid || !role) return;
+        try {
+          const roleRef = _fbDB.collection('userRoles').doc(uid);
+          await roleRef.set({ role: role }, { merge: true });
+          console.log(`✅ تم إنشاء/تحديث مستند userRoles للـ UID: ${uid} بالدور: ${role}`);
+        } catch (err) {
+          console.error(`❌ فشل إنشاء مستند userRoles للـ UID: ${uid}`, err);
+          throw err;
+        }
       }
     };
 

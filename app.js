@@ -361,12 +361,21 @@ async function resolveCurrentUserFromAuth(uid, email) {
       console.warn(`تم إيجاد المستخدم "${user.username}" عن طريق الإيميل بدل authUid. جاري إصلاح ملفه تلقائياً...`);
       user.authUid = uid;
       saveToLocalStorage();
-      // نحدّث Firestore كمان عشان المرة الجاية يتلاقى مباشرة عن طريق authUid
-      // (وبنبعت الدور "role" كمان عشان يتزامن مستند صلاحيات المستخدم userRoles
-      // اللي قواعد أمان Firestore بتعتمد عليه)
-      syncWithAppsScript('updateUser', { id: user.id, authUid: uid, role: user.role }).catch(err => {
-        console.error('فشل حفظ authUid في Firestore:', err);
-      });
+      // FIX: نضمن وجود مستند userRoles أولاً عشان تنجح عملية updateUser بعدين
+      // (Rules بتحتاج مستند userRoles عشان تسمح للأدمن بالكتابة)
+      if (window.FirebaseAuthService.ensureUserRoleDoc) {
+        window.FirebaseAuthService.ensureUserRoleDoc(uid, user.role).then(() => {
+          syncWithAppsScript('updateUser', { id: user.id, authUid: uid, role: user.role }).catch(err => {
+            console.error('فشل حفظ authUid في Firestore:', err);
+          });
+        }).catch(err => {
+          console.error('فشل إنشاء userRoles في مرحلة الإصلاح:', err);
+        });
+      } else {
+        syncWithAppsScript('updateUser', { id: user.id, authUid: uid, role: user.role }).catch(err => {
+          console.error('فشل حفظ authUid في Firestore:', err);
+        });
+      }
     }
   }
 
@@ -4502,6 +4511,10 @@ window.saveUserEdits = async function() {
 
     saveToLocalStorage();
     logAction('تعديل مستخدم', `تعديل بيانات المستخدم ${u.name} (${u.role})`);
+    // FIX: نحدّث مستند userRoles عشان لو اتغيّر الدور يتعكس فوراً على الصلاحيات
+    if (u.authUid && window.FirebaseAuthService && window.FirebaseAuthService.ensureUserRoleDoc) {
+      await window.FirebaseAuthService.ensureUserRoleDoc(u.authUid, u.role);
+    }
     await syncWithAppsScript('updateUser', {
       id: u.id,
       authUid: u.authUid || null,
@@ -5491,6 +5504,14 @@ document.getElementById('add-user-form').addEventListener('submit', async (e) =>
       area
     };
 
+    // FIX: ننشئ مستند userRoles أولاً قبل أي شيء تاني.
+    // لو ما عملناش كده، عملية syncWithAppsScript('addUser') هتفشل بسبب
+    // إن الـ Rules بتحتاج مستند userRoles للأدمن عشان تسمحله بالكتابة في users.
+    // وده هو السبب الجذري للمشكلة اللي بتواجهها.
+    if (window.FirebaseAuthService.ensureUserRoleDoc) {
+      await window.FirebaseAuthService.ensureUserRoleDoc(authResult.uid, role);
+    }
+
     db.users.push(newUser);
     saveToLocalStorage();
     logAction('إضافة مستخدم', `إضافة المستخدم الجديد ${name} بصلاحية ${role}`);
@@ -6417,6 +6438,10 @@ window.migrateUsersToFirebaseAuth = async function() {
         u.authUid = result.uid;
         delete u.password;
 
+        // FIX: ننشئ userRoles أولاً عشان تنجح عملية updateUser بعدين
+        if (window.FirebaseAuthService.ensureUserRoleDoc) {
+          await window.FirebaseAuthService.ensureUserRoleDoc(result.uid, u.role);
+        }
         // تحديث Firestore: إضافة authUid، وحذف حقل password نهائياً بواسطة FieldValue.delete()
         // وبعت الدور "role" كمان عشان يتزامن مستند userRoles اللي قواعد الأمان بتعتمد عليه
         await syncWithAppsScript('updateUser', {
@@ -6901,6 +6926,22 @@ async function startFirebaseSubscription(uid, email) {
 
   // تحميل أولي كامل للبيانات (يتضمن ملفات المستخدمين اللازمة لمطابقة الحساب الحالي)
   await loadFromServer();
+
+  // FIX: قبل مطابقة المستخدم، نحاول نضمن وجود مستند userRoles له.
+  // هذا يحل مشكلة الأدمن اللي اتعمل يدوياً في Firebase Auth من غير مستند userRoles.
+  // الدالة بتستخدم merge:true فما تضرش لو المستند موجود مسبقاً.
+  if (uid && window.FirebaseAuthService && window.FirebaseAuthService.ensureUserRoleDoc) {
+    // نحاول نجيب الدور من بيانات المستخدم المحملة
+    const matchedUser = db.users.find(u => u.authUid === uid) ||
+      db.users.find(u => window.FirebaseAuthService.usernameToAuthEmail(u.username) === email);
+    if (matchedUser && matchedUser.role) {
+      try {
+        await window.FirebaseAuthService.ensureUserRoleDoc(uid, matchedUser.role);
+      } catch (e) {
+        console.warn('تعذّر إنشاء userRoles في startFirebaseSubscription:', e);
+      }
+    }
+  }
 
   // مطابقة الحساب المُسجَّل دخوله حالياً مع ملفه في Firestore وفتح الشاشة الرئيسية
   if (uid) {
