@@ -6424,9 +6424,22 @@ document.getElementById('btn-seed-data').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-clear-db').addEventListener('click', async () => {
-  if (await customConfirm('هل أنت متأكد من مسح جميع البيانات المحلية نهائياً؟')) {
-    localStorage.removeItem('sky_erp_db');
-    alert('تم مسح البيانات بنجاح! سيتم إحياء النظام بقيم فارغة.');
+  if (await customConfirm('⚠️ هل أنت متأكد من مسح جميع البيانات التشغيلية (عملاء، عقود، مخزون، خزينة)؟\n\nملاحظة: سيتم الحفاظ على حسابات المستخدمين وإعدادات الشركة فقط.')) {
+    // بدلاً من مسح كل شيء، سنقوم بتصفير الجداول التشغيلية فقط
+    db.clients = [];
+    db.inventory = [];
+    db.contracts = [];
+    db.installments = [];
+    db.brands = [];
+    db.suppliers = [];
+    db.collectorCustodies = [];
+    db.treasuryTransactions = [];
+    db.auditLogs = [];
+    
+    // الحفاظ على db.users و db.settings
+    
+    saveToLocalStorage();
+    alert('✅ تم مسح البيانات التشغيلية بنجاح مع الحفاظ على المستخدمين والإعدادات.');
     location.reload();
   }
 });
