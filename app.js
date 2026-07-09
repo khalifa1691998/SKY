@@ -7454,15 +7454,17 @@ setTimeout(() => {
         console.log('✅ تم تحميل البيانات من localStorage بنجاح');
         hideSessionCheckOverlay();
         renderAllTabs();
-        return; // البيانات ظهرت بنجاح!
       } catch (e) {
         console.error('❌ خطأ في تحميل localStorage:', e);
+        // لو في خطأ، أظهر شاشة الدخول
+        showLoginScreen();
+        showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنيت وحاول مرة أخرى.');
       }
+    } else {
+      // لو ما في بيانات محفوظة، أظهر شاشة الدخول
+      showLoginScreen();
+      showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنيت وحاول مرة أخرى.');
     }
-    
-    // لو ما في بيانات محفوظة، أظهر شاشة الدخول
-    showLoginScreen();
-    showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنيت وحاول مرة أخرى.');
   }
 }, 5000);  // مهلة 5 ثواني بدل 10
 
