@@ -1060,7 +1060,10 @@ function calculateFinesForInstallment(inst, contract) {
   if (contract.fineType === 'flat') {
     return diffDays * contract.fineValue;
   } else if (contract.fineType === 'percent') {
-    return parseFloat((inst.amount * (contract.fineValue / 100) * diffDays).toFixed(2));
+    // التعديل الجديد: غرامة نسبة مئوية شهرية
+    // يتم حساب عدد الشهور (أو كسورها) المنقضية بعد فترة السماح
+    const diffMonths = diffDays / 30;
+    return parseFloat((inst.amount * (contract.fineValue / 100) * diffMonths).toFixed(2));
   }
   return 0;
 }
@@ -5351,10 +5354,22 @@ document.getElementById('btn-skip-bulk-wa').addEventListener('click', () => {
 });
 
 // ================= CUSTOM TRANSACTIONAL ACTIONS =================
-window.collectInstallmentBtn = function(instId) {
+window.collectInstallmentBtn = async function(instId) {
   const inst = db.installments.find(i => i.id === instId);
   if (!inst) return;
 
+  // منع التحصيل المتكرر: التحقق إذا كان القسط مسدداً بالفعل أو له عهدة معلقة
+  if (inst.status === 'paid') {
+    showToast('⚠️ هذا القسط مسدد بالفعل.', 'warning');
+    return;
+  }
+  const existingPending = db.collectorCustodies.find(c => c.installmentId === instId && c.status === 'pending');
+  if (existingPending) {
+    showToast('⚠️ توجد عملية تحصيل معلقة لهذا القسط بانتظار تأكيد الخزينة.', 'warning');
+    return;
+  }
+
+  // تعطيل الزر (بصرياً عبر الـ Toast والـ Guard البرمجي)
   const stats = getInstallmentOverdueStatus(inst);
   const collector = inst.collectorName || 'Khalifa (ADMIN)';
 
@@ -5362,7 +5377,7 @@ window.collectInstallmentBtn = function(instId) {
   const now = new Date();
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  db.collectorCustodies.unshift({
+  const newCustody = {
     id: receiptId,
     installmentId: instId,
     contractId: inst.contractId,
@@ -5371,16 +5386,20 @@ window.collectInstallmentBtn = function(instId) {
     amount: stats.totalDue,
     date: timestamp,
     status: 'pending'
-  });
+  };
 
+  db.collectorCustodies.unshift(newCustody);
   saveToLocalStorage();
   logAction('تحصيل محلي بالعهد', `قام المحصل ${collector} بتحصيل عهدة بقيمة ${stats.totalDue} ج.م من العميل ${inst.clientName} (معلق بانتظار تأكيد الأدمن)`);
   
-  syncWithAppsScript('addPendingCustody', { id: receiptId, installmentId: instId, contractId: inst.contractId, clientName: inst.clientName, collectorName: collector, amount: stats.totalDue, date: timestamp, status: 'pending' });
+  // إظهار حالة تحميل
+  showToast('جاري تسجيل عملية التحصيل...', 'info');
+  
+  await syncWithAppsScript('addPendingCustody', newCustody);
 
   renderCollections();
   renderTreasury();
-  alert(`تم تسجيل تحصيل المبلغ بالعهدة للمحصل: ${collector}. يرجى تأكيد المبلغ من الخزينة لتسجيله بالخزينة الرئيسية.`);
+  showToast(`✅ تم تسجيل التحصيل بانتظار تأكيد الخزينة.`, 'success');
 };
 
 document.getElementById('cash-sale-form').addEventListener('submit', async (e) => {
@@ -5815,55 +5834,48 @@ function addDeviceHistory(device, action, note) {
 
 document.getElementById('add-device-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const catId = document.getElementById('device-category-select').value;
   const brand = document.getElementById('device-brand-select').value;
-  const name = document.getElementById('device-name').value;
-  const serialRaw = document.getElementById('device-serial').value;
+  const modelId = document.getElementById('device-model-select').value;
+  const quantity = parseInt(document.getElementById('device-quantity').value) || 1;
+  const serialRaw = document.getElementById('device-serial').value.trim();
   const costPrice = parseFloat(document.getElementById('device-cost').value);
   const sellingPrice = parseFloat(document.getElementById('device-price').value);
   const supplierId = document.getElementById('device-supplier').value;
-  const paymentMethod = document.getElementById('device-payment-method').value || 'cash'; // 'cash' | 'credit'
+  const paymentMethod = document.getElementById('device-payment-method').value || 'cash';
   const condition = document.getElementById('device-condition').value || 'new';
   const warrantyMonths = parseInt(document.getElementById('device-warranty').value) || 0;
   const branch = document.getElementById('device-branch').value.trim() || 'الفرع الرئيسي';
   const minQty = parseInt(document.getElementById('device-min-qty').value) || 3;
   const notes = document.getElementById('device-notes').value.trim();
 
+  const modelObj = db.products.find(p => p.id === modelId);
+  const name = modelObj ? modelObj.name : 'منتج غير معروف';
+
   const supplierObj = db.suppliers.find(s => s.id === supplierId);
   if (!supplierObj) {
-    alert('⚠️ برجاء اختيار مورد صحيح (سجّل مورد أولاً من تبويب "الموردين" لو القائمة فاضية).');
+    alert('⚠️ برجاء اختيار مورد صحيح.');
     return;
   }
   const supplier = supplierObj.name;
 
-  const rawSerials = serialRaw.split(',')
-    .map(s => s.trim())
-    .filter(s => s !== '');
-
-  if (rawSerials.length === 0) {
-    alert('يرجى كتابة رقم تسلسلي واحد على الأقل.');
+  // فحص السيريال لو الكمية 1
+  if (quantity === 1 && serialRaw && isDuplicateSerial(serialRaw)) {
+    alert(`⚠️ السيريال ${serialRaw} مسجل بالفعل بالمخزون.`);
     return;
   }
 
-  // فحص التكرار قبل الإضافة: أي سيريال موجود بالفعل (بأي صنف) بيتم استبعاده
-  // وتنبيه المستخدم باسمه بدل ما يتضاف تلقائي ويسبب تعارض بيانات.
-  const duplicates = rawSerials.filter(s => isDuplicateSerial(s));
-  const serials = rawSerials.filter(s => !isDuplicateSerial(s));
-
-  if (duplicates.length > 0) {
-    alert(`⚠️ تم تجاهل السيريالات التالية لأنها مسجلة بالفعل بالمخزون:\n${duplicates.join(', ')}`);
-  }
-  if (serials.length === 0) return;
-
   const now = new Date();
-  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const timestamp = nowTimestamp();
+  const todayDate = timestamp.split(' ')[0];
 
-  const totalCost = costPrice * serials.length;
-
+  const totalCost = costPrice * quantity;
   const syncPromises = [];
-  serials.forEach((serial, index) => {
+
+  for (let i = 0; i < quantity; i++) {
+    const serial = (quantity === 1) ? serialRaw : `AUTO-${Date.now()}-${i}`;
     const newDevice = {
-      id: `dev-${Date.now()}-${index}`,
+      id: `dev-${Date.now()}-${i}`,
       brand,
       name,
       serial,
@@ -5883,18 +5895,12 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
       history: []
     };
     addDeviceHistory(newDevice, 'إضافة للمخزن', `تمت إضافة القطعة من المورد ${supplier} (${paymentMethod === 'credit' ? 'آجل' : 'كاش'})`);
-
     db.inventory.push(newDevice);
 
     let purchaseTx = null;
-    // لو الشراء كاش: بيتم خصم قيمتها فوراً من الخزينة زي ما كان بيحصل قبل كده.
-    // لو آجل: القيمة بتتسجل كمستحق على المورد في حسابه ولا تُخصم من الخزينة
-    // إلا وقت السداد الفعلي لاحقاً من تبويب "الموردين".
-    if (paymentMethod === 'credit') {
-      purchaseTx = null;
-    } else {
+    if (paymentMethod === 'cash') {
       purchaseTx = {
-        id: `tx-pur-${Date.now()}-${index}`,
+        id: `tx-pur-${Date.now()}-${i}`,
         timestamp: timestamp,
         type: 'inventory_purchase',
         amount: -costPrice,
@@ -5904,7 +5910,7 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
     }
 
     const supplierTx = {
-      id: `sptx-${Date.now()}-${index}`,
+      id: `sptx-${Date.now()}-${i}`,
       supplierId,
       supplierName: supplier,
       type: 'purchase',
@@ -5919,10 +5925,10 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
 
     syncPromises.push(syncWithAppsScript('addDevice', { newDevice, timestamp, transaction: purchaseTx }));
     syncPromises.push(syncWithAppsScript('addSupplierTransaction', { transaction: supplierTx }));
-  });
+  }
 
   saveToLocalStorage();
-  logAction('إضافة قطعة', `إضافة عدد ${serials.length} قطعة من ${brand} ${name} بمجموع تكلفة ${totalCost} ج.م (${paymentMethod === 'credit' ? 'آجل - مستحق للمورد' : 'كاش'}) من المورد ${supplier}`);
+  logAction('إضافة مخزون', `إضافة عدد ${quantity} قطعة من ${brand} ${name} بمجموع تكلفة ${totalCost} ج.م`);
 
   if (syncPromises.length > 0) {
     await Promise.all(syncPromises);
@@ -5933,6 +5939,7 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
   renderInventory();
   renderTreasury();
   renderDashboard();
+  showToast(`✅ تم إضافة ${quantity} قطعة للمخزن بنجاح`, 'success');
 });
 
 window.openAddClientModal = function() {
@@ -6467,9 +6474,9 @@ window.deleteContract = async function(contractId) {
   const c = db.contracts.find(x => x.id === contractId);
   if (!c) return;
 
-  if (await customConfirm(`⚠️ هل أنت متأكد من حذف العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}؟\n\nسيتم:\n• حذف جميع أقساط العقد\n• إرجاع الجهاز للمخزن كمتاح\n• إرجاع "المقدم" للخزينة تلقائياً (لو كان مدفوعاً).`)) {
+  if (await customConfirm(`⚠️ هل أنت متأكد من حذف العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}؟\n\nسيتم:\n• حذف العقد وجميع أقساطه\n• إرجاع الجهاز للمخزن كمتاح\n• رد المقدم والتحصيلات السابقة من الخزينة تلقائياً\n• تنظيف عهد المحصلين المرتبطة بالعقد.`)) {
     
-    // إرجاع الجهاز للمخزن
+    // 1. إرجاع الجهاز للمخزن
     const dev = db.inventory.find(d => d.id === c.deviceId);
     if (dev) {
       dev.status = 'available';
@@ -6478,28 +6485,44 @@ window.deleteContract = async function(contractId) {
       await syncWithAppsScript('updateDevice', dev);
     }
 
-    // إرجاع المقدم للخزينة لو كان أكبر من صفر
+    // 2. رد المقدم من الخزينة
     if (c.downPayment > 0) {
-      const refundDownPaymentTx = {
+      const refundTx = {
         id: `tr-rev-dp-${Date.now()}`,
-        type: 'out', // خروج نقدية من الخزينة للعميل
-        amount: parseFloat(c.downPayment),
-        category: 'رد مقدم عقد ملغى',
-        method: 'cash',
-        details: `رد مقدم العقد المحذوف رقم ${contractId} للعميل ${c.clientName}`,
-        user: currentUser ? currentUser.name : 'مجهول',
-        timestamp: formatFullTimestamp(new Date())
+        type: 'out',
+        amount: -parseFloat(c.downPayment), // قيمة سالبة لخصمها من الخزينة
+        notes: `رد مقدم العقد المحذوف رقم ${contractId} للعميل ${c.clientName}`,
+        timestamp: nowTimestamp()
       };
-      db.treasuryTransactions.push(refundDownPaymentTx);
-      await syncWithAppsScript('addTreasuryTransaction', refundDownPaymentTx);
+      db.treasuryTransactions.unshift(refundTx);
+      await syncWithAppsScript('addTreasuryTransaction', refundTx);
     }
 
-    // حذف الأقساط والعقد
+    // 3. رد الأقساط المحصلة فعلياً من الخزينة
+    const contractInsts = db.installments.filter(inst => inst.contractId === contractId);
+    const paidInsts = contractInsts.filter(inst => inst.status === 'paid');
+    
+    for (const inst of paidInsts) {
+      const refundInstTx = {
+        id: `tr-rev-inst-${Date.now()}-${inst.id}`,
+        type: 'out',
+        amount: -parseFloat(inst.paidAmount || inst.amount),
+        notes: `رد قسط محصل (رقم ${inst.installmentNum}) لعقد محذوف رقم ${contractId}`,
+        timestamp: nowTimestamp()
+      };
+      db.treasuryTransactions.unshift(refundInstTx);
+      await syncWithAppsScript('addTreasuryTransaction', refundInstTx);
+    }
+
+    // 4. حذف العهد المرتبطة بالعقد (المعلقة والمعتمدة)
+    db.collectorCustodies = db.collectorCustodies.filter(cust => cust.contractId !== contractId);
+
+    // 5. حذف الأقساط والعقد
     db.installments = db.installments.filter(inst => inst.contractId !== contractId);
     db.contracts = db.contracts.filter(x => x.id !== contractId);
     
     saveToLocalStorage();
-    logAction('حذف عقد', `حذف العقد ${contractId} وتصحيح المخزن والخزينة (رد مقدم ${c.downPayment} ج.م)`);
+    logAction('حذف عقد ذكي', `حذف العقد ${contractId} وتصحيح المخزن (إرجاع جهاز) والخزينة (رد مقدم وأقساط) وتنظيف العهد`);
     
     await syncWithAppsScript('deleteContract', { id: contractId, deviceId: c.deviceId });
     
@@ -6508,13 +6531,84 @@ window.deleteContract = async function(contractId) {
     renderTreasury();
     renderCollections();
     renderDashboard();
-    showToast('✅ تم حذف العقد وتصحيح المخزن والخزينة بنجاح', 'success');
+    showToast('✅ تم حذف العقد وتصحيح المخزن والخزينة وتنظيف العهد بنجاح', 'success');
   }
 };
 
 // ================= SELECT MENUS & SEARCH FILTERS =================
+window.updateBrandList = function() {
+  const catId = document.getElementById('device-category-select').value;
+  const brandSelect = document.getElementById('device-brand-select');
+  brandSelect.innerHTML = '<option value="">اختر الماركة...</option>';
+  
+  // استخراج الماركات الفريدة لهذا التصنيف من المنتجات المسجلة
+  const brands = [...new Set(db.products.filter(p => p.categoryId === catId).map(p => p.brand))].sort();
+  brands.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = b;
+    brandSelect.appendChild(opt);
+  });
+  updateDeviceModelList();
+};
+
+window.updateDeviceModelList = function() {
+  const catId = document.getElementById('device-category-select').value;
+  const brand = document.getElementById('device-brand-select').value;
+  const modelSelect = document.getElementById('device-model-select');
+  modelSelect.innerHTML = '<option value="">اختر الموديل...</option>';
+  
+  const models = db.products.filter(p => p.categoryId === catId && p.brand === brand);
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name;
+    // تخزين السعر الافتراضي في الـ data attribute
+    opt.dataset.cost = m.costPrice || 0;
+    opt.dataset.price = m.sellingPrice || 0;
+    modelSelect.appendChild(opt);
+  });
+};
+
+// تحديث الأسعار تلقائياً عند اختيار الموديل
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'device-model-select') {
+    const opt = e.target.options[e.target.selectedIndex];
+    if (opt && opt.dataset.cost) {
+      document.getElementById('device-cost').value = opt.dataset.cost;
+      document.getElementById('device-price').value = opt.dataset.price;
+    }
+  }
+});
+
+window.toggleSerialInput = function() {
+  const qty = parseInt(document.getElementById('device-quantity').value) || 1;
+  const serialBox = document.getElementById('serial-input-box');
+  if (qty > 1) {
+    serialBox.classList.add('opacity-50');
+    document.getElementById('device-serial').placeholder = "السيريال غير مطلوب للكميات الكبيرة";
+  } else {
+    serialBox.classList.remove('opacity-50');
+    document.getElementById('device-serial').placeholder = "مثال: SN-100201";
+  }
+};
+
 function populateDropdowns() {
   try {
+    // تحديث قائمة التصنيفات في إضافة جهاز
+    const devCatSelect = document.getElementById('device-category-select');
+    if (devCatSelect) {
+      const prev = devCatSelect.value;
+      devCatSelect.innerHTML = '<option value="">اختر الصنف...</option>';
+      db.productCategories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = cat.name;
+        devCatSelect.appendChild(opt);
+      });
+      if (prev) devCatSelect.value = prev;
+    }
+
     const clientSelect = document.getElementById('contract-client-select');
     if (clientSelect) {
       clientSelect.innerHTML = '<option value="">اختر العميل المشتري...</option>';

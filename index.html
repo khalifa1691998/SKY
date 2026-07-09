@@ -2156,22 +2156,35 @@
         </button>
       </div>
       <form id="add-device-form" class="space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label class="form-label">الصنف / الماركة</label>
-            <select id="device-brand-select" required class="form-input">
-              <!-- Dynamically populated from brands -->
+            <label class="form-label">التصنيف (الصنف)</label>
+            <select id="device-category-select" required class="form-input" onchange="updateBrandList()">
+              <!-- Dynamically populated -->
             </select>
           </div>
           <div>
-            <label class="form-label">اسم الموديل والتفاصيل</label>
-            <input type="text" id="device-name" required class="form-input" placeholder="مثال: A3x 128/4">
+            <label class="form-label">الماركة</label>
+            <select id="device-brand-select" required class="form-input" onchange="updateDeviceModelList()">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+          <div>
+            <label class="form-label">اسم الجهاز / الموديل</label>
+            <select id="device-model-select" required class="form-input">
+              <!-- Dynamically populated -->
+            </select>
           </div>
         </div>
-        <div>
-          <label class="form-label">الرقم التسلسلي للجهاز (Serial Number)</label>
-          <input type="text" id="device-serial" required class="form-input" placeholder="مثال: SN-100201 (يمكن إدخال سيريالات متعددة مفصولة بفاصلة لزيادة الكمية)">
-          <p class="text-[10px] text-slate-400 mt-1">مثال لإدخال كمية: SN-123, SN-124, SN-125</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">الكمية (عدد القطع)</label>
+            <input type="number" id="device-quantity" value="1" min="1" required class="form-input" onchange="toggleSerialInput()">
+          </div>
+          <div id="serial-input-box">
+            <label class="form-label">السيريال (اختياري لو كمية كبيرة)</label>
+            <input type="text" id="device-serial" class="form-input" placeholder="مثال: SN-100201">
+          </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
