@@ -5545,9 +5545,12 @@ function updateContractCalculation() {
 
   if (targetMonthlyManuallySet && !isNaN(manualValue) && manualValue >= 0) {
     monthly = manualValue;
-    totalAfterInterest = parseFloat((monthly * duration).toFixed(2));
-    remaining = Math.max(0, parseFloat((totalAfterInterest - downPayment).toFixed(2)));
+    // في حالة القسط اليدوي، بنفترض إن الإجمالي المتبقي هو القسط × المدة
+    // والمقدم بيتحط فوقهم عشان نوصل لإجمالي قيمة العقد
+    remaining = parseFloat((monthly * duration).toFixed(2));
+    totalAfterInterest = remaining + downPayment;
 
+    // نحسب "الزيادة" اللي تخلي الإجمالي يوصل للرقم ده
     const interestNeeded = parseFloat((totalAfterInterest - cashPrice).toFixed(2));
     const typeSelect = document.getElementById('contract-interest-type');
     const valueInput = document.getElementById('contract-interest-value');
@@ -5563,9 +5566,13 @@ function updateContractCalculation() {
   } else {
     const interestType = document.getElementById('contract-interest-type').value;
     const interestValue = parseFloat(document.getElementById('contract-interest-value').value) || 0;
-    const interest = calcInterestAmount(cashPrice, interestType, interestValue);
-    totalAfterInterest = cashPrice + interest;
-    remaining = Math.max(0, totalAfterInterest - downPayment);
+    
+    // التعديل المطلوب: خصم المقدم أولاً قبل حساب الفائدة (لو كانت نسبة)
+    const amountToFinance = Math.max(0, cashPrice - downPayment);
+    const interest = calcInterestAmount(amountToFinance, interestType, interestValue);
+    
+    remaining = amountToFinance + interest;
+    totalAfterInterest = cashPrice + interest; // الإجمالي = سعر الكاش + الفائدة (اللي اتحسبت على الصافي)
     monthly = parseFloat((remaining / duration).toFixed(2));
 
     if (targetInput) {
@@ -5605,10 +5612,13 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
   }
 
   const cashPrice = dev.sellingPrice;
-  const interest = calcInterestAmount(cashPrice, interestType, interestValue);
+  // التعديل المطلوب: خصم المقدم أولاً قبل حساب الفائدة (لو كانت نسبة)
+  const amountToFinance = Math.max(0, cashPrice - downPayment);
+  const interest = calcInterestAmount(amountToFinance, interestType, interestValue);
+  
   const totalValue = cashPrice + interest;
   const contractId = `con-${Math.floor(100000 + Math.random() * 900000)}`;
-  const remaining = Math.max(0, totalValue - downPayment);
+  const remaining = amountToFinance + interest;
 
   // لو المستخدم كاتب قسط شهري بنفسه في خانة "القسط الشهري المطلوب"، بنستخدم
   // رقمه ده بالظبط في العقد المحفوظ (مش بنعيد حسابه من المتبقي ÷ المدة).
@@ -6370,10 +6380,15 @@ window.saveContractEdit = async function() {
       }
     }
 
-    const interest = calcInterestAmount(newCashPrice, newInterestType, newInterestValue);
+    // التعديل المطلوب: خصم المقدم أولاً قبل حساب الفائدة (لو كانت نسبة)
+    const amountToFinance = Math.max(0, newCashPrice - newDownPayment);
+    const interest = calcInterestAmount(amountToFinance, newInterestType, newInterestValue);
+    
     const totalValue = newCashPrice + interest;
     const remainingCount = Math.max(1, newDuration - paidCount);
-    const remainingAmount = Math.max(0, totalValue - newDownPayment - paidSum);
+    
+    // المتبقي = (المبلغ الممول + الفائدة) - ما تم سداده بالفعل من أقساط
+    const remainingAmount = Math.max(0, (amountToFinance + interest) - paidSum);
     const monthly = parseFloat((remainingAmount / remainingCount).toFixed(2));
 
     const client = db.clients.find(cl => cl.id === c.clientId);
