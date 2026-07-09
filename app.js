@@ -1812,19 +1812,46 @@ window.deleteDeviceGroup = async function(brand, name) {
     alert('⛔ حذف المخزون مخصص للمشرف (ADMIN) فقط.');
     return;
   }
-  if (await customConfirm(`هل أنت متأكد من حذف جميع القطع المتاحة من (${brand} ${name}) بالمخزن؟`)) {
-    const beforeCount = db.inventory.length;
-    db.inventory = db.inventory.filter(d => !(d.brand === brand && d.name === name && d.status === 'available'));
-    const afterCount = db.inventory.length;
-    const deletedCount = beforeCount - afterCount;
+  
+  const devicesToDelete = db.inventory.filter(d => d.brand === brand && d.name === name && d.status === 'available');
+  if (devicesToDelete.length === 0) return;
+
+  if (await customConfirm(`⚠️ هل أنت متأكد من حذف عدد ${devicesToDelete.length} قطعة متاحة من (${brand} ${name})؟\n\nسيتم إرجاع مبالغ الشراء "الكاش" للخزينة تلقائياً.`)) {
+    let refundedAmount = 0;
+    let refundedCount = 0;
+
+    devicesToDelete.forEach(dev => {
+      // لو القطعة مشتراة كاش، نرجع تمنها للخزينة
+      if (dev.purchaseMethod === 'cash') {
+        refundedAmount += parseFloat(dev.costPrice || 0);
+        refundedCount++;
+        
+        const refundTx = {
+          id: `tr-rev-inv-${Date.now()}-${refundedCount}`,
+          type: 'in',
+          amount: parseFloat(dev.costPrice),
+          category: 'استرداد مشتريات مخزون',
+          method: 'cash',
+          details: `استرداد قيمة جهاز محذوف: ${dev.brand} ${dev.name} (SN: ${dev.serial})`,
+          user: currentUser ? currentUser.name : 'مجهول',
+          timestamp: formatFullTimestamp(new Date())
+        };
+        db.treasuryTransactions.push(refundTx);
+        syncWithAppsScript('addTreasuryTransaction', refundTx);
+      }
+    });
+
+    db.inventory = db.inventory.filter(d => !devicesToDelete.some(td => td.id === d.id));
     
     saveToLocalStorage();
-    logAction('حذف كمية أجهزة', `تم حذف عدد ${deletedCount} قطعة من صنف ${brand} ${name} من المخزون`);
+    logAction('حذف كمية أجهزة', `حذف ${devicesToDelete.length} قطعة من ${brand} ${name} وإرجاع ${refundedAmount} ج.م للخزينة`);
     
     await syncWithAppsScript('deleteDeviceGroup', { brand, name });
     
     renderInventory();
+    renderTreasury();
     renderDashboard();
+    showToast(`✅ تم حذف الأجهزة وإرجاع ${refundedAmount} ج.م للخزينة`, 'success');
   }
 };
 
@@ -4791,17 +4818,41 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
 
 window.deleteExpense = async function(id) {
   if (!isAdmin()) return;
-  if (!(await customConfirm('هل أنت متأكد من حذف هذا المصروف؟ (لن يتم استرداد المبلغ للخزينة تلقائياً)'))) return;
+  
+  const expense = db.expenses.find(e => e.id === id);
+  if (!expense) return;
+
+  if (!(await customConfirm(`هل أنت متأكد من حذف هذا المصروف بقيمة ${expense.amount} ج.م؟ سيتم إرجاع المبلغ للخزينة تلقائياً.`))) return;
 
   try {
+    // إرجاع المبلغ للخزينة: إضافة حركة دخول نقدية تعويضية
+    const reverseTreasuryAction = {
+      id: `tr-rev-${Date.now()}`,
+      type: 'in',
+      amount: parseFloat(expense.amount),
+      category: 'استرداد مصروفات',
+      method: 'cash',
+      details: `استرداد مصروف محذوف: ${expense.category} - ${expense.description}`,
+      user: currentUser ? currentUser.name : 'مجهول',
+      timestamp: formatFullTimestamp(new Date())
+    };
+    
+    db.treasuryTransactions.push(reverseTreasuryAction);
     db.expenses = db.expenses.filter(e => e.id !== id);
+    
     saveToLocalStorage();
-    logAction('حذف مصروف', `حذف سجل مصروف بمعرف ${id}`);
+    logAction('حذف مصروف', `حذف مصروف بقيمة ${expense.amount} ج.م وإرجاع المبلغ للخزينة`);
+    
     await syncWithAppsScript('deleteExpense', { id });
+    await syncWithAppsScript('addTreasuryTransaction', reverseTreasuryAction);
+
     renderExpenses();
-    showToast('✅ تم حذف سجل المصروف بنجاح', 'success');
+    renderTreasury();
+    renderDashboard();
+    showToast('✅ تم حذف المصروف وإرجاع المبلغ للخزينة بنجاح', 'success');
   } catch (err) {
     console.error('Error deleting expense:', err);
+    showToast('❌ فشل حذف المصروف', 'error');
   }
 };
 
@@ -6137,14 +6188,35 @@ window.deleteTransaction = async function(id) {
     alert('⛔ حذف الحركات المالية مخصص للمشرف (ADMIN) فقط.');
     return;
   }
-  if (await customConfirm('هل أنت متأكد من حذف هذه حركة المالية؟ سيؤثر هذا على إجمالي رصيد الخزينة.')) {
-    const tx = db.treasuryTransactions.find(t => t.id === id);
+  
+  const tx = db.treasuryTransactions.find(t => t.id === id);
+  if (!tx) return;
+
+  if (await customConfirm(`⚠️ هل أنت متأكد من حذف هذه الحركة المالية بقيمة ${tx.amount} ج.م؟\n\nتنبيه: إذا كانت هذه الحركة مرتبطة بتحصيل قسط، سيتم إرجاع حالة القسط لـ "غير مسدد" تلقائياً.`)) {
+    
+    // لو الحركة هي تحصيل قسط، نرجع القسط لحالته الأصلية
+    if (tx.type === 'collection' && tx.installmentId) {
+      const inst = db.installments.find(i => i.id === tx.installmentId);
+      if (inst) {
+        inst.status = 'pending';
+        inst.paidAmount = 0;
+        inst.paidDate = '';
+        inst.delayFines = 0;
+        inst.receiptId = '';
+        logAction('تعديل قسط (عكسي)', `إرجاع القسط ${inst.id} لغير مسدد بسبب حذف حركة الخزينة`);
+        await syncWithAppsScript('updateInstallment', inst);
+      }
+    }
+
     db.treasuryTransactions = db.treasuryTransactions.filter(t => t.id !== id);
     saveToLocalStorage();
-    if (tx) logAction('حذف حركة مالية', `حذف المعاملة المالية بقيمة ${tx.amount} ج.م`);
+    logAction('حذف حركة مالية', `حذف المعاملة المالية بقيمة ${tx.amount} ج.م وتصحيح التبعات المالية`);
+    
     renderTreasury();
+    renderCollections();
     renderDashboard();
     await syncWithAppsScript('deleteTransaction', { id });
+    showToast('✅ تم حذف الحركة المالية وتصحيح البيانات المرتبطة بنجاح', 'success');
   }
 };
 
@@ -6404,23 +6476,48 @@ window.deleteContract = async function(contractId) {
   const c = db.contracts.find(x => x.id === contractId);
   if (!c) return;
 
-  if (await customConfirm(`هل أنت متأكد من حذف العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}؟ سيتم حذف جميع أقساطه.`)) {
+  if (await customConfirm(`⚠️ هل أنت متأكد من حذف العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}؟\n\nسيتم:\n• حذف جميع أقساط العقد\n• إرجاع الجهاز للمخزن كمتاح\n• إرجاع "المقدم" للخزينة تلقائياً (لو كان مدفوعاً).`)) {
+    
+    // إرجاع الجهاز للمخزن
     const dev = db.inventory.find(d => d.id === c.deviceId);
-    if (dev && dev.status === 'sold_installment') {
+    if (dev) {
       dev.status = 'available';
       dev.soldTo = '';
+      addDeviceHistory(dev, 'إلغاء عقد', `تم إرجاع القطعة للمخزن بسبب حذف العقد رقم ${contractId}`);
+      await syncWithAppsScript('updateDevice', dev);
     }
+
+    // إرجاع المقدم للخزينة لو كان أكبر من صفر
+    if (c.downPayment > 0) {
+      const refundDownPaymentTx = {
+        id: `tr-rev-dp-${Date.now()}`,
+        type: 'out', // خروج نقدية من الخزينة للعميل
+        amount: parseFloat(c.downPayment),
+        category: 'رد مقدم عقد ملغى',
+        method: 'cash',
+        details: `رد مقدم العقد المحذوف رقم ${contractId} للعميل ${c.clientName}`,
+        user: currentUser ? currentUser.name : 'مجهول',
+        timestamp: formatFullTimestamp(new Date())
+      };
+      db.treasuryTransactions.push(refundDownPaymentTx);
+      await syncWithAppsScript('addTreasuryTransaction', refundDownPaymentTx);
+    }
+
+    // حذف الأقساط والعقد
     db.installments = db.installments.filter(inst => inst.contractId !== contractId);
     db.contracts = db.contracts.filter(x => x.id !== contractId);
+    
     saveToLocalStorage();
-    logAction('حذف عقد', `حذف العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName} وإرجاع الجهاز للمخزن`);
+    logAction('حذف عقد', `حذف العقد ${contractId} وتصحيح المخزن والخزينة (رد مقدم ${c.downPayment} ج.م)`);
     
     await syncWithAppsScript('deleteContract', { id: contractId, deviceId: c.deviceId });
     
     renderContracts();
     renderInventory();
+    renderTreasury();
     renderCollections();
     renderDashboard();
+    showToast('✅ تم حذف العقد وتصحيح المخزن والخزينة بنجاح', 'success');
   }
 };
 
