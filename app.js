@@ -514,6 +514,20 @@ function initDatabase() {
   applyCompanyBranding();
   updateSyncStatusUI();
   
+  // إذا كان لدينا بيانات محلية، اعرضها فوراً
+  if (savedData) {
+    console.log('✅ عرض البيانات المحلية فوراً');
+    hideSessionCheckOverlay();
+    renderAllTabs();
+  } else {
+    console.log('❌ لا توجد بيانات محلية، عرض شاشة الدخول');
+    // بدون انتظار، اعرض شاشة الدخول فوراً
+    setTimeout(() => {
+      hideSessionCheckOverlay();
+      showLoginScreen();
+    }, 300);
+  }
+  
   // في الخلفية: حمّل البيانات الجديدة من Firebase (بدون انتظار)
   loadFromFirebase();
 }
