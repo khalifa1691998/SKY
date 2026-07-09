@@ -2545,22 +2545,28 @@ window.toggleProductMovements = function(productId) {
   renderProducts();
 };
 
+let selectedBrandName = ''; // لفلترة المنتجات حسب الماركة أيضاً
+
+window.selectProductBrand = function(brandName) {
+  selectedBrandName = (selectedBrandName === brandName) ? '' : brandName;
+  renderProducts();
+};
+
 function renderProductCategoryChips() {
   const container = document.getElementById('product-categories-chips');
   if (!container) return;
   const allCount = db.products.length;
   let html = `
-    <button onclick="selectProductCategory('')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${selectedProductCategoryId === '' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
-      كل الأصناف <span class="opacity-70">(${allCount})</span>
+    <button onclick="selectedBrandName=''; selectProductCategory('')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${selectedProductCategoryId === '' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+      الكل <span class="opacity-70">(${allCount})</span>
     </button>
   `;
   db.productCategories.forEach(cat => {
-    const count = db.products.filter(p => p.categoryId === cat.id).length;
     const isActive = selectedProductCategoryId === cat.id;
     html += `
       <div class="inline-flex items-center gap-1 ${isActive ? 'bg-teal-600' : 'bg-slate-100'} rounded-lg pr-1 pl-2 py-1">
-        <button onclick="selectProductCategory('${cat.id}')" class="px-2 py-0.5 rounded-md text-xs font-semibold transition-all ${isActive ? 'text-white' : 'text-slate-600 hover:bg-slate-200'}">
-          ${escapeHTML(cat.name)} <span class="opacity-70">(${count})</span>
+        <button onclick="selectedBrandName=''; selectProductCategory('${cat.id}')" class="px-2 py-0.5 rounded-md text-xs font-semibold transition-all ${isActive ? 'text-white' : 'text-slate-600 hover:bg-slate-200'}">
+          ${escapeHTML(cat.name)}
         </button>
         <button onclick="editProductCategory('${cat.id}')" title="تعديل الصنف" class="${isActive ? 'text-teal-100 hover:text-white' : 'text-slate-400 hover:text-teal-600'} text-xs"><i class="ph ph-note-pencil"></i></button>
         <button onclick="deleteProductCategory('${cat.id}')" title="حذف الصنف" class="${isActive ? 'text-teal-100 hover:text-white' : 'text-slate-400 hover:text-rose-600'} text-xs"><i class="ph ph-trash"></i></button>
@@ -2568,6 +2574,30 @@ function renderProductCategoryChips() {
     `;
   });
   container.innerHTML = html;
+
+  // عرض الماركات التابعة للصنف المختار كأزرار فرعية
+  const brandsContainer = document.getElementById('product-brands-chips');
+  if (brandsContainer) {
+    if (!selectedProductCategoryId) {
+      brandsContainer.innerHTML = '';
+      return;
+    }
+    const brands = db.brands.filter(b => typeof b === 'object' && b.categoryId === selectedProductCategoryId);
+    let bHtml = '';
+    brands.forEach(b => {
+      const isActive = selectedBrandName === b.name;
+      const count = db.products.filter(p => p.categoryId === selectedProductCategoryId && p.brand === b.name).length;
+      bHtml += `
+        <div class="inline-flex items-center gap-1 ${isActive ? 'bg-indigo-600' : 'bg-indigo-50'} rounded-lg pr-1 pl-2 py-1 border border-indigo-100">
+          <button onclick="selectProductBrand('${b.name}')" class="px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${isActive ? 'text-white' : 'text-indigo-600 hover:bg-indigo-100'}">
+            ${escapeHTML(b.name)} <span class="opacity-70">(${count})</span>
+          </button>
+          <button onclick="deleteBrand('${b.id}')" title="حذف الماركة" class="${isActive ? 'text-indigo-100 hover:text-white' : 'text-indigo-300 hover:text-rose-600'} text-[10px]"><i class="ph ph-trash"></i></button>
+        </div>
+      `;
+    });
+    brandsContainer.innerHTML = bHtml;
+  }
 }
 
 function renderProducts() {
@@ -2584,6 +2614,7 @@ function renderProducts() {
 
   let list = db.products.filter(p => {
     if (selectedProductCategoryId && p.categoryId !== selectedProductCategoryId) return false;
+    if (selectedBrandName && p.brand !== selectedBrandName) return false;
     if (searchVal && !(p.name || '').toLowerCase().includes(searchVal)) return false;
     return true;
   });
@@ -2622,7 +2653,9 @@ function renderProducts() {
     row.innerHTML = `
       <td class="p-4">
         <div class="font-bold text-slate-800">${escapeHTML(p.name)}</div>
-        <div class="text-xs text-slate-400">${escapeHTML(cat ? cat.name : 'بدون صنف')}</div>
+        <div class="text-[10px] text-slate-400">
+          ${escapeHTML(cat ? cat.name : 'بدون صنف')} / ${escapeHTML(p.brand || 'بدون ماركة')}
+        </div>
       </td>
       <td class="p-4 text-center">
         <span class="font-black text-sm ${isLow ? 'text-rose-600' : 'text-slate-700'}">${qty.toLocaleString()}</span>
@@ -2768,6 +2801,11 @@ window.editProduct = function(productId) {
   document.getElementById('product-edit-id').value = p.id;
   document.getElementById('product-name').value = p.name || '';
   document.getElementById('product-category-select').value = p.categoryId || '';
+  
+  // تحديث قائمة الماركات بناءً على التصنيف المختار
+  updateBrandDropdownForProduct();
+  document.getElementById('product-brand-select').value = p.brand || '';
+  
   document.getElementById('product-unit').value = p.unit || 'قطعة';
   document.getElementById('product-min-qty').value = p.minQty || 0;
   document.getElementById('product-cost-price').value = p.costPrice || 0;
@@ -2776,6 +2814,26 @@ window.editProduct = function(productId) {
   document.getElementById('product-notes').value = p.notes || '';
   document.getElementById('product-modal-title').textContent = 'تعديل بيانات المنتج';
   openModal('add-product-modal');
+};
+
+window.deleteBrand = async function(brandId) {
+  const brand = db.brands.find(b => b.id === brandId);
+  if (!brand) return;
+  
+  const productsWithBrand = db.products.filter(p => p.brand === brand.name && p.categoryId === brand.categoryId);
+  if (productsWithBrand.length > 0) {
+    alert(`⛔ لا يمكن حذف الماركة لأنها مرتبطة بـ ${productsWithBrand.length} منتج.`);
+    return;
+  }
+  
+  if (await customConfirm(`هل أنت متأكد من حذف ماركة "${brand.name}"؟`)) {
+    db.brands = db.brands.filter(b => b.id !== brandId);
+    saveToLocalStorage();
+    logAction('حذف ماركة', `حذف الماركة ${brand.name}`);
+    renderProducts();
+    populateDropdowns();
+    await syncWithAppsScript('deleteBrand', { id: brandId, name: brand.name });
+  }
 };
 
 window.deleteProduct = async function(productId) {
@@ -2810,10 +2868,12 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
 
   if (!name || !categoryId) { alert('يرجى إدخال اسم المنتج واختيار الصنف التابع له.'); return; }
 
+  const brand = document.getElementById('product-brand-select').value;
+
   if (editId) {
     const p = db.products.find(x => x.id === editId);
     if (!p) return;
-    p.name = name; p.categoryId = categoryId; p.unit = unit; p.minQty = minQty;
+    p.name = name; p.categoryId = categoryId; p.brand = brand; p.unit = unit; p.minQty = minQty;
     p.costPrice = costPrice; p.sellingPrice = sellingPrice; p.defaultSupplierId = defaultSupplierId; p.notes = notes;
     saveToLocalStorage();
     logAction('تعديل منتج', `تعديل بيانات المنتج ${name}`);
@@ -2821,11 +2881,11 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
   } else {
     const newProduct = {
       id: `prod-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      categoryId, name, unit, minQty, costPrice, sellingPrice, defaultSupplierId, notes
+      categoryId, brand, name, unit, minQty, costPrice, sellingPrice, defaultSupplierId, notes
     };
     db.products.push(newProduct);
     saveToLocalStorage();
-    logAction('إضافة منتج', `إضافة منتج جديد: ${name}`);
+    logAction('إضافة منتج', `إضافة منتج جديد: ${name} (ماركة: ${brand})`);
     await syncWithAppsScript('addProduct', newProduct);
   }
 
@@ -5711,23 +5771,31 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
 
 document.getElementById('add-brand-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const categoryId = document.getElementById('brand-category-select').value;
   const name = document.getElementById('brand-name').value.trim();
-  if (!name) return;
+  if (!name || !categoryId) return;
 
-  if (db.brands.includes(name)) {
-    alert('هذا الصنف مسجل بالفعل.');
+  // فحص التكرار داخل نفس التصنيف
+  if (db.brands.some(b => (typeof b === 'object' ? b.name : b) === name && (typeof b === 'object' ? b.categoryId === categoryId : true))) {
+    alert('الماركة مسجلة بالفعل في هذا التصنيف.');
     return;
   }
 
-  db.brands.push(name);
-  saveToLocalStorage();
-  logAction('إضافة صنف', `تم إضافة صنف/ماركة جديدة: ${name}`);
-  await syncWithAppsScript('addBrand', { name });
+  const newBrand = {
+    id: `brand-${Date.now()}`,
+    name,
+    categoryId
+  };
 
+  db.brands.push(newBrand);
+  saveToLocalStorage();
+  logAction('إضافة ماركة', `إضافة ماركة ${name} لتصنيف ${db.productCategories.find(c => c.id === categoryId)?.name}`);
+  
+  await syncWithAppsScript('addBrand', newBrand);
+  
   closeModal('add-brand-modal');
   document.getElementById('add-brand-form').reset();
   populateDropdowns();
-  renderInventory();
 });
 
 document.getElementById('add-user-form').addEventListener('submit', async (e) => {
@@ -6541,15 +6609,28 @@ window.updateBrandList = function() {
   const brandSelect = document.getElementById('device-brand-select');
   brandSelect.innerHTML = '<option value="">اختر الماركة...</option>';
   
-  // استخراج الماركات الفريدة لهذا التصنيف من المنتجات المسجلة
-  const brands = [...new Set(db.products.filter(p => p.categoryId === catId).map(p => p.brand))].sort();
+  const brands = db.brands.filter(b => typeof b === 'object' && b.categoryId === catId);
   brands.forEach(b => {
     const opt = document.createElement('option');
-    opt.value = b;
-    opt.textContent = b;
+    opt.value = b.name;
+    opt.textContent = b.name;
     brandSelect.appendChild(opt);
   });
   updateDeviceModelList();
+};
+
+window.updateBrandDropdownForProduct = function() {
+  const catId = document.getElementById('product-category-select').value;
+  const brandSelect = document.getElementById('product-brand-select');
+  brandSelect.innerHTML = '<option value="">اختر الماركة...</option>';
+  
+  const brands = db.brands.filter(b => typeof b === 'object' && b.categoryId === catId);
+  brands.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.name;
+    opt.textContent = b.name;
+    brandSelect.appendChild(opt);
+  });
 };
 
 window.updateDeviceModelList = function() {
@@ -6607,6 +6688,17 @@ function populateDropdowns() {
         devCatSelect.appendChild(opt);
       });
       if (prev) devCatSelect.value = prev;
+    }
+
+    const brandCatSelect = document.getElementById('brand-category-select');
+    if (brandCatSelect) {
+      brandCatSelect.innerHTML = '<option value="">اختر التصنيف...</option>';
+      db.productCategories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = cat.name;
+        brandCatSelect.appendChild(opt);
+      });
     }
 
     const clientSelect = document.getElementById('contract-client-select');

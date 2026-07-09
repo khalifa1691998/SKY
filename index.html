@@ -744,8 +744,11 @@
         </div>
 
         <!-- Category chips -->
-        <div id="product-categories-chips" class="flex flex-wrap gap-2">
-          <!-- Dynamically populated -->
+        <div id="product-categories-chips" class="flex flex-wrap gap-2 mb-2">
+          <!-- Dynamically populated categories -->
+        </div>
+        <div id="product-brands-chips" class="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+          <!-- Dynamically populated brands -->
         </div>
 
         <!-- Filter bar -->
@@ -1862,21 +1865,27 @@
 
   <!-- MODAL: ADD BRAND (صنف جديد) -->
   <div id="add-brand-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-        <h4 class="font-bold text-slate-800 text-lg">إضافة صنف / ماركة جديدة</h4>
+        <h4 class="font-bold text-slate-800 text-lg">إضافة ماركة جديدة</h4>
         <button type="button" onclick="closeModal('add-brand-modal')" class="text-slate-400 hover:text-slate-600">
           <i class="ph ph-x text-lg"></i>
         </button>
       </div>
       <form id="add-brand-form" class="space-y-4">
         <div>
-          <label class="form-label">اسم الماركة / الصنف</label>
-          <input type="text" id="brand-name" required class="form-input" placeholder="مثال: Oppo, Samsung, iPhone">
+          <label class="form-label">التصنيف التابع له</label>
+          <select id="brand-category-select" required class="form-input">
+            <option value="">اختر التصنيف...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">اسم الماركة</label>
+          <input type="text" id="brand-name" required class="form-input" placeholder="مثال: سامسونج، آبل...">
         </div>
         <div class="flex justify-end gap-2 pt-3">
           <button type="button" onclick="closeModal('add-brand-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
-          <button type="submit" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-md">حفظ الصنف</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md">إضافة الماركة</button>
         </div>
       </form>
     </div>
@@ -1998,21 +2007,27 @@
       </div>
       <form id="add-product-form" class="space-y-4">
         <input type="hidden" id="product-edit-id" value="">
-        <div>
-          <label class="form-label">اسم المنتج</label>
-          <input type="text" id="product-name" required class="form-input" placeholder="مثال: شاحن نوع C سريع">
-        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="form-label">الصنف التابع له</label>
-            <select id="product-category-select" required class="form-input">
+            <label class="form-label">الصنف (التصنيف العام)</label>
+            <select id="product-category-select" required class="form-input" onchange="updateBrandDropdownForProduct()">
               <option value="">اختر الصنف...</option>
             </select>
           </div>
           <div>
-            <label class="form-label">وحدة القياس</label>
-            <input type="text" id="product-unit" class="form-input" placeholder="قطعة / علبة / متر..." value="قطعة">
+            <label class="form-label">الماركة</label>
+            <select id="product-brand-select" required class="form-input">
+              <option value="">اختر الماركة...</option>
+            </select>
           </div>
+        </div>
+        <div>
+          <label class="form-label">اسم الموديل / الجهاز</label>
+          <input type="text" id="product-name" required class="form-input" placeholder="مثال: iPhone 15 Pro Max">
+        </div>
+        <div>
+          <label class="form-label">وحدة القياس</label>
+          <input type="text" id="product-unit" class="form-input" placeholder="قطعة / علبة / متر..." value="قطعة">
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

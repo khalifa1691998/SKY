@@ -30,9 +30,9 @@ window.FirebaseService = {
         data.settings = null;
       }
 
-      // Convert brands from [{name: 'BrandName'}] to ['BrandName']
+      // Keep brands as objects for hierarchical support
       if (data.brands) {
-        data.brands = data.brands.map(b => b.name);
+        data.brands = data.brands.map(b => (typeof b === 'object' ? b : { name: b }));
       }
 
       return data;
@@ -61,8 +61,7 @@ window.FirebaseService = {
           const globalSet = items.find(s => s.id === 'global') || items[0] || null;
           onDataUpdate('settings', globalSet);
         } else if (colName === 'brands') {
-          const brandNames = items.map(b => b.name);
-          onDataUpdate('brands', brandNames);
+          onDataUpdate('brands', items);
         } else {
           onDataUpdate(colName, items);
         }
@@ -323,10 +322,10 @@ window.FirebaseService = {
 
         // Brands and Suppliers
         case 'addBrand':
-          await db.collection("brands").doc(payload.name).set(payload);
+          await db.collection("brands").doc(payload.id || payload.name).set(payload);
           break;
         case 'deleteBrand':
-          await db.collection("brands").doc(payload.name).delete();
+          await db.collection("brands").doc(payload.id || payload.name).delete();
           break;
         case 'addSupplier':
           await db.collection("suppliers").doc(payload.id).set(payload);
