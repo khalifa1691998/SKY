@@ -442,9 +442,5 @@ function initializeDailyReminders() {
   }
 }
 
-// استدعاء التنبيهات عند تحميل الصفحة
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeDailyReminders);
-} else {
-  initializeDailyReminders();
-}
+// ملاحظة: تم إلغاء الاستدعاء التلقائي هنا لمنع ظهور التنبيه في صفحة الدخول.
+// يتم الآن استدعاء initializeDailyReminders برمجياً من داخل app.js فقط بعد نجاح تسجيل الدخول.

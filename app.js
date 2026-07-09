@@ -489,63 +489,25 @@ function updateUIForRole() {
 }
 
 function initDatabase() {
-  const isLocalFile = window.location.protocol === 'file:';
-  const localData = localStorage.getItem('sky_erp_db');
-  if (localData) {
-    db = JSON.parse(localData);
-    if (db.settings.offlineMode === undefined) {
-      db.settings.offlineMode = false;
-    }
-    if (!db.brands) db.brands = ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'];
-    if (!db.investors) db.investors = [];
-    if (!db.suppliers) db.suppliers = [];
-    if (!db.supplierTransactions) db.supplierTransactions = [];
-    if (!db.productCategories) db.productCategories = [];
-    if (!db.products) db.products = [];
-    if (!db.productStockMovements) db.productStockMovements = [];
-    // هجرة بيانات الموردين القدامى: إضافة id ونوع تعامل افتراضي وعنوان لو ناقصين
-    db.suppliers.forEach(s => {
-      if (!s.id) s.id = `sup-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-      if (!s.type) s.type = 'credit';
-      if (s.address === undefined) s.address = '';
-    });
-    if (!db.investorSnapshots) db.investorSnapshots = [];
-    if (!db.expenses) db.expenses = [];
-    if (!db.settings.companyName) db.settings.companyName = 'شركة SKY';
-    if (!db.settings.companyLogo) db.settings.companyLogo = '';
-    if (!db.settings.templates) {
-      db.settings.templates = defaultSeedData.settings.templates;
-    }
-    if (!db.settings.staffPermissions) {
-      db.settings.staffPermissions = getDefaultStaffPermissions();
-    }
-    // هجرة البيانات: التأكد من أن جميع الحسابات القديمة تمتلك كلمة مرور لمنع فشل تسجيل الدخول
-    if (db.users) {
-      let updated = false;
-      db.users.forEach(u => {
-        if (!u.password) {
-          const seedUser = defaultSeedData.users.find(su => su.username === u.username);
-          u.password = seedUser ? seedUser.password : '123';
-          updated = true;
-        }
-      });
-      if (updated) {
-        saveToLocalStorage();
-      }
-    }
-  } else {
-    db = defaultSeedData;
-    db.settings.offlineMode = false;
-    generateSeededInstallments();
-    saveToLocalStorage();
-  }
+  // التعديل الجديد: تم إلغاء الاعتماد على LocalStorage كمصدر أساسي للبيانات.
+  // النظام الآن يبدأ بقاعدة بيانات فارغة (defaultSeedData) وينتظر التحميل من Firebase.
+  // هذا يضمن عدم ظهور بيانات قديمة أو مختفية عند فتح الموقع.
+  
+  db = JSON.parse(JSON.stringify(defaultSeedData)); // نسخة نظيفة من البيانات الافتراضية
+  db.settings.offlineMode = false;
+  
+  // ملاحظة: لا نقوم بالتحميل من localStorage هنا لضمان دقة البيانات من السحابة مباشرة.
+  // يتم استخدام localStorage فقط كذاكرة مؤقتة جداً أثناء الجلسة الواحدة.
   
   applyCompanyBranding();
   updateSyncStatusUI();
 }
 
 function saveToLocalStorage() {
-  localStorage.setItem('sky_erp_db', JSON.stringify(db));
+  // تم تقليل الاعتماد على LocalStorage. 
+  // البيانات الأساسية يتم حفظها في Firebase فوراً عبر syncWithAppsScript.
+  // نستخدم sessionStorage بدلاً من localStorage لضمان مسح البيانات المؤقتة عند إغلاق المتصفح (لأمان أكثر).
+  sessionStorage.setItem('sky_erp_db_temp', JSON.stringify(db));
 }
 
 // ================= BACKUP & RESTORE SYSTEM =================
@@ -1016,6 +978,10 @@ async function loadFromServer() {
         db.auditLogs = sortByTimestampDesc(fbData.auditLogs || []);
         db.investors = fbData.investors || [];
         db.investorSnapshots = sortByTimestampDesc(fbData.investorSnapshots || []);
+        db.expenses = fbData.expenses || [];
+        db.suppliers = fbData.suppliers || [];
+        db.supplierTransactions = fbData.supplierTransactions || [];
+        db.brands = fbData.brands || ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'];
         if (fbData.settings) {
           db.settings = { ...db.settings, ...fbData.settings };
         }
@@ -1025,6 +991,11 @@ async function loadFromServer() {
         
         if (statusMsg) statusMsg.innerHTML = '<span class="text-emerald-600">تمت المزامنة بنجاح (Firebase)!</span>';
         updateSyncStatusUI();
+        
+        // إذا كان هذا هو التحميل الأول بعد تسجيل الدخول، نتأكد من إخفاء أي شاشات تحميل
+        const overlay = document.getElementById('session-check-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        
         return;
       }
     } catch (e) {
@@ -7308,6 +7279,11 @@ async function startFirebaseSubscription(uid, email) {
   // مطابقة الحساب المُسجَّل دخوله حالياً مع ملفه في Firestore وفتح الشاشة الرئيسية
   if (uid) {
     await resolveCurrentUserFromAuth(uid, email);
+    
+    // تشغيل تنبيهات الأقساط اليومية بعد الدخول بنجاح فقط
+    if (typeof initializeDailyReminders === 'function') {
+      initializeDailyReminders();
+    }
   }
 
   if (firebaseSubscriptionActive) return; // منع الاشتراك المزدوج في التحديثات الفورية
@@ -7326,9 +7302,11 @@ async function startFirebaseSubscription(uid, email) {
       // البذر التلقائي إذا كانت قاعدة البيانات فارغة
       console.warn("Firestore 'users' collection is empty. Seeding default data...");
       window.FirebaseService.seedFirebase(defaultSeedData);
-    } else if (colName === 'treasuryTransactions' || colName === 'auditLogs') {
+    } else if (colName === 'treasuryTransactions' || colName === 'auditLogs' || colName === 'investorSnapshots') {
       // نرتب حسب الوقت (الأحدث أولاً) لأن Firebase مش بيضمن ترتيب معين للنتائج
       db[colName] = sortByTimestampDesc(items || []);
+    } else if (colName === 'brands') {
+      db.brands = items || ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'];
     } else {
       db[colName] = items || [];
     }

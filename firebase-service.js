@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses'];
       const data = {};
       
       for (const colName of collections) {
@@ -46,7 +46,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses'];
     
     const activeListeners = [];
     
@@ -300,11 +300,20 @@ window.FirebaseService = {
 
         // Treasury Transactions
         case 'addExpense': {
+          if (payload.expense) {
+            await db.collection("expenses").doc(payload.expense.id).set(payload.expense);
+          }
           if (payload.transaction) {
             await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
           }
           break;
         }
+        case 'deleteExpense':
+          await db.collection("expenses").doc(payload.id).delete();
+          if (payload.transactionId) {
+            await db.collection("treasuryTransactions").doc(payload.transactionId).delete();
+          }
+          break;
         case 'addDeposit': {
           if (payload.transaction) {
             await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
@@ -378,6 +387,12 @@ window.FirebaseService = {
           if (payload.transaction) {
             await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
           }
+          break;
+        case 'addTreasuryTransaction':
+          await db.collection("treasuryTransactions").doc(payload.id).set(payload);
+          break;
+        case 'deleteTreasuryTransaction':
+          await db.collection("treasuryTransactions").doc(payload.id).delete();
           break;
 
         // Investors & Company Capital
