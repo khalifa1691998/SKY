@@ -9,11 +9,16 @@
 
 :root {
   --font-family: 'Cairo', sans-serif;
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
-  --neon-cyan: #2dd4bf;
-  --neon-pink: #1e3a8a;
-  --neon-violet: #14b8a6;
+  /* الهوية البصرية الجديدة */
+  --primary: #1e3a8a;           /* Deep Navy - اللون الأساسي */
+  --primary-hover: #1e40af;      /* Deep Navy Hover */
+  --accent: #0d9488;             /* Teal Accent - اللون الثانوي */
+  --accent-hover: #0f766e;       /* Teal Accent Hover */
+  --secondary: #4f46e5;          /* Indigo - اللون الثالث */
+  --secondary-hover: #4338ca;    /* Indigo Hover */
+  --neon-cyan: #0d9488;          /* تحديث للون الجديد */
+  --neon-pink: #1e3a8a;          /* تحديث للون الجديد */
+  --neon-violet: #4f46e5;        /* تحديث للون الجديد */
 }
 
 html, body {
@@ -143,7 +148,7 @@ body::after {
 .form-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.18);
 }
 .dark .form-input {
   background-color: #0d1424;
@@ -151,8 +156,8 @@ body::after {
   color: #f1f5f9;
 }
 .dark .form-input:focus {
-  border-color: #2dd4bf;
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.25);
 }
 
 .form-label {
@@ -271,9 +276,9 @@ body::after {
   position: relative;
 }
 .nav-link-active {
-  background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 60%, #115e59 100%);
+  background: linear-gradient(135deg, #1e3a8a 0%, #0d9488 60%, #4f46e5 100%);
   color: #ffffff !important;
-  box-shadow: 0 4px 18px 0 rgba(13, 148, 136, 0.45);
+  box-shadow: 0 4px 18px 0 rgba(30, 58, 138, 0.45);
 }
 
 /* ================= GLOBAL DARK MODE OVERRIDES ================= */
@@ -372,7 +377,7 @@ body::after {
 button, [role="button"], .badge, a[onclick] { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled):active { transform: scale(0.97); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid rgba(13, 148, 136, 0.5);
+  outline: 2px solid rgba(30, 58, 138, 0.5);
   outline-offset: 2px;
 }
 
