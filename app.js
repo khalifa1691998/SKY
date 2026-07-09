@@ -7444,11 +7444,27 @@ handleMobileTopbar(); // Initialize mobile topbar visibility
 setTimeout(() => {
   const overlay = document.getElementById('session-check-overlay');
   if (overlay && !overlay.classList.contains('hidden')) {
-    console.warn('لم يتم استلام حدث firebase-auth-changed خلال المهلة المحددة. إظهار شاشة الدخول كإجراء احتياطي.');
+    console.warn('لم يتم استلام حدث firebase-auth-changed خلال المهلة المحددة. محاولة تحميل من localStorage...');
+    
+    // حل بديل: تحميل من localStorage
+    const savedData = localStorage.getItem('sky_erp_db');
+    if (savedData) {
+      try {
+        db = JSON.parse(savedData);
+        console.log('✅ تم تحميل البيانات من localStorage بنجاح');
+        hideSessionCheckOverlay();
+        renderAllTabs();
+        return; // البيانات ظهرت بنجاح!
+      } catch (e) {
+        console.error('❌ خطأ في تحميل localStorage:', e);
+      }
+    }
+    
+    // لو ما في بيانات محفوظة، أظهر شاشة الدخول
     showLoginScreen();
-    showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنت وحاول مرة أخرى.');
+    showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنيت وحاول مرة أخرى.');
   }
-}, 10000);
+}, 5000);  // مهلة 5 ثواني بدل 10
 
 // Custom wrapper to open contract modal and populate dropdowns with latest data
 window.openAddContractModal = function() {
