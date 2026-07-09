@@ -489,65 +489,25 @@ function updateUIForRole() {
 }
 
 function initDatabase() {
-  // ✅ الحل الجديد: تحميل ذكي للبيانات (مثل أمازون)
-  // 1. حمّل البيانات من localStorage فوراً (سريع جداً)
-  // 2. اعرض البيانات على الفور
-  // 3. في الخلفية: حمّل البيانات الجديدة من Firebase
+  // التعديل الجديد: تم إلغاء الاعتماد على LocalStorage كمصدر أساسي للبيانات.
+  // النظام الآن يبدأ بقاعدة بيانات فارغة (defaultSeedData) وينتظر التحميل من Firebase.
+  // هذا يضمن عدم ظهور بيانات قديمة أو مختفية عند فتح الموقع.
   
-  const savedData = localStorage.getItem('sky_erp_db');
-  
-  if (savedData) {
-    try {
-      db = JSON.parse(savedData);
-      console.log('✅ تم تحميل البيانات من الذاكرة المحلية');
-    } catch (e) {
-      console.error('❌ خطأ في تحميل البيانات المحفوظة:', e);
-      db = JSON.parse(JSON.stringify(defaultSeedData));
-    }
-  } else {
-    db = JSON.parse(JSON.stringify(defaultSeedData));
-    console.log('ℹ️ لا توجد بيانات محفوظة، استخدام البيانات الافتراضية');
-  }
-  
+  db = JSON.parse(JSON.stringify(defaultSeedData)); // نسخة نظيفة من البيانات الافتراضية
   db.settings.offlineMode = false;
+  
+  // ملاحظة: لا نقوم بالتحميل من localStorage هنا لضمان دقة البيانات من السحابة مباشرة.
+  // يتم استخدام localStorage فقط كذاكرة مؤقتة جداً أثناء الجلسة الواحدة.
   
   applyCompanyBranding();
   updateSyncStatusUI();
-  
-  // إذا كان لدينا بيانات محلية، اعرضها فوراً
-  if (savedData) {
-    console.log('✅ عرض البيانات المحلية فوراً');
-    hideSessionCheckOverlay();
-    renderAllTabs();
-  } else {
-    console.log('❌ لا توجد بيانات محلية، عرض شاشة الدخول');
-    // بدون انتظار، اعرض شاشة الدخول فوراً
-    setTimeout(() => {
-      hideSessionCheckOverlay();
-      showLoginScreen();
-    }, 300);
-  }
-  
-  // في الخلفية: حمّل البيانات الجديدة من Firebase (بدون انتظار)
-  loadFromFirebase();
 }
 
 function saveToLocalStorage() {
-  // ✅ حفظ البيانات في localStorage (الذاكرة المحلية)
-  // هذا يضمن أن البيانات موجودة دائماً عند فتح الموقع
-  try {
-    localStorage.setItem('sky_erp_db', JSON.stringify(db));
-    console.log('✅ تم حفظ البيانات في الذاكرة المحلية');
-  } catch (e) {
-    console.warn('⚠️ تعذر حفظ البيانات:', e);
-  }
-  
-  // حفظ مؤقت في sessionStorage أيضاً (للأمان)
-  try {
-    sessionStorage.setItem('sky_erp_db_temp', JSON.stringify(db));
-  } catch (e) {
-    // تجاهل الخطأ
-  }
+  // تم تقليل الاعتماد على LocalStorage. 
+  // البيانات الأساسية يتم حفظها في Firebase فوراً عبر syncWithAppsScript.
+  // نستخدم sessionStorage بدلاً من localStorage لضمان مسح البيانات المؤقتة عند إغلاق المتصفح (لأمان أكثر).
+  sessionStorage.setItem('sky_erp_db_temp', JSON.stringify(db));
 }
 
 // ================= BACKUP & RESTORE SYSTEM =================
@@ -7458,29 +7418,11 @@ handleMobileTopbar(); // Initialize mobile topbar visibility
 setTimeout(() => {
   const overlay = document.getElementById('session-check-overlay');
   if (overlay && !overlay.classList.contains('hidden')) {
-    console.warn('لم يتم استلام حدث firebase-auth-changed خلال المهلة المحددة. محاولة تحميل من localStorage...');
-    
-    // حل بديل: تحميل من localStorage
-    const savedData = localStorage.getItem('sky_erp_db');
-    if (savedData) {
-      try {
-        db = JSON.parse(savedData);
-        console.log('✅ تم تحميل البيانات من localStorage بنجاح');
-        hideSessionCheckOverlay();
-        renderAllTabs();
-      } catch (e) {
-        console.error('❌ خطأ في تحميل localStorage:', e);
-        // لو في خطأ، أظهر شاشة الدخول
-        showLoginScreen();
-        showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنيت وحاول مرة أخرى.');
-      }
-    } else {
-      // لو ما في بيانات محفوظة، أظهر شاشة الدخول
-      showLoginScreen();
-      showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنيت وحاول مرة أخرى.');
-    }
+    console.warn('لم يتم استلام حدث firebase-auth-changed خلال المهلة المحددة. إظهار شاشة الدخول كإجراء احتياطي.');
+    showLoginScreen();
+    showLoginError('❌ تعذر التحقق من جلسة الدخول. تحقق من اتصال الإنترنت وحاول مرة أخرى.');
   }
-}, 5000);  // مهلة 5 ثواني بدل 10
+}, 10000);
 
 // Custom wrapper to open contract modal and populate dropdowns with latest data
 window.openAddContractModal = function() {
