@@ -12,11 +12,11 @@ let db = {
 
   clients: [],
   inventory: [],
-  brands: ['Oppo', 'Samsung', 'iPhone'], // Default Brands/Categories
+  brands: [], // ماركات تابعة لصنف معين: { id, name, categoryId } - تُستخدم في تبويب "الأصناف والمنتجات" وتبويب "المخزون" معاً (نظام موحد: صنف ← ماركة ← منتج/موديل)
   suppliers: [],
   supplierTransactions: [], // سجل حركات الموردين: مشتريات آجل/كاش وسدادات { id, supplierId, supplierName, type, method, amount, timestamp, notes }
-  productCategories: [], // أصناف المنتجات العامة (إكسسوارات/قطع غيار...): { id, name, notes }
-  products: [], // المنتجات العامة تحت كل صنف: { id, categoryId, name, unit, minQty, costPrice, sellingPrice, defaultSupplierId, notes }
+  productCategories: [], // أصناف المنتجات (هواتف، أجهزة كهربائية، إكسسوارات...): { id, name, notes }
+  products: [], // المنتجات/الموديلات النهائية تحت كل صنف وماركة: { id, categoryId, brand, name, unit, minQty, costPrice, sellingPrice, defaultSupplierId, notes }
   productStockMovements: [], // حركات وارد/صادر لكل منتج: { id, productId, productName, type: 'in'|'out', reason, quantity, unitCost, totalCost, supplierId, supplierName, timestamp, notes }
   contracts: [],
   installments: [],
@@ -116,7 +116,7 @@ let expandedClients = new Set();
 // يحقن حسابات وهمية بكلمة مرور "123" كانت ظاهرة لأي حد يفتح مصدر الصفحة.
 const defaultSeedData = {
   users: [],
-  brands: ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'],
+  brands: [], // نظام الماركات الجديد: كل ماركة لازم تكون مرتبطة بصنف (categoryId)، فمفيش ماركات افتراضية جاهزة قبل ما تنشئ صنف الأول
   suppliers: [],
   supplierTransactions: [],
   productCategories: [],
@@ -690,8 +690,11 @@ window.exportExcelBackup = function() {
     const rows = [];
     const maxLen = Math.max(db.brands.length, db.suppliers.length);
     for (let i = 0; i < maxLen; i++) {
+      const brandObj = db.brands[i];
+      const brandCat = brandObj ? db.productCategories.find(c => c.id === brandObj.categoryId) : null;
       rows.push({
-        'الماركة': db.brands[i] || '',
+        'الماركة': brandObj ? brandObj.name : '',
+        'الصنف التابع له': brandCat ? brandCat.name : '',
         'اسم المورد': db.suppliers[i] ? db.suppliers[i].name : '',
         'هاتف المورد': db.suppliers[i] ? db.suppliers[i].phone : '',
         'ملاحظات': db.suppliers[i] ? (db.suppliers[i].notes || '') : ''
@@ -1001,7 +1004,13 @@ async function loadFromServer() {
         db.expenses = fbData.expenses || [];
         db.suppliers = fbData.suppliers || [];
         db.supplierTransactions = fbData.supplierTransactions || [];
-        db.brands = fbData.brands || ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'];
+        // تنظيف ذاتي: أي ماركة قديمة كانت متخزنة كنص خام (من نظام قديم قبل
+        // ربط الماركات بالأصناف) بنستبعدها من القائمة الفعّالة، لأنها مش
+        // مرتبطة بأي صنف فمش هتظهر صح في النظام الهرمي الحالي (صنف ← ماركة
+        // ← منتج). بياناتها القديمة في المخزون (لو موجودة) مش بتتأثر لأن
+        // كل قطعة مخزون بتخزن اسم الماركة كنص مباشرة في نفسها.
+        const rawBrands = fbData.brands || [];
+        db.brands = rawBrands.filter(b => typeof b === 'object' && b !== null && b.categoryId);
         if (fbData.settings) {
           db.settings = { ...db.settings, ...fbData.settings };
         }
@@ -2764,6 +2773,11 @@ window.deleteProductCategory = async function(categoryId) {
   const productsInCategory = db.products.filter(p => p.categoryId === categoryId);
   if (productsInCategory.length > 0) {
     alert(`⛔ لا يمكن حذف هذا الصنف لأنه يحتوي على ${productsInCategory.length} منتج. احذف أو انقل المنتجات أولاً.`);
+    return;
+  }
+  const brandsInCategory = db.brands.filter(b => b.categoryId === categoryId);
+  if (brandsInCategory.length > 0) {
+    alert(`⛔ لا يمكن حذف هذا الصنف لأنه يحتوي على ${brandsInCategory.length} ماركة تابعة له. احذف الماركات أولاً.`);
     return;
   }
   const cat = db.productCategories.find(c => c.id === categoryId);
@@ -6754,15 +6768,17 @@ function populateDropdowns() {
       });
     }
 
-    const brandSelect = document.getElementById('device-brand-select');
-    if (brandSelect) {
-      brandSelect.innerHTML = '';
-      db.brands.forEach(b => {
-        const opt = document.createElement('option');
-        opt.value = b;
-        opt.textContent = b;
-        brandSelect.appendChild(opt);
-      });
+    // ملحوظة: قائمة "device-brand-select" (الماركة) و"device-model-select" (الموديل)
+    // بتتحدث بشكل هرمي صحيح عن طريق updateBrandList() و updateDeviceModelList()
+    // (بتتنفذ تلقائياً عند اختيار الصنف ثم الماركة في نموذج "إضافة جهاز للمخزن").
+    // كان هنا قبل كده كود قديم بيمسح القائمة ويملأها بكل db.brands كنصوص خام
+    // بشكل مسطح (من غير فلترة بالصنف)، وده كان بيكسر القائمة فعلياً ويطلع
+    // "[object Object]" لأن db.brands بقت تخزن كائنات {id, name, categoryId}
+    // مش نصوص. تم حذفه نهائياً؛ لو فيه صنف محدد بالفعل وقت استدعاء الدالة دي،
+    // بنعيد تحديث قائمة الماركات بتاعته صح.
+    const activeDeviceCategory = document.getElementById('device-category-select');
+    if (activeDeviceCategory && activeDeviceCategory.value && typeof updateBrandList === 'function') {
+      updateBrandList();
     }
 
     // تهيئة فلاتر المصروفات لو مش مهيئة
@@ -6941,7 +6957,7 @@ document.getElementById('btn-clear-db').addEventListener('click', async () => {
     // قائمة الجداول التشغيلية المسموح مسحها فعلياً من Firestore.
     // ملحوظة أمان: users / userRoles / settings مستبعدين عمداً داخل
     // FirebaseService.clearOperationalData نفسها كمان (طبقة حماية مزدوجة).
-    const operationalCollections = ['clients', 'inventory', 'contracts', 'installments', 'brands', 'suppliers', 'collectorCustodies', 'treasuryTransactions', 'expenses', 'auditLogs'];
+    const operationalCollections = ['clients', 'inventory', 'contracts', 'installments', 'brands', 'suppliers', 'supplierTransactions', 'collectorCustodies', 'treasuryTransactions', 'expenses', 'auditLogs', 'productCategories', 'products', 'productStockMovements'];
 
     let cloudResult = { success: true };
     if (window.FirebaseService && window.FirebaseService.isAvailable()) {
@@ -6962,10 +6978,14 @@ document.getElementById('btn-clear-db').addEventListener('click', async () => {
     db.installments = [];
     db.brands = [];
     db.suppliers = [];
+    db.supplierTransactions = [];
     db.collectorCustodies = [];
     db.treasuryTransactions = [];
     db.expenses = [];
     db.auditLogs = [];
+    db.productCategories = [];
+    db.products = [];
+    db.productStockMovements = [];
 
     // الحفاظ على db.users و db.settings
 
@@ -7545,7 +7565,9 @@ async function startFirebaseSubscription(uid, email) {
       // نرتب حسب الوقت (الأحدث أولاً) لأن Firebase مش بيضمن ترتيب معين للنتائج
       db[colName] = sortByTimestampDesc(items || []);
     } else if (colName === 'brands') {
-      db.brands = items || ['Oppo', 'Samsung', 'iPhone', 'Xiaomi'];
+      // تنظيف ذاتي: أي عنصر قديم مش كائن مرتبط بصنف (categoryId) بيتجاهل،
+      // لأنه بقايا من نظام قديم قبل ربط الماركات بالأصناف الهرمية.
+      db.brands = (items || []).filter(b => typeof b === 'object' && b !== null && b.categoryId);
     } else {
       db[colName] = items || [];
     }
