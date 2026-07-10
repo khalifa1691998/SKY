@@ -2593,12 +2593,12 @@ function renderProductCategoryChips() {
   db.productCategories.forEach(cat => {
     const isActive = selectedProductCategoryId === cat.id;
     html += `
-      <div class="inline-flex items-center gap-1 ${isActive ? 'bg-teal-600' : 'bg-slate-100'} rounded-lg pr-1 pl-2 py-1">
-        <button onclick="selectedBrandName=''; selectProductCategory('${cat.id}')" class="px-2 py-0.5 rounded-md text-xs font-semibold transition-all ${isActive ? 'text-white' : 'text-slate-600 hover:bg-slate-200'}">
+      <div class="inline-flex items-center gap-0.5 ${isActive ? 'bg-teal-600' : 'bg-slate-100'} rounded-lg pr-1 pl-1 py-1">
+        <button onclick="selectedBrandName=''; selectProductCategory('${cat.id}')" class="px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${isActive ? 'text-white' : 'text-slate-600 hover:bg-slate-200'}">
           ${escapeHTML(cat.name)}
         </button>
-        <button onclick="editProductCategory('${cat.id}')" title="تعديل الصنف" class="${isActive ? 'text-teal-100 hover:text-white' : 'text-slate-400 hover:text-teal-600'} text-xs"><i class="ph ph-note-pencil"></i></button>
-        <button onclick="deleteProductCategory('${cat.id}')" title="حذف الصنف" class="${isActive ? 'text-teal-100 hover:text-white' : 'text-slate-400 hover:text-rose-600'} text-xs"><i class="ph ph-trash"></i></button>
+        <button onclick="editProductCategory('${cat.id}')" title="تعديل الصنف" class="${isActive ? 'text-teal-100 hover:text-white' : 'text-slate-400 hover:text-teal-600'} text-sm p-2 min-w-[32px] min-h-[32px] flex items-center justify-center"><i class="ph ph-note-pencil"></i></button>
+        <button onclick="deleteProductCategory('${cat.id}')" title="حذف الصنف" class="${isActive ? 'text-teal-100 hover:text-rose-200' : 'text-slate-400 hover:text-rose-600'} text-sm p-2 min-w-[32px] min-h-[32px] flex items-center justify-center border-r ${isActive ? 'border-teal-400' : 'border-slate-200'}"><i class="ph ph-trash"></i></button>
       </div>
     `;
   });
@@ -2617,11 +2617,11 @@ function renderProductCategoryChips() {
       const isActive = selectedBrandName === b.name;
       const count = db.products.filter(p => p.categoryId === selectedProductCategoryId && p.brand === b.name).length;
       bHtml += `
-        <div class="inline-flex items-center gap-1 ${isActive ? 'bg-indigo-600' : 'bg-indigo-50'} rounded-lg pr-1 pl-2 py-1 border border-indigo-100">
-          <button onclick="selectProductBrand('${b.name}')" class="px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${isActive ? 'text-white' : 'text-indigo-600 hover:bg-indigo-100'}">
+        <div class="inline-flex items-center gap-0.5 ${isActive ? 'bg-indigo-600' : 'bg-indigo-50'} rounded-lg pr-1 pl-1 py-1 border border-indigo-100">
+          <button onclick="selectProductBrand('${b.name}')" class="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${isActive ? 'text-white' : 'text-indigo-600 hover:bg-indigo-100'}">
             ${escapeHTML(b.name)} <span class="opacity-70">(${count})</span>
           </button>
-          <button onclick="deleteBrand('${b.id}')" title="حذف الماركة" class="${isActive ? 'text-indigo-100 hover:text-white' : 'text-indigo-300 hover:text-rose-600'} text-[10px]"><i class="ph ph-trash"></i></button>
+          <button onclick="deleteBrand('${b.id}')" title="حذف الماركة" class="${isActive ? 'text-indigo-100 hover:text-rose-200' : 'text-indigo-300 hover:text-rose-600'} text-sm p-2 min-w-[32px] min-h-[32px] flex items-center justify-center border-r ${isActive ? 'border-indigo-400' : 'border-indigo-100'}"><i class="ph ph-trash"></i></button>
         </div>
       `;
     });

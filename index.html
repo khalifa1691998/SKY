@@ -732,6 +732,10 @@
               <i class="ph ph-folder-simple-plus"></i>
               <span>إضافة صنف</span>
             </button>
+            <button onclick="openAddBrandModalForSelectedCategory()" class="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-tag"></i>
+              <span>إضافة ماركة</span>
+            </button>
             <button onclick="openAddProductModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-600/20 transition-all duration-200 flex items-center gap-2">
               <i class="ph ph-package"></i>
               <span>إضافة منتج جديد</span>
@@ -763,14 +767,8 @@
         <div id="product-categories-chips" class="flex flex-wrap gap-2 mb-2">
           <!-- Dynamically populated categories -->
         </div>
-        <div class="flex items-center gap-2 flex-wrap mb-4">
-          <div id="product-brands-chips" class="flex flex-wrap gap-2 min-h-[32px]">
-            <!-- Dynamically populated brands -->
-          </div>
-          <button onclick="openAddBrandModalForSelectedCategory()" id="btn-add-brand-in-products-tab" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[11px] font-bold transition-all duration-200 flex items-center gap-1">
-            <i class="ph ph-plus"></i>
-            <span>إضافة ماركة</span>
-          </button>
+        <div id="product-brands-chips" class="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+          <!-- Dynamically populated brands -->
         </div>
 
         <!-- Filter bar -->
