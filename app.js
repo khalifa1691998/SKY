@@ -2826,6 +2826,10 @@ window.openAddProductModal = function() {
   document.getElementById('add-product-form').reset();
   document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
   if (selectedProductCategoryId) document.getElementById('product-category-select').value = selectedProductCategoryId;
+  // مهم: تحديث قائمة الماركات يدوياً هنا، لأن ضبط .value برمجياً فوق مبيطلقش
+  // حدث change تلقائي، فقائمة الماركات كانت بتفضل فاضية أو بتعرض ماركات
+  // صنف تاني (لو كان اتفتح قبل كده) لحد ما المستخدم يغيّر الصنف يدوياً.
+  updateBrandDropdownForProduct();
   openModal('add-product-modal');
 };
 
@@ -5840,6 +5844,10 @@ document.getElementById('add-brand-form').addEventListener('submit', async (e) =
   
   closeModal('add-brand-modal');
   document.getElementById('add-brand-form').reset();
+  // كان ناقص: من غير renderProducts() الماركة الجديدة معملتش refresh
+  // لشرائط الماركات تحت الصنف (renderProductCategoryChips)، فكانت بتفضل
+  // مش ظاهرة في الشاشة غير لو غيّرت الصنف المختار ورجعتله تاني أو عملت Refresh.
+  renderProducts();
   populateDropdowns();
 });
 
