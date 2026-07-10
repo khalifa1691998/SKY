@@ -969,15 +969,24 @@ async function syncWithAppsScript(action, payload = {}) {
 }
 
 // تنبيه مرئي عند فشل أي عملية مزامنة فعلياً مع Firestore
+let lastSyncFailureDetail = null;
 function showSyncFailureWarning(action, errorDetail) {
+  lastSyncFailureDetail = { action, errorDetail: errorDetail || 'خطأ غير معروف', time: new Date().toLocaleTimeString('ar-EG') };
   const headerBadge = document.getElementById('header-sync-badge');
   if (headerBadge) {
-    headerBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span><span>فشل حفظ آخر عملية! ⚠️</span>`;
-    headerBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 bg-rose-50 text-rose-700 border border-rose-200';
+    headerBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span><span>فشل حفظ آخر عملية! (دوس هنا) ⚠️</span>`;
+    headerBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer';
+    headerBadge.onclick = showLastSyncFailureDetail;
     headerBadge.title = `فشلت عملية "${action}": ${errorDetail || 'خطأ غير معروف'}. البيانات ظاهرة عندك حالياً لكنها لسه ما اتحفظتش فعلياً في قاعدة البيانات، وممكن تختفي لو عملت Refresh. تأكد من صلاحيات Firestore واتصال الإنترنت.`;
   }
   console.warn(`⚠️ تنبيه: عملية "${action}" ظاهرة عندك محلياً بس ما اتحفظتش في Firestore. لو عملت Refresh دلوقتي ممكن تضيع.`);
 }
+
+// دالة تعرض تفاصيل آخر خطأ حفظ بوضوح (Alert) عشان تظهر على الموبايل كمان، مش بس Tooltip
+window.showLastSyncFailureDetail = function() {
+  if (!lastSyncFailureDetail) return;
+  alert(`⚠️ فشلت آخر عملية حفظ في Firebase\n\nنوع العملية: ${lastSyncFailureDetail.action}\nالوقت: ${lastSyncFailureDetail.time}\n\nرسالة الخطأ بالظبط:\n${lastSyncFailureDetail.errorDetail}\n\nمن فضلك اعمل Screenshot للرسالة دي وابعتها.`);
+};
 
 async function loadFromServer() {
   const statusMsg = document.getElementById('connection-status-msg');
@@ -2825,6 +2834,9 @@ window.openAddProductModal = function() {
   document.getElementById('product-edit-id').value = '';
   document.getElementById('add-product-form').reset();
   document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
+  // نحدّث كل القوائم (الأصناف والموردين وغيرها) أول ما نفتح المودال، عشان
+  // نضمن ظهور كل الأصناف المُضافة حتى لو المودال ده اتفتح قبل ما أي تحديث تاني يحصل.
+  populateDropdowns();
   if (selectedProductCategoryId) document.getElementById('product-category-select').value = selectedProductCategoryId;
   // مهم: تحديث قائمة الماركات يدوياً هنا، لأن ضبط .value برمجياً فوق مبيطلقش
   // حدث change تلقائي، فقائمة الماركات كانت بتفضل فاضية أو بتعرض ماركات
@@ -2838,6 +2850,7 @@ window.editProduct = function(productId) {
   if (!p) return;
   document.getElementById('product-edit-id').value = p.id;
   document.getElementById('product-name').value = p.name || '';
+  populateDropdowns();
   document.getElementById('product-category-select').value = p.categoryId || '';
   
   // تحديث قائمة الماركات بناءً على التصنيف المختار
