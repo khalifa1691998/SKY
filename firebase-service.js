@@ -527,5 +527,35 @@ window.FirebaseService = {
   // 5. Upload Image helper (Returns Base64 directly as Storage is disabled)
   uploadImage: async (base64Data, folder, filename) => {
     return base64Data;
+  },
+
+  // 6. مسح حقيقي (نهائي) لكل مستندات مجموعة/مجموعات معينة من Firestore.
+  // بيُستخدم في "مسح البيانات التشغيلية" من الإعدادات. مهم جداً إنه ميتضمنش
+  // أبداً users أو userRoles أو settings في الـ collections اللي بتتبعتله، عشان
+  // نحافظ على حسابات المستخدمين وإعدادات الشركة زي ما هي بالظبط.
+  // Firestore بيسمح بحذف 500 مستند بالكتير في الـ batch الواحد، فبنقسّم
+  // المستندات لدفعات (chunks) لو عددها أكبر من كده.
+  clearOperationalData: async (collectionNames) => {
+    if (!window.FirebaseService.isAvailable()) return { success: false, error: 'Firebase غير متاح' };
+    const db = window.firebaseDB;
+    const forbidden = ['users', 'userRoles', 'settings'];
+    const safeCollections = collectionNames.filter(c => !forbidden.includes(c));
+
+    try {
+      for (const colName of safeCollections) {
+        const snapshot = await db.collection(colName).get();
+        const docs = snapshot.docs;
+        for (let i = 0; i < docs.length; i += 450) {
+          const chunk = docs.slice(i, i + 450);
+          const batch = db.batch();
+          chunk.forEach(docSnap => batch.delete(docSnap.ref));
+          await batch.commit();
+        }
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Firebase Clear Operational Data Error:", error);
+      return { success: false, error: error.message };
+    }
   }
 };

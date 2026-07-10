@@ -6921,8 +6921,30 @@ document.getElementById('btn-seed-data').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-clear-db').addEventListener('click', async () => {
-  if (await customConfirm('⚠️ هل أنت متأكد من مسح جميع البيانات التشغيلية (عملاء، عقود، مخزون، خزينة)؟\n\nملاحظة: سيتم الحفاظ على حسابات المستخدمين وإعدادات الشركة فقط.')) {
-    // بدلاً من مسح كل شيء، سنقوم بتصفير الجداول التشغيلية فقط
+  if (await customConfirm('⚠️ هل أنت متأكد من مسح جميع البيانات التشغيلية نهائياً من قاعدة البيانات السحابية (عملاء، عقود، مخزون، خزينة، مصروفات، سجل المراجعة)؟\n\nملاحظة: سيتم الحفاظ الكامل على حسابات المستخدمين وإعدادات الشركة، ولن يتأثروا إطلاقاً.\n\nهذا الإجراء نهائي ولا يمكن التراجع عنه.')) {
+    const btn = document.getElementById('btn-clear-db');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> جاري المسح من السحابة...';
+
+    // قائمة الجداول التشغيلية المسموح مسحها فعلياً من Firestore.
+    // ملحوظة أمان: users / userRoles / settings مستبعدين عمداً داخل
+    // FirebaseService.clearOperationalData نفسها كمان (طبقة حماية مزدوجة).
+    const operationalCollections = ['clients', 'inventory', 'contracts', 'installments', 'brands', 'suppliers', 'collectorCustodies', 'treasuryTransactions', 'expenses', 'auditLogs'];
+
+    let cloudResult = { success: true };
+    if (window.FirebaseService && window.FirebaseService.isAvailable()) {
+      cloudResult = await window.FirebaseService.clearOperationalData(operationalCollections);
+    }
+
+    if (!cloudResult.success) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      alert('❌ حدث خطأ أثناء المسح من السحابة: ' + (cloudResult.error || 'خطأ غير معروف') + '\n\nلم يتم مسح أي بيانات. حاول مرة أخرى.');
+      return;
+    }
+
+    // بعد التأكد من نجاح المسح الفعلي في Firestore، نصفّر النسخة المحلية كمان
     db.clients = [];
     db.inventory = [];
     db.contracts = [];
@@ -6933,11 +6955,11 @@ document.getElementById('btn-clear-db').addEventListener('click', async () => {
     db.treasuryTransactions = [];
     db.expenses = [];
     db.auditLogs = [];
-    
+
     // الحفاظ على db.users و db.settings
-    
+
     saveToLocalStorage();
-    alert('✅ تم مسح البيانات التشغيلية بنجاح مع الحفاظ على المستخدمين والإعدادات.');
+    alert('✅ تم مسح البيانات التشغيلية نهائياً من قاعدة البيانات السحابية (Firebase) مع الحفاظ الكامل على المستخدمين والإعدادات.\n\nيمكنك الآن البدء بإدخال بيانات جديدة نظيفة.');
     location.reload();
   }
 });
