@@ -7445,6 +7445,10 @@ function openMobileSidebar() {
   if (sidebar) sidebar.classList.add('sidebar-open');
   if (backdrop) backdrop.classList.add('visible');
   document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden';
+  // منع التمرير على جميع العناصر الأخرى
+  const main = document.querySelector('main');
+  if (main) main.style.overflow = 'hidden';
 }
 
 function closeMobileSidebar() {
@@ -7453,6 +7457,10 @@ function closeMobileSidebar() {
   if (sidebar) sidebar.classList.remove('sidebar-open');
   if (backdrop) backdrop.classList.remove('visible');
   document.body.style.overflow = '';
+  document.documentElement.style.overflow = '';
+  // استعادة التمرير على العناصر الأخرى
+  const main = document.querySelector('main');
+  if (main) main.style.overflow = 'auto';
 }
 
 window.openMobileSidebar = openMobileSidebar;

@@ -3,7 +3,10 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5, user-scalable=yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SKY ERP">
   <title>شركة SKY - نظام إدارة الأقساط والخزينة المتكامل</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -109,10 +112,10 @@
   </div>
 
   <!-- Mobile sidebar backdrop -->
-  <div id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+  <div id="sidebar-backdrop" onclick="closeMobileSidebar()" style="-webkit-user-select: none; -webkit-touch-callout: none;"></div>
 
   <!-- Mobile top bar (visible only on small screens) -->
-  <div id="mobile-topbar" class="hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 text-white px-4 py-3 items-center justify-between shadow-lg" style="direction:rtl">
+  <div id="mobile-topbar" class="hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 text-white px-4 py-3 items-center justify-between shadow-lg" style="direction:rtl; height: 3.5rem; max-height: 3.5rem;">
     <div class="flex items-center gap-2">
       <div class="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center">
         <i class="ph ph-cloud-lightning text-sm text-white"></i>
@@ -125,10 +128,10 @@
   </div>
 
   <!-- ================= APP WRAPPER ================= -->
-  <div id="app-wrapper" class="hidden min-h-screen flex flex-col md:flex-row w-full" style="padding-top:0">
+  <div id="app-wrapper" class="hidden min-h-screen flex flex-col md:flex-row w-full" style="padding-top:0; height: 100dvh; overflow: hidden;">
 
     <!-- Sidebar (Right Theme - RTL Layout) -->
-    <aside id="app-sidebar" class="md:w-80 glass-sidebar text-white flex flex-col h-screen md:sticky md:top-0">
+    <aside id="app-sidebar" class="md:w-80 glass-sidebar text-white flex flex-col h-screen md:sticky md:top-0" style="-webkit-overflow-scrolling: touch;">
     <!-- Brand / Logo -->
     <div class="p-4 md:p-5 border-b border-skyDark-700 flex items-center justify-between">
       <div class="flex items-center gap-2.5 md:gap-3">
@@ -147,7 +150,7 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <nav class="flex-1 px-3 md:px-4 py-4 md:py-6 space-y-1 overflow-y-auto text-sm md:text-base" id="sidebar-menu">
+    <nav class="flex-1 px-3 md:px-4 py-4 md:py-6 space-y-1 overflow-y-auto text-sm md:text-base" id="sidebar-menu" style="-webkit-overflow-scrolling: touch;">
       <a href="#" data-tab="dashboard" class="nav-link nav-link-active flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl font-semibold transition-all duration-200 active-tab-btn">
         <i class="ph ph-chart-line text-base md:text-lg w-5 shrink-0"></i>
         <span>لوحة القيادة</span>
@@ -233,7 +236,7 @@
   </aside>
 
   <!-- Main Content Area -->
-  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto dark:bg-skyDark-950 transition-colors duration-300 pt-14 md:pt-0">
+  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto dark:bg-skyDark-950 transition-colors duration-300 pt-14 md:pt-0" style="-webkit-overflow-scrolling: touch; overflow-x: hidden;">
     <!-- Top Header -->
     <header class="p-4 md:p-6 bg-white dark:bg-skyDark-900 border-b border-slate-100 dark:border-skyDark-800 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 transition-colors duration-300">
       <div>
@@ -258,7 +261,7 @@
     </header>
 
     <!-- Main Dynamic Section -->
-    <div class="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 flex-1" id="main-content-tabs">
+    <div class="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 flex-1" id="main-content-tabs" style="overflow-y: auto; -webkit-overflow-scrolling: touch;">
 
       <!-- ================= TAB: DASHBOARD ================= -->
       <section id="tab-dashboard" class="space-y-6">

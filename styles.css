@@ -18,6 +18,12 @@
 
 html, body {
   font-family: var(--font-family);
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -26,6 +32,16 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* منع تكبير الخط على الهواتف عند تدوير الشاشة */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* ================= خلفية زجاجية بلمسة نيون (Ambient Glow) =================
@@ -383,11 +399,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     top: 0;
     right: 0;
     bottom: 0;
-    width: 280px;
+    width: min(85vw, 280px);
     z-index: 40;
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: 100vh;
+    max-height: 100dvh;
   }
   aside#app-sidebar.sidebar-open { transform: translateX(0); }
   #sidebar-backdrop {
@@ -408,12 +427,48 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     position: sticky;
     top: 0;
     transform: none !important;
+    max-height: 100vh;
+    max-height: 100dvh;
   }
 }
 
 /* Tables scrollable on mobile */
-.table-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; overflow-y: hidden; }
 .table-scroll-wrapper table { min-width: 700px; }
+
+/* تحسينات الشاشات الصغيرة جداً */
+@media (max-width: 480px) {
+  .table-scroll-wrapper table { min-width: 600px; }
+}
+
+/* تحسينات عرض المحتوى على الموبايل */
+@media (max-width: 640px) {
+  main {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* منع التمرير الأفقي على الموبايل */
+  body, html {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  /* تحسين المسافات على الموبايل */
+  .p-3 { padding: 0.5rem; }
+  .p-4 { padding: 0.75rem; }
+  .gap-3 { gap: 0.5rem; }
+  .gap-4 { gap: 0.75rem; }
+  
+  /* تحسين حجم الخطوط على الموبايل */
+  body { font-size: 14px; }
+  
+  /* منع الـ Bounce على iOS */
+  body {
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+  }
+}
 
 /* ================= طباعة الإيصالات والتقارير =================
    بدل توليد PDF عبر مكتبة جافاسكريبت (اللي بتواجه مشاكل معروفة مع دعم
