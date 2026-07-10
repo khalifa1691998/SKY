@@ -13,15 +13,27 @@ window.FirebaseService = {
     try {
       const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses'];
       const data = {};
-      
-      for (const colName of collections) {
-        const querySnapshot = await db.collection(colName).get();
-        data[colName] = [];
-        querySnapshot.forEach((doc) => {
-          data[colName].push(doc.data());
-        });
-      }
-      
+
+      // مهم جداً: كل مجموعة (Collection) بتتحمّل بشكل مستقل تماماً عن الباقي.
+      // قبل كده كانت كل المجموعات بتتحمّل في حلقة واحدة تحت try/catch واحد،
+      // فلو مجموعة واحدة بس (زي auditLogs) اترفضت بسبب صلاحيات Firestore Rules،
+      // الاستثناء كان بيلغي كل البيانات اللي اتحمّلت قبلها بالفعل (زي users)
+      // ومايرجعش أي حاجة خالص. النتيجة: كل الشاشة بتفضل صفر، وحساب المستخدم
+      // مش بيتلاقى فبيتكرر إنشاؤه من جديد كل مرة يسجّل فيها دخول.
+      // الحل: كل مجموعة ليها try/catch خاص بيها، فلو واحدة فشلت الباقي يفضل سليم.
+      await Promise.all(collections.map(async (colName) => {
+        try {
+          const querySnapshot = await db.collection(colName).get();
+          data[colName] = [];
+          querySnapshot.forEach((doc) => {
+            data[colName].push(doc.data());
+          });
+        } catch (colError) {
+          console.error(`Firebase Load Error on collection "${colName}" (تم تجاهلها ومتابعة الباقي):`, colError);
+          data[colName] = [];
+        }
+      }));
+
       // Settings is a single document
       if (data.settings && data.settings.length > 0) {
         const globalSet = data.settings.find(s => s.id === 'global') || data.settings[0];

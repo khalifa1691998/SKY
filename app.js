@@ -386,6 +386,26 @@ async function resolveCurrentUserFromAuth(uid, email) {
   }
 
   if (!user) {
+    // شبكة أمان إضافية: قبل ما نستسلم ونعتبر إن مفيش بروفايل للمستخدم خالص،
+    // نتأكد بالبحث المباشر في Firestore (مش بس في db.users المحمّلة في الذاكرة)،
+    // لأن لو loadAllData() فشلت جزئياً أو لسه مكملتش، db.users ممكن تكون فاضية
+    // مؤقتاً حتى لو المستخدم فعلياً موجود بالفعل في قاعدة البيانات. البحث المباشر
+    // ده بيمنع إنشاء بروفايل مكرر جديد كل مرة تسجيل دخول لنفس الحساب.
+    try {
+      const directQuery = await window.firebaseDB.collection('users').where('authUid', '==', uid).limit(1).get();
+      if (!directQuery.empty) {
+        user = directQuery.docs[0].data();
+        console.warn(`تم إيجاد المستخدم "${user.username}" عن طريق بحث مباشر في Firestore (احتياطي).`);
+        if (!db.users.find(u => u.id === user.id)) {
+          db.users.push(user);
+        }
+      }
+    } catch (e) {
+      console.error("فشل البحث المباشر عن المستخدم في Firestore:", e);
+    }
+  }
+
+  if (!user) {
     // FIX: ميزة الإنشاء التلقائي لبروفايل الأدمن المفقود
     // لو المستخدم مسجل دخول ومالهوش ملف في users، بس ليه مستند في userRoles بيقول إنه ADMIN،
     // بنعمله ملف بروفايل تلقائي بدل ما نطلعه بره، عشان يحل مشكلة "أول أدمن" للنظام.
