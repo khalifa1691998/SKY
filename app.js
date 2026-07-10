@@ -258,6 +258,14 @@ function escapeHTML(value) {
 }
 window.escapeHTML = escapeHTML;
 
+// دالة صغيرة موحّدة لعرض اسم المورد + نوع التعامل معه (كاش/آجل) في أي قائمة
+// <select> بالنظام، بدل ما نفس الجملة كانت مكررة حرفياً في أكتر من مكان.
+function formatSupplierOptionLabel(s) {
+  const typeLabel = s.type === 'cash' ? ' (كاش)' : s.type === 'both' ? ' (كاش/آجل)' : ' (آجل)';
+  return `${s.name}${typeLabel}`;
+}
+window.formatSupplierOptionLabel = formatSupplierOptionLabel;
+
 // ================= SESSION / LOGIN MANAGEMENT (Firebase Authentication) =================
 // تسجيل الدخول أصبح يعتمد بالكامل على Firebase Authentication الحقيقي بدل
 // المقارنة اليدوية لكلمة المرور. لا توجد كلمات مرور نصية تُقرأ من قاعدة البيانات بعد الآن.
@@ -6822,7 +6830,7 @@ function populateDropdowns() {
       db.suppliers.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
-        opt.textContent = `${s.name}${s.type === 'cash' ? ' (كاش)' : s.type === 'both' ? ' (كاش/آجل)' : ' (آجل)'}`;
+        opt.textContent = formatSupplierOptionLabel(s);
         supplierSelect.appendChild(opt);
       });
       if ([...supplierSelect.options].some(o => o.value === prevVal)) supplierSelect.value = prevVal;
@@ -6854,7 +6862,7 @@ function populateDropdowns() {
       db.suppliers.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
-        opt.textContent = `${s.name}${s.type === 'cash' ? ' (كاش)' : s.type === 'both' ? ' (كاش/آجل)' : ' (آجل)'}`;
+        opt.textContent = formatSupplierOptionLabel(s);
         sel.appendChild(opt);
       });
       if ([...sel.options].some(o => o.value === prevVal)) sel.value = prevVal;
