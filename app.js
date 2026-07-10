@@ -2868,14 +2868,14 @@ window.editProduct = function(productId) {
 };
 
 window.openAddBrandModalForSelectedCategory = function() {
-  if (!selectedProductCategoryId) {
-    alert('من فضلك اختر الصنف أولاً (اضغط على أحد الأصناف بالأعلى) قبل إضافة ماركة تابعة له.');
-    return;
-  }
   document.getElementById('add-brand-form').reset();
-  openModal('add-brand-modal');
   populateDropdowns();
-  document.getElementById('brand-category-select').value = selectedProductCategoryId;
+  openModal('add-brand-modal');
+  // لو فيه صنف محدد بالفعل (شريحة مضغوطة فوق)، بنختاره تلقائياً كتسهيل.
+  // لو مفيش، القائمة هتفضل مفتوحة عادي وتقدر تختار أي صنف من الموجودين.
+  if (selectedProductCategoryId) {
+    document.getElementById('brand-category-select').value = selectedProductCategoryId;
+  }
 };
 
 window.deleteBrand = async function(brandId) {
