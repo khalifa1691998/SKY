@@ -2836,6 +2836,17 @@ window.editProduct = function(productId) {
   openModal('add-product-modal');
 };
 
+window.openAddBrandModalForSelectedCategory = function() {
+  if (!selectedProductCategoryId) {
+    alert('من فضلك اختر الصنف أولاً (اضغط على أحد الأصناف بالأعلى) قبل إضافة ماركة تابعة له.');
+    return;
+  }
+  document.getElementById('add-brand-form').reset();
+  openModal('add-brand-modal');
+  populateDropdowns();
+  document.getElementById('brand-category-select').value = selectedProductCategoryId;
+};
+
 window.deleteBrand = async function(brandId) {
   const brand = db.brands.find(b => b.id === brandId);
   if (!brand) return;
