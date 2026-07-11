@@ -4860,7 +4860,7 @@ function renderExpenses() {
       <td class="p-4 font-bold text-rose-600">${Number(e.amount).toLocaleString()} ج.م</td>
       <td class="p-4 text-slate-600 text-xs max-w-xs truncate" title="${escapeHTML(e.description || '')}">${escapeHTML(e.description || 'بدون تفاصيل')}</td>
       <td class="p-4 text-slate-500 text-xs">${e.paidBy || 'غير معروف'}</td>
-      <td class="p-4 text-center">
+      <td class="p-4 text-center no-print">
         <div class="inline-flex gap-1">
           <button onclick="printExpenseReceipt('${e.id}')" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="طباعة سند صرف">
             <i class="ph ph-printer text-lg"></i>

@@ -523,6 +523,21 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   text-align: right;
 }
 .print-doc-table th { background: #f1f5f9; }
+/* أي "Badge" ملوّن (زي فئة المصروف) بييجي من نفس الجدول الظاهر على الشاشة
+   وبيتنسخ كما هو للطباعة. شكله في الشاشة بيبقى كبسولة صغيرة، لكن لو
+   النص طويل وعمود الطباعة ضيق، بينكسر على أكتر من سطر وحدوده بتبان
+   متقاطعة مع النص. في الطباعة مفيش داعي للشكل الملوّن أصلاً، فبنعرضه
+   كنص عادي واضح بدل الكبسولة.
+*/
+.print-doc-table span {
+  display: inline;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+  font-weight: 700;
+}
 .print-doc-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.9rem; }
 .print-doc-signatures { display: flex; justify-content: space-between; margin-top: 50px; font-size: 0.85rem; }
 .print-doc-footer { margin-top: 24px; font-size: 0.7rem; color: #64748b; text-align: center; }
