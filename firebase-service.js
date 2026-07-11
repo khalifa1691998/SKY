@@ -319,6 +319,11 @@ window.FirebaseService = {
           }
           break;
         }
+        case 'updateExpense':
+          if (payload.expense) {
+            await db.collection("expenses").doc(payload.expense.id).set(payload.expense, { merge: true });
+          }
+          break;
         case 'deleteExpense':
           await db.collection("expenses").doc(payload.id).delete();
           if (payload.transactionId) {

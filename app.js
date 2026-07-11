@@ -4861,9 +4861,17 @@ function renderExpenses() {
       <td class="p-4 text-slate-600 text-xs max-w-xs truncate" title="${escapeHTML(e.description || '')}">${escapeHTML(e.description || 'بدون تفاصيل')}</td>
       <td class="p-4 text-slate-500 text-xs">${e.paidBy || 'غير معروف'}</td>
       <td class="p-4 text-center">
-        <button onclick="deleteExpense('${e.id}')" class="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all admin-only" title="حذف المصروف">
-          <i class="ph ph-trash text-lg"></i>
-        </button>
+        <div class="inline-flex gap-1">
+          <button onclick="printExpenseReceipt('${e.id}')" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="طباعة سند صرف">
+            <i class="ph ph-printer text-lg"></i>
+          </button>
+          <button onclick="openEditExpenseModal('${e.id}')" class="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all admin-only" title="تعديل المصروف">
+            <i class="ph ph-pencil-simple text-lg"></i>
+          </button>
+          <button onclick="deleteExpense('${e.id}')" class="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all admin-only" title="حذف المصروف">
+            <i class="ph ph-trash text-lg"></i>
+          </button>
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
@@ -4972,6 +4980,162 @@ window.deleteExpense = async function(id) {
     showToast('❌ فشل حذف المصروف', 'error');
   }
 };
+
+// فتح مودال تعديل مصروف موجود وتعبئته ببياناته الحالية
+window.openEditExpenseModal = function(id) {
+  if (!isAdmin()) return;
+  const expense = db.expenses.find(e => e.id === id);
+  if (!expense) return;
+
+  document.getElementById('edit-expense-id').value = expense.id;
+  document.getElementById('edit-expense-category').value = expense.category;
+  document.getElementById('edit-expense-amount').value = expense.amount;
+  document.getElementById('edit-expense-date').value = expense.date;
+  document.getElementById('edit-expense-description').value = expense.description || '';
+  openModal('edit-expense-modal');
+};
+
+document.getElementById('edit-expense-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('edit-expense-id').value;
+  const category = document.getElementById('edit-expense-category').value;
+  const amount = parseFloat(document.getElementById('edit-expense-amount').value);
+  const date = document.getElementById('edit-expense-date').value;
+  const description = document.getElementById('edit-expense-description').value.trim();
+
+  if (!category || isNaN(amount) || amount <= 0 || !date) {
+    alert('⚠️ يرجى إكمال جميع الحقول المطلوبة بشكل صحيح.');
+    return;
+  }
+
+  const expense = db.expenses.find(x => x.id === id);
+  if (!expense) return;
+
+  try {
+    const oldAmount = parseFloat(expense.amount);
+
+    // 1. إرجاع المبلغ القديم للخزينة (حركة دخول تعويضية) عشان نحافظ على أثر واضح للتعديل
+    const reverseTx = {
+      id: `tr-rev-edit-${Date.now()}`,
+      type: 'in',
+      amount: oldAmount,
+      category: 'استرداد مصروفات (تعديل)',
+      method: 'cash',
+      details: `إلغاء مصروف قديم بسبب التعديل: ${expense.category} - ${expense.description || ''}`,
+      user: currentUser ? currentUser.name : 'مجهول',
+      timestamp: nowTimestamp()
+    };
+    db.treasuryTransactions.push(reverseTx);
+
+    // 2. تسجيل المبلغ الجديد كحركة خروج جديدة
+    const newTx = {
+      id: `tr-edit-${Date.now()}`,
+      type: 'expense',
+      amount: -amount,
+      category: 'مصروفات تشغيلية',
+      method: 'cash',
+      details: `مصروف (بعد تعديل): ${category} - ${description}`,
+      user: currentUser ? currentUser.name : 'مجهول',
+      timestamp: nowTimestamp()
+    };
+    db.treasuryTransactions.push(newTx);
+
+    // 3. تحديث بيانات المصروف نفسه
+    expense.category = category;
+    expense.amount = amount;
+    expense.date = date;
+    expense.description = description;
+
+    saveToLocalStorage();
+    logAction('تعديل مصروف', `تعديل مصروف من ${oldAmount} ج.م إلى ${amount} ج.م (${category})`);
+
+    await syncWithAppsScript('updateExpense', { expense });
+    await syncWithAppsScript('addTreasuryTransaction', reverseTx);
+    await syncWithAppsScript('addTreasuryTransaction', newTx);
+
+    closeModal('edit-expense-modal');
+    renderExpenses();
+    renderTreasury();
+    renderDashboard();
+    showToast('✅ تم تعديل المصروف بنجاح', 'success');
+  } catch (err) {
+    console.error('Error editing expense:', err);
+    alert('❌ فشل تعديل المصروف. يرجى المحاولة مرة أخرى.');
+  }
+});
+
+// طباعة سند صرف مصروف
+window.printExpenseReceipt = function(id) {
+  const expense = db.expenses.find(e => e.id === id);
+  if (!expense) return;
+  const companyName = db.settings.companyName || 'شركة SKY';
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>رقم السند:</strong> ${escapeHTML(expense.id)}</div>
+        <div><strong>التاريخ:</strong> ${escapeHTML(expense.date)}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">سند صرف مصروف</div>
+    <div class="print-doc-row"><span>فئة المصروف</span><strong>${escapeHTML(expense.category)}</strong></div>
+    <div class="print-doc-row"><span>المبلغ</span><strong>${Number(expense.amount).toLocaleString()} ج.م</strong></div>
+    <div class="print-doc-row"><span>البيان</span><strong>${escapeHTML(expense.description || '—')}</strong></div>
+    <div class="print-doc-row"><span>صرف بمعرفة</span><strong>${escapeHTML(expense.paidBy || '—')}</strong></div>
+    <div class="print-doc-signatures">
+      <div>توقيع المستلم: ______________</div>
+      <div>توقيع المدير المالي: ______________</div>
+    </div>
+    <div class="print-doc-footer">تم إصدار هذا السند إلكترونياً من نظام ${companyName} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+  printHTML(html);
+  logAction('طباعة سند صرف', `طباعة سند صرف مصروف رقم ${expense.id} بقيمة ${expense.amount} ج.م`);
+};
+
+// طباعة كشف بكل المصروفات المعروضة حالياً (حسب أي فلتر فئة/شهر مُطبّق)
+window.printExpensesList = function() {
+  const companyName = db.settings.companyName || 'شركة SKY';
+  const rows = document.getElementById('expenses-table-body').innerHTML;
+  const isEmpty = !document.getElementById('expenses-empty-state').classList.contains('hidden');
+  const categoryFilter = document.getElementById('expense-filter-category').value;
+  const monthFilter = document.getElementById('expense-filter-month').value;
+
+  let filtered = [...db.expenses];
+  if (categoryFilter !== 'all') filtered = filtered.filter(e => e.category === categoryFilter);
+  if (monthFilter) filtered = filtered.filter(e => (e.date || '').substring(0, 7) === monthFilter);
+  const totalAmount = filtered.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>الفئة:</strong> ${categoryFilter === 'all' ? 'الكل' : escapeHTML(categoryFilter)}</div>
+        <div><strong>الشهر:</strong> ${monthFilter ? escapeHTML(monthFilter) : 'الكل'}</div>
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">كشف المصروفات</div>
+    ${isEmpty ? '<p style="font-size:0.85rem; color:#64748b;">لا توجد مصروفات مطابقة للفلاتر المحددة.</p>' : `
+    <table class="print-doc-table">
+      <thead><tr><th>التاريخ</th><th>الفئة</th><th>المبلغ</th><th>البيان</th><th>صرف بمعرفة</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="print-doc-row" style="border-top:1px dashed #94a3b8; margin-top:8px; padding-top:8px;">
+      <span>إجمالي المصروفات في هذا الكشف</span><strong>${totalAmount.toLocaleString()} ج.م</strong>
+    </div>`}
+    <div class="print-doc-footer">تم إصدار هذا الكشف إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+  printHTML(html);
+  logAction('طباعة كشف مصروفات', `طباعة كشف مصروفات (فئة: ${categoryFilter}, شهر: ${monthFilter || 'الكل'})`);
+};
+
 
 window.printAuditLog = function() {
   if (!isAdmin()) {
