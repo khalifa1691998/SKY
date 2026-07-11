@@ -4839,8 +4839,8 @@ function renderExpenses() {
     }
   }
 
-  document.getElementById('stats-expenses-month').textContent = formatCurrency(totalMonth);
-  document.getElementById('stats-expenses-today').textContent = formatCurrency(totalToday);
+  document.getElementById('stats-expenses-month').textContent = totalMonth.toLocaleString();
+  document.getElementById('stats-expenses-today').textContent = totalToday.toLocaleString();
   document.getElementById('stats-expenses-top-category').textContent = topCat;
 
   if (filtered.length === 0) {
@@ -4857,7 +4857,7 @@ function renderExpenses() {
       <td class="p-4">
         <span class="px-2 py-1 rounded-md bg-rose-50 text-rose-600 text-xs font-bold border border-rose-100">${e.category}</span>
       </td>
-      <td class="p-4 font-bold text-rose-600">${formatCurrency(e.amount)} ج.م</td>
+      <td class="p-4 font-bold text-rose-600">${Number(e.amount).toLocaleString()} ج.م</td>
       <td class="p-4 text-slate-600 text-xs max-w-xs truncate" title="${escapeHTML(e.description || '')}">${escapeHTML(e.description || 'بدون تفاصيل')}</td>
       <td class="p-4 text-slate-500 text-xs">${e.paidBy || 'غير معروف'}</td>
       <td class="p-4 text-center">
