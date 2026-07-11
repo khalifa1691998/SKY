@@ -1868,7 +1868,7 @@ window.deleteDeviceGroup = async function(brand, name) {
           method: 'cash',
           details: `استرداد قيمة جهاز محذوف: ${dev.brand} ${dev.name} (SN: ${dev.serial})`,
           user: currentUser ? currentUser.name : 'مجهول',
-          timestamp: formatFullTimestamp(new Date())
+          timestamp: nowTimestamp()
         };
         db.treasuryTransactions.push(refundTx);
         syncWithAppsScript('addTreasuryTransaction', refundTx);
@@ -4898,7 +4898,7 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
       date,
       description,
       paidBy: currentUser ? currentUser.name : 'مجهول',
-      timestamp: formatFullTimestamp(new Date())
+      timestamp: nowTimestamp()
     };
 
     db.expenses.push(newExpense);
@@ -4912,7 +4912,7 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
       method: 'cash',
       details: `مصروف: ${category} - ${description}`,
       user: currentUser ? currentUser.name : 'مجهول',
-      timestamp: formatFullTimestamp(new Date())
+      timestamp: nowTimestamp()
     };
     db.treasuryTransactions.push(treasuryAction);
 
@@ -4929,7 +4929,7 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
     showToast('✅ تم تسجيل المصروف وخصمه من الخزينة بنجاح', 'success');
   } catch (err) {
     console.error('Error adding expense:', err);
-    alert('❌ فشل تسجيل المصروف. يرجى المحاولة مرة أخرى.\n\n[تشخيص مؤقت] نص الخطأ الحقيقي:\n' + (err && err.message ? err.message : err) + '\n\nمن فضلك اعمل Screenshot للرسالة دي وابعتها.');
+    alert('❌ فشل تسجيل المصروف. يرجى المحاولة مرة أخرى.');
   }
 });
 
@@ -4951,7 +4951,7 @@ window.deleteExpense = async function(id) {
       method: 'cash',
       details: `استرداد مصروف محذوف: ${expense.category} - ${expense.description}`,
       user: currentUser ? currentUser.name : 'مجهول',
-      timestamp: formatFullTimestamp(new Date())
+      timestamp: nowTimestamp()
     };
     
     db.treasuryTransactions.push(reverseTreasuryAction);
