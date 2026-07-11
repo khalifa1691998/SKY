@@ -3392,8 +3392,8 @@ function renderTreasury() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  const mainBalance = db.treasuryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const pendingCustody = db.collectorCustodies.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0);
+  const mainBalance = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
+  const pendingCustody = db.collectorCustodies.filter(c => c.status === 'pending').reduce((sum, c) => sum + safeAmount(c), 0);
 
   document.getElementById('treasury-balance-card').textContent = `${mainBalance.toLocaleString()} ج.م`;
   document.getElementById('treasury-pending-custody').textContent = `${pendingCustody.toLocaleString()} ج.م`;
@@ -3585,10 +3585,10 @@ function computeCapitalDays(timeline, periodStart, periodEnd) {
 }
 
 function computeInvestorFinancials() {
-  const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
   const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + dev.costPrice, 0);
   const outstandingInstallments = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + inst.amount, 0);
-  const pendingCustody = db.collectorCustodies.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0);
+  const pendingCustody = db.collectorCustodies.filter(c => c.status === 'pending').reduce((sum, c) => sum + safeAmount(c), 0);
 
   const totalAssets = treasuryBalance + inventoryCapital + outstandingInstallments + pendingCustody;
 
@@ -4505,12 +4505,12 @@ function renderReports() {
     const txDate = (tx.timestamp || '').split(' ')[0];
     return txDate >= fromDate && txDate <= toDate;
   });
-  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
+  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + safeAmount(tx), 0);
   // إجمالي المصروفات والمشتريات = حركات الخزينة (مشتريات/سدادات) + المصروفات التشغيلية المسجلة بالفترة
   const opsExpensesInRange = db.expenses
     .filter(e => e.date >= fromDate && e.date <= toDate)
     .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-  const treasuryExpensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
+  const treasuryExpensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
   
   const totalExpensesInRange = opsExpensesInRange + treasuryExpensesInRange;
   const netInRange = collectionsInRange - totalExpensesInRange;
@@ -4906,8 +4906,8 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
     // ربط المصروف بالخزينة: إضافة حركة خروج نقدية
     const treasuryAction = {
       id: `tr-${Date.now()}`,
-      type: 'out',
-      amount: amount,
+      type: 'expense',
+      amount: -amount,
       category: 'مصروفات تشغيلية',
       method: 'cash',
       details: `مصروف: ${category} - ${description}`,
@@ -4920,8 +4920,7 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
     logAction('تسجيل مصروف', `صرف مبلغ ${amount} ج.م لبند ${category}`);
     
     // المزامنة مع Firestore
-    await syncWithAppsScript('addExpense', newExpense);
-    await syncWithAppsScript('addTreasuryTransaction', treasuryAction);
+    await syncWithAppsScript('addExpense', { expense: newExpense, transaction: treasuryAction });
 
     closeModal('add-expense-modal');
     document.getElementById('add-expense-form').reset();
