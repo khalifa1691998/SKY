@@ -18,6 +18,12 @@
 
 html, body {
   font-family: var(--font-family);
+}
+
+/* منع قائمة "تحديد/نسخ" اللي بتظهر عند الضغط المطول على عناصر التنقل فقط
+   (القائمة الجانبية، الشريط العلوي، الخلفية الشفافة) — من غير ما نمنع
+   المستخدم من تحديد ونسخ بيانات فعلية زي أرقام التليفون والمبالغ في باقي الصفحة */
+#app-sidebar, #mobile-topbar, #sidebar-backdrop, .nav-link {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
@@ -206,6 +212,7 @@ body::after {
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 .badge-success { background-color: #dcfce7; color: #15803d; }
 .badge-warning { background-color: #fef9c3; color: #a16207; }
@@ -466,7 +473,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   /* منع الـ Bounce على iOS */
   body {
     overscroll-behavior: none;
-    -webkit-user-select: none;
   }
 }
 
