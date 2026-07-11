@@ -1233,19 +1233,27 @@ function renderAllTabs() {
 // --- 1. DASHBOARD ---
 let financialChartInstance = null;
 
+// حماية بسيطة: لو مستند حركة خزينة واحد بس اتخزن فيه amount فاضي/مش رقم
+// (غالباً حركة تجريبية اتحفظت بالغلط)، متخليش الرقم ده يلوّث كل مجاميع
+// الداشبورد ويحولها NaN. أي قيمة غير صالحة بتتحسب كـ 0 بدل ما توقف الحساب كله.
+function safeAmount(tx) {
+  const n = Number(tx.amount);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function renderDashboard() {
-  const totalTreasury = db.treasuryTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const totalTreasury = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-treasury-balance').textContent = `${totalTreasury.toLocaleString()} ج.م`;
   
-  const directSales = db.treasuryTransactions.filter(tx => tx.type === 'cash_sale').reduce((sum, tx) => sum + tx.amount, 0);
+  const directSales = db.treasuryTransactions.filter(tx => tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
   const contractSales = db.contracts.reduce((sum, c) => sum + c.totalValue, 0);
   const totalSales = directSales + contractSales;
   document.getElementById('kpi-total-sales').textContent = `${totalSales.toLocaleString()} ج.م`;
 
-  const activeCollections = db.treasuryTransactions.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + tx.amount, 0);
+  const activeCollections = db.treasuryTransactions.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-active-collections').textContent = `${activeCollections.toLocaleString()} ج.م`;
 
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + tx.amount, 0));
+  const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
   document.getElementById('kpi-total-expenses').textContent = `${totalExpenses.toLocaleString()} ج.م`;
 
   // حساب صافي الربح الحقيقي = إجمالي التحصيلات - إجمالي المصروفات والمشتريات
