@@ -4929,7 +4929,7 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
     showToast('✅ تم تسجيل المصروف وخصمه من الخزينة بنجاح', 'success');
   } catch (err) {
     console.error('Error adding expense:', err);
-    alert('❌ فشل تسجيل المصروف. يرجى المحاولة مرة أخرى.');
+    alert('❌ فشل تسجيل المصروف. يرجى المحاولة مرة أخرى.\n\n[تشخيص مؤقت] نص الخطأ الحقيقي:\n' + (err && err.message ? err.message : err) + '\n\nمن فضلك اعمل Screenshot للرسالة دي وابعتها.');
   }
 });
 
