@@ -487,6 +487,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media print {
   body * { visibility: hidden; }
   #print-area, #print-area * { visibility: visible; }
+  /* إصلاح: قاعدة "max-width: 100vw" الخاصة بمنع التمرير الأفقي على
+     الموبايل كانت لسه شغالة وقت الطباعة نفسها، فكانت بتحصر المستند
+     المطبوع في عرض شاشة الموبايل بدل عرض الصفحة/الورقة الكاملة. */
+  body, html {
+    max-width: none !important;
+    overflow-x: visible !important;
+    width: 100% !important;
+  }
   #print-area {
     display: block !important;
     position: absolute;
