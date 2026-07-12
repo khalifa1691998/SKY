@@ -1449,19 +1449,37 @@ function updateNotificationBell() {
 
   // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
   const panel = document.getElementById('notifications-panel');
-  if (panel && !panel.classList.contains('hidden')) renderNotificationsPanel();
+  if (panel) renderNotificationsPanel(panel);
 }
 
+// ملاحظة: الشريط العلوي اللي فيه الجرس عنده overflow-x-auto (للتمرير الأفقي
+// على الموبايل)، وده كان بيقصّ/يخفي أي عنصر position:absolute جواه. عشان
+// كده بننشئ نافذة التنبيهات ديناميكياً ونضيفها لـ body مباشرة بموقع ثابت
+// (fixed) محسوب من مكان الجرس نفسه، بدل ما تكون جوه الحاوية اللي بتقصّها.
 window.toggleNotificationsPanel = function() {
-  const panel = document.getElementById('notifications-panel');
-  if (!panel) return;
-  const willOpen = panel.classList.contains('hidden');
-  panel.classList.toggle('hidden');
-  if (willOpen) renderNotificationsPanel();
+  const existing = document.getElementById('notifications-panel');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const btn = document.getElementById('notif-bell-btn');
+  const rect = btn.getBoundingClientRect();
+  const panel = document.createElement('div');
+  panel.id = 'notifications-panel';
+  panel.className = 'fixed w-80 max-w-[90vw] bg-white dark:bg-skyDark-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-skyDark-700 z-[9999] p-4 space-y-3';
+  panel.style.top = `${rect.bottom + 8}px`;
+  // نحسب أقرب موقع يخلي النافذة كاملة ظاهرة جوه الشاشة (بدل ما تخرج برّه يمين/شمال)
+  const panelWidth = Math.min(320, window.innerWidth * 0.9);
+  let leftPos = rect.right - panelWidth;
+  if (leftPos < 8) leftPos = 8;
+  panel.style.left = `${leftPos}px`;
+  document.body.appendChild(panel);
+  renderNotificationsPanel(panel);
 };
 
-function renderNotificationsPanel() {
-  const panel = document.getElementById('notifications-panel');
+function renderNotificationsPanel(panel) {
+  if (!panel) panel = document.getElementById('notifications-panel');
   if (!panel) return;
   const n = getSystemNotifications();
   const items = [];
@@ -1486,14 +1504,14 @@ function renderNotificationsPanel() {
   }
   if (n.lowStock) {
     items.push(`
-      <div class="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/50 rounded-xl cursor-pointer" onclick="switchTab('products')">
+      <div class="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/50 rounded-xl cursor-pointer" onclick="switchTab('products'); toggleNotificationsPanel();">
         <p class="text-xs font-bold text-orange-700 dark:text-orange-400">منتجات أوشكت على النفاد</p>
         <p class="text-sm text-orange-600 dark:text-orange-400 mt-0.5">${n.lowStock.count} صنف محتاج إعادة توريد — اضغط للعرض</p>
       </div>`);
   }
   if (n.pendingCustody) {
     items.push(`
-      <div class="p-3 bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/50 rounded-xl cursor-pointer" onclick="switchTab('treasury')">
+      <div class="p-3 bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/50 rounded-xl cursor-pointer" onclick="switchTab('treasury'); toggleNotificationsPanel();">
         <p class="text-xs font-bold text-sky-700 dark:text-sky-400">عهد محصلين محتاجة اعتماد</p>
         <p class="text-sm text-sky-600 dark:text-sky-400 mt-0.5">${n.pendingCustody.count} عهدة، بإجمالي ${n.pendingCustody.amount.toLocaleString()} ج.م — اضغط للمراجعة</p>
       </div>`);
@@ -1514,10 +1532,11 @@ function renderNotificationsPanel() {
 
 // إغلاق قائمة التنبيهات لو المستخدم ضغط في أي مكان تاني بالصفحة
 document.addEventListener('click', (e) => {
-  const wrapper = document.getElementById('notif-bell-wrapper');
   const panel = document.getElementById('notifications-panel');
-  if (!wrapper || !panel || panel.classList.contains('hidden')) return;
-  if (!wrapper.contains(e.target)) panel.classList.add('hidden');
+  const btn = document.getElementById('notif-bell-btn');
+  if (!panel) return;
+  if (btn && btn.contains(e.target)) return; // الضغط على الجرس نفسه بيتعامل معه toggleNotificationsPanel
+  if (!panel.contains(e.target)) panel.remove();
 });
 
 // --- 2. CLIENTS & GUARANTORS ---
