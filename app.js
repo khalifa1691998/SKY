@@ -1399,7 +1399,126 @@ function renderDashboard() {
   } else {
     console.warn("Chart.js is not loaded. Skipping chart rendering.");
   }
+
+  updateNotificationBell();
 }
+
+// ================= جرس التنبيهات (للأدمن فقط) =================
+// بيجمع كل التنبيهات المهمة من أماكنها المختلفة في النظام في مكان واحد،
+// بدل ما تكون متفرقة أو تظهر تلقائياً بشكل مزعج. الجرس نفسه بيتحدث في
+// كل مرة يتغير فيها أي جزء من البيانات (بعد renderDashboard).
+function getSystemNotifications() {
+  const notifications = { overdue: null, dueToday: null, lowStock: null, pendingCustody: null };
+
+  // 1. أقساط متأخرة فعلياً (نفس منطق كارت الداشبورد بالظبط)
+  let overdueCount = 0, overdueAmount = 0;
+  db.installments.forEach(inst => {
+    if (inst.status !== 'paid') {
+      const stats = getInstallmentOverdueStatus(inst);
+      if (stats.overdueDays > 0) { overdueCount++; overdueAmount += stats.totalDue; }
+    }
+  });
+  if (overdueCount > 0) notifications.overdue = { count: overdueCount, amount: overdueAmount };
+
+  // 2. أقساط مستحقة اليوم (بإعادة استخدام دالة التنبيهات الصباحية الموجودة أصلاً)
+  if (typeof getTodayDueStats === 'function') {
+    const stats = getTodayDueStats();
+    if (stats.totalCount > 0) notifications.dueToday = stats;
+  }
+
+  // 3. منتجات أوشكت على النفاد (نفس منطق باج "أوشك على النفاد" بالظبط)
+  const lowStockProducts = db.products.filter(p => computeProductQuantity(p.id) <= (p.minQty || 0));
+  if (lowStockProducts.length > 0) notifications.lowStock = { count: lowStockProducts.length, products: lowStockProducts };
+
+  // 4. عهد محصلين معلّقة محتاجة اعتماد
+  const pending = db.collectorCustodies.filter(c => c.status === 'pending');
+  if (pending.length > 0) {
+    const amount = pending.reduce((sum, c) => sum + safeAmount(c), 0);
+    notifications.pendingCustody = { count: pending.length, amount };
+  }
+
+  return notifications;
+}
+
+function updateNotificationBell() {
+  const dot = document.getElementById('notif-bell-dot');
+  if (!dot || !isAdmin()) return;
+  const n = getSystemNotifications();
+  const hasAny = n.overdue || n.dueToday || n.lowStock || n.pendingCustody;
+  dot.classList.toggle('hidden', !hasAny);
+
+  // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
+  const panel = document.getElementById('notifications-panel');
+  if (panel && !panel.classList.contains('hidden')) renderNotificationsPanel();
+}
+
+window.toggleNotificationsPanel = function() {
+  const panel = document.getElementById('notifications-panel');
+  if (!panel) return;
+  const willOpen = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden');
+  if (willOpen) renderNotificationsPanel();
+};
+
+function renderNotificationsPanel() {
+  const panel = document.getElementById('notifications-panel');
+  if (!panel) return;
+  const n = getSystemNotifications();
+  const items = [];
+
+  if (n.overdue) {
+    items.push(`
+      <div class="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 rounded-xl">
+        <p class="text-xs font-bold text-rose-700 dark:text-rose-400">أقساط متأخرة بالذمة</p>
+        <p class="text-sm text-rose-600 dark:text-rose-400 mt-0.5">عدد ${n.overdue.count} قسط، بإجمالي ${n.overdue.amount.toLocaleString()} ج.م</p>
+      </div>`);
+  }
+  if (n.dueToday) {
+    items.push(`
+      <div class="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 rounded-xl">
+        <p class="text-xs font-bold text-amber-700 dark:text-amber-400">أقساط مستحقة اليوم</p>
+        <p class="text-sm text-amber-600 dark:text-amber-400 mt-0.5">عدد ${n.dueToday.totalCount} قسط، بإجمالي ${n.dueToday.totalDueAmount.toLocaleString()} ج.م</p>
+        <div class="flex gap-2 mt-2">
+          <button onclick="sendTodayDueRemindersInBulk()" class="flex-1 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold">إرسال تنبيهات جماعية</button>
+          <button onclick="viewTodayDueDetails()" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">عرض التفاصيل</button>
+        </div>
+      </div>`);
+  }
+  if (n.lowStock) {
+    items.push(`
+      <div class="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/50 rounded-xl cursor-pointer" onclick="switchTab('products')">
+        <p class="text-xs font-bold text-orange-700 dark:text-orange-400">منتجات أوشكت على النفاد</p>
+        <p class="text-sm text-orange-600 dark:text-orange-400 mt-0.5">${n.lowStock.count} صنف محتاج إعادة توريد — اضغط للعرض</p>
+      </div>`);
+  }
+  if (n.pendingCustody) {
+    items.push(`
+      <div class="p-3 bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/50 rounded-xl cursor-pointer" onclick="switchTab('treasury')">
+        <p class="text-xs font-bold text-sky-700 dark:text-sky-400">عهد محصلين محتاجة اعتماد</p>
+        <p class="text-sm text-sky-600 dark:text-sky-400 mt-0.5">${n.pendingCustody.count} عهدة، بإجمالي ${n.pendingCustody.amount.toLocaleString()} ج.م — اضغط للمراجعة</p>
+      </div>`);
+  }
+
+  panel.innerHTML = `
+    <div class="flex items-center justify-between border-b border-slate-100 dark:border-skyDark-700 pb-2 mb-1">
+      <h4 class="font-bold text-slate-800 dark:text-white text-sm">التنبيهات</h4>
+      <button onclick="toggleNotificationsPanel()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x"></i></button>
+    </div>
+    ${items.length > 0 ? items.join('') : `
+      <div class="p-4 text-center text-sm text-slate-400">
+        <i class="ph ph-check-circle text-2xl text-emerald-500 mb-1"></i>
+        <p>لا توجد تنبيهات حالياً، كل شيء على ما يرام ✨</p>
+      </div>`}
+  `;
+}
+
+// إغلاق قائمة التنبيهات لو المستخدم ضغط في أي مكان تاني بالصفحة
+document.addEventListener('click', (e) => {
+  const wrapper = document.getElementById('notif-bell-wrapper');
+  const panel = document.getElementById('notifications-panel');
+  if (!wrapper || !panel || panel.classList.contains('hidden')) return;
+  if (!wrapper.contains(e.target)) panel.classList.add('hidden');
+});
 
 // --- 2. CLIENTS & GUARANTORS ---
 function renderClients() {
@@ -7747,11 +7866,8 @@ async function startFirebaseSubscription(uid, email) {
   // مطابقة الحساب المُسجَّل دخوله حالياً مع ملفه في Firestore وفتح الشاشة الرئيسية
   if (uid) {
     await resolveCurrentUserFromAuth(uid, email);
-    
-    // تشغيل تنبيهات الأقساط اليومية بعد الدخول بنجاح فقط
-    if (typeof initializeDailyReminders === 'function') {
-      initializeDailyReminders();
-    }
+    // ملاحظة: تم إلغاء التنبيه التلقائي المنبثق هنا نهائياً؛ تنبيهات الأقساط
+    // المستحقة اليوم بقت متاحة عند الطلب فقط عبر جرس التنبيهات في الأعلى.
   }
 
   if (firebaseSubscriptionActive) return; // منع الاشتراك المزدوج في التحديثات الفورية
