@@ -16,10 +16,10 @@
 function computeActualCollectedProfit() {
   // 1. حساب إجمالي الأقساط المسددة فعلياً
   const paidInstallments = db.installments.filter(inst => inst.status === 'paid');
-  const totalCollected = paidInstallments.reduce((sum, inst) => sum + inst.paidAmount, 0);
+  const totalCollected = paidInstallments.reduce((sum, inst) => sum + safeNum(inst.paidAmount), 0);
   
   // 2. حساب إجمالي المصروفات التشغيلية
-  const totalExpenses = (db.expenses || []).reduce((sum, exp) => sum + exp.amount, 0);
+  const totalExpenses = (db.expenses || []).reduce((sum, exp) => sum + safeNum(exp.amount), 0);
   
   // 3. حساب الأرباح المحصلة الفعلية = المحصل - المصروفات
   const actualProfit = totalCollected - totalExpenses;
@@ -49,7 +49,7 @@ function distributeActualProfitToInvestors() {
   }
   
   // حساب إجمالي رأس المال
-  const totalCapital = investors.reduce((sum, inv) => sum + (inv.capitalAmount || 0), 0);
+  const totalCapital = investors.reduce((sum, inv) => sum + safeNum(inv.capitalAmount), 0);
   
   if (totalCapital <= 0) {
     return {
@@ -79,7 +79,7 @@ function distributeActualProfitToInvestors() {
     };
   });
   
-  const totalDistributed = distribution.reduce((sum, d) => sum + d.totalProfitShare, 0);
+  const totalDistributed = distribution.reduce((sum, d) => sum + safeNum(d.totalProfitShare), 0);
   
   return {
     profitData,

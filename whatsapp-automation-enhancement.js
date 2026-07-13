@@ -26,7 +26,7 @@ function getTodayDueInstallments() {
 function getTodayDueStats() {
   const todayInstallments = getTodayDueInstallments();
   
-  const totalDueAmount = todayInstallments.reduce((sum, inst) => sum + inst.amount, 0);
+  const totalDueAmount = todayInstallments.reduce((sum, inst) => sum + safeNum(inst.amount), 0);
   const overdueCount = todayInstallments.filter(inst => {
     const status = getInstallmentOverdueStatus(inst);
     return status.overdueDays > 0;
@@ -40,6 +40,55 @@ function getTodayDueStats() {
     installments: todayInstallments
   };
 }
+
+/**
+ * الأقساط اللي هتستحق قريباً (خلال N يوم جايين، مش مستحقة النهاردة ولا متأخرة)
+ * الهدف: تذكير العميل قبل ما يتأخر أصلاً، بدل التنبيه يوم الاستحقاق بس.
+ */
+function getUpcomingDueInstallments(daysAhead = 3) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return db.installments.filter(inst => {
+    if (inst.status === 'paid') return false;
+    const due = new Date(inst.dueDate);
+    due.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+    return diffDays > 0 && diffDays <= daysAhead;
+  });
+}
+
+function getUpcomingDueStats(daysAhead = 3) {
+  const upcoming = getUpcomingDueInstallments(daysAhead);
+  const totalDueAmount = upcoming.reduce((sum, inst) => sum + safeNum(inst.amount), 0);
+  return { totalCount: upcoming.length, totalDueAmount, installments: upcoming, daysAhead };
+}
+
+/**
+ * إرسال تذكيرات استباقية للأقساط اللي هتستحق قريباً (قبل ما تتأخر أصلاً)
+ */
+window.sendUpcomingRemindersInBulk = async function() {
+  const stats = getUpcomingDueStats(3);
+  if (stats.totalCount === 0) {
+    alert('لا توجد أقساط مستحقة خلال الأيام الثلاثة القادمة.');
+    return;
+  }
+  const ids = stats.installments.map(i => i.id);
+  const prepared = prepareBulkWhatsappMessages(ids, 'reminder');
+
+  if (!prepared.success) {
+    alert(prepared.message);
+    return;
+  }
+
+  if (!(await customConfirm(`هل تريد إرسال ${prepared.totalCount} تذكير استباقي (قبل الاستحقاق) للعملاء الآن؟`))) {
+    return;
+  }
+
+  const results = await sendBulkWhatsappMessages(prepared);
+  alert(`تم إرسال ${results.sentCount} رسالة بنجاح\nفشل: ${results.failedCount}`);
+  logAction('إرسال جماعي استباقي', `إرسال تذكيرات قبل الاستحقاق: ${results.sentCount} نجح، ${results.failedCount} فشل`);
+};
 
 /**
  * إنشاء تنبيه صباحي بالأقساط المستحقة اليوم

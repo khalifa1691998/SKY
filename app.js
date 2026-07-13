@@ -1107,10 +1107,11 @@ function calculateFinesForInstallment(inst, contract) {
   if (contract.fineType === 'flat') {
     return diffDays * contract.fineValue;
   } else if (contract.fineType === 'percent') {
-    // التعديل الجديد: غرامة نسبة مئوية شهرية
-    // يتم حساب عدد الشهور (أو كسورها) المنقضية بعد فترة السماح
-    const diffMonths = diffDays / 30;
-    return parseFloat((inst.amount * (contract.fineValue / 100) * diffMonths).toFixed(2));
+    // غرامة شهرية بنسبة مئوية (مش تراكم يومي): أول 29 يوم تأخير (بعد فترة
+    // السماح) غرامتهم صفر، يوم 30 بيُحسب أول شهر كامل غرامة، وتفضل ثابتة
+    // لحد يوم 60 (شهرين)، يوم 90 (3 شهور)... وهكذا كل 30 يوم شهر إضافي.
+    const monthsElapsed = Math.floor(diffDays / 30);
+    return parseFloat((inst.amount * (contract.fineValue / 100) * monthsElapsed).toFixed(2));
   }
   return 0;
 }
@@ -1129,6 +1130,11 @@ function getInstallmentOverdueStatus(inst) {
     };
   }
 
+  // أي مبلغ اتحصّل جزئياً قبل كده على القسط ده (من غير ما يوصل لكامل المبلغ
+  // المطلوب) بيتخصم من "المتبقي" في كل مكان بنعرض فيه المبلغ المطلوب تحصيله.
+  const alreadyPaid = safeNum(inst.paidAmount);
+  const partialPrefix = alreadyPaid > 0 ? `(مسدد جزئياً ${alreadyPaid.toLocaleString()} ج.م) ` : '';
+
   const today = new Date();
   const due = new Date(inst.dueDate);
   const diffTime = today - due;
@@ -1136,11 +1142,11 @@ function getInstallmentOverdueStatus(inst) {
 
   if (diffDays <= 0) {
     return {
-      statusText: 'بالانتظار موعد الاستحقاق',
+      statusText: `${partialPrefix}بالانتظار موعد الاستحقاق`,
       overdueDays: 0,
       fine: 0,
-      totalDue: inst.amount,
-      statusColor: 'badge-info'
+      totalDue: Math.max(0, inst.amount - alreadyPaid),
+      statusColor: alreadyPaid > 0 ? 'badge-warning' : 'badge-info'
     };
   }
 
@@ -1149,19 +1155,19 @@ function getInstallmentOverdueStatus(inst) {
 
   if (diffDays <= contract.graceDays) {
     return {
-      statusText: `متأخر (${diffDays} يوم) - بفترة السماح`,
+      statusText: `${partialPrefix}متأخر (${diffDays} يوم) - بفترة السماح`,
       overdueDays: diffDays,
       fine: 0,
-      totalDue: inst.amount,
+      totalDue: Math.max(0, inst.amount - alreadyPaid),
       statusColor: 'badge-warning'
     };
   }
 
   return {
-    statusText: `متأخر (${diffDays} يوم) - خارج السماح`,
+    statusText: `${partialPrefix}متأخر (${diffDays} يوم) - خارج السماح`,
     overdueDays: diffDays,
     fine: fine,
-    totalDue: totalDue,
+    totalDue: Math.max(0, totalDue - alreadyPaid),
     statusColor: 'badge-danger'
   };
 }
@@ -1242,12 +1248,20 @@ function safeAmount(tx) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// نفس فكرة safeAmount بالظبط، بس لأي قيمة رقم مباشرة (مش لازم تكون جوه
+// حقل amount) — بنستخدمها في تحصين باقي الحسابات المالية الحساسة (قيمة
+// الأجهزة، قيمة العقود، رأس مال المستثمرين...) ضد أي قيمة تالفة/فاضية.
+function safeNum(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function renderDashboard() {
   const totalTreasury = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-treasury-balance').textContent = `${totalTreasury.toLocaleString()} ج.م`;
   
   const directSales = db.treasuryTransactions.filter(tx => tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
-  const contractSales = db.contracts.reduce((sum, c) => sum + c.totalValue, 0);
+  const contractSales = db.contracts.reduce((sum, c) => sum + safeNum(c.totalValue), 0);
   const totalSales = directSales + contractSales;
   document.getElementById('kpi-total-sales').textContent = `${totalSales.toLocaleString()} ج.م`;
 
@@ -1303,10 +1317,10 @@ function renderDashboard() {
     overdueAlertText.innerHTML = `<span>كل الأقساط منتظمة بالكامل</span>`;
   }
 
-  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + dev.costPrice, 0);
+  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + safeNum(dev.costPrice), 0);
   document.getElementById('kpi-inventory-capital').textContent = `${inventoryCapital.toLocaleString()} ج.م`;
 
-  const totalRemainingContractBalance = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + inst.amount, 0);
+  const totalRemainingContractBalance = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + safeNum(inst.amount), 0);
   document.getElementById('kpi-expected-profits').textContent = `${totalRemainingContractBalance.toLocaleString()} ج.م`;
 
   const totalInsts = db.installments.length;
@@ -1408,7 +1422,7 @@ function renderDashboard() {
 // بدل ما تكون متفرقة أو تظهر تلقائياً بشكل مزعج. الجرس نفسه بيتحدث في
 // كل مرة يتغير فيها أي جزء من البيانات (بعد renderDashboard).
 function getSystemNotifications() {
-  const notifications = { overdue: null, dueToday: null, lowStock: null, pendingCustody: null };
+  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null };
 
   // 1. أقساط متأخرة فعلياً (نفس منطق كارت الداشبورد بالظبط)
   let overdueCount = 0, overdueAmount = 0;
@@ -1424,6 +1438,12 @@ function getSystemNotifications() {
   if (typeof getTodayDueStats === 'function') {
     const stats = getTodayDueStats();
     if (stats.totalCount > 0) notifications.dueToday = stats;
+  }
+
+  // 2.ب أقساط هتستحق خلال 3 أيام جايين (تذكير استباقي قبل ما العميل يتأخر أصلاً)
+  if (typeof getUpcomingDueStats === 'function') {
+    const stats = getUpcomingDueStats(3);
+    if (stats.totalCount > 0) notifications.dueSoon = stats;
   }
 
   // 3. منتجات أوشكت على النفاد (نفس منطق باج "أوشك على النفاد" بالظبط)
@@ -1444,7 +1464,7 @@ function updateNotificationBell() {
   const dot = document.getElementById('notif-bell-dot');
   if (!dot || !isAdmin()) return;
   const n = getSystemNotifications();
-  const hasAny = n.overdue || n.dueToday || n.lowStock || n.pendingCustody;
+  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody;
   dot.classList.toggle('hidden', !hasAny);
 
   // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
@@ -1502,6 +1522,14 @@ function renderNotificationsPanel(panel) {
         </div>
       </div>`);
   }
+  if (n.dueSoon) {
+    items.push(`
+      <div class="p-3 bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/50 rounded-xl">
+        <p class="text-xs font-bold text-sky-700 dark:text-sky-400">أقساط هتستحق خلال ${n.dueSoon.daysAhead} أيام</p>
+        <p class="text-sm text-sky-600 dark:text-sky-400 mt-0.5">عدد ${n.dueSoon.totalCount} قسط، بإجمالي ${n.dueSoon.totalDueAmount.toLocaleString()} ج.م</p>
+        <button onclick="sendUpcomingRemindersInBulk()" class="w-full mt-2 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold">إرسال تذكير استباقي</button>
+      </div>`);
+  }
   if (n.lowStock) {
     items.push(`
       <div class="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/50 rounded-xl cursor-pointer" onclick="switchTab('products'); toggleNotificationsPanel();">
@@ -1539,6 +1567,101 @@ document.addEventListener('click', (e) => {
   if (!panel.contains(e.target)) panel.remove();
 });
 
+// ================= البحث الشامل (من أي تبويب/مكان في النظام) =================
+window.openGlobalSearch = function() {
+  openModal('global-search-modal');
+  const input = document.getElementById('global-search-input');
+  input.value = '';
+  document.getElementById('global-search-results').innerHTML = '<p class="text-center text-sm text-slate-400 p-6">اكتب أول حرفين على الأقل عشان تبدأ النتائج تظهر</p>';
+  setTimeout(() => input.focus(), 100);
+};
+
+document.getElementById('global-search-input').addEventListener('input', (e) => {
+  performGlobalSearch(e.target.value.trim());
+});
+
+function performGlobalSearch(query) {
+  const resultsEl = document.getElementById('global-search-results');
+  if (query.length < 2) {
+    resultsEl.innerHTML = '<p class="text-center text-sm text-slate-400 p-6">اكتب أول حرفين على الأقل عشان تبدأ النتائج تظهر</p>';
+    return;
+  }
+  const q = query.toLowerCase();
+  const sections = [];
+
+  // 1. العملاء (بالاسم، التليفون، الرقم القومي، أو اسم/تليفون الضامن)
+  const clientMatches = db.clients.filter(c =>
+    (c.name || '').toLowerCase().includes(q) ||
+    (c.phone || '').includes(q) ||
+    (c.nationalId || '').includes(q) ||
+    (c.guarantorName || '').toLowerCase().includes(q) ||
+    (c.guarantorPhone || '').includes(q)
+  ).slice(0, 8);
+  if (clientMatches.length > 0) {
+    sections.push({
+      title: 'العملاء',
+      icon: 'ph-users',
+      items: clientMatches.map(c => ({
+        label: c.name,
+        sub: c.phone || '',
+        onClick: `closeModal('global-search-modal'); switchTab('clients'); viewClientDetails('${c.id}');`
+      }))
+    });
+  }
+
+  // 2. العقود (برقم العقد أو اسم العميل)
+  const contractMatches = db.contracts.filter(c =>
+    c.id.toLowerCase().includes(q) ||
+    (c.clientName || '').toLowerCase().includes(q)
+  ).slice(0, 8);
+  if (contractMatches.length > 0) {
+    sections.push({
+      title: 'العقود',
+      icon: 'ph-file-text',
+      items: contractMatches.map(c => ({
+        label: `عقد ${c.clientName || ''}`,
+        sub: c.id,
+        onClick: `closeModal('global-search-modal'); switchTab('contracts'); viewContractDetails('${c.id}');`
+      }))
+    });
+  }
+
+  // 3. الأجهزة بالمخزون (بالسيريال أو الماركة/الموديل)
+  const deviceMatches = db.inventory.filter(d =>
+    (d.serial || '').toLowerCase().includes(q) ||
+    (d.brand || '').toLowerCase().includes(q) ||
+    (d.name || '').toLowerCase().includes(q)
+  ).slice(0, 8);
+  if (deviceMatches.length > 0) {
+    sections.push({
+      title: 'الأجهزة',
+      icon: 'ph-device-mobile',
+      items: deviceMatches.map(d => ({
+        label: `${d.brand || ''} ${d.name || ''}`,
+        sub: `SN: ${d.serial || '—'} — ${d.status === 'sold_installment' || d.status === 'sold_cash' ? 'مباع' : 'بالمخزن'}`,
+        onClick: `closeModal('global-search-modal'); switchTab('inventory'); document.getElementById('inventory-search').value = '${(d.serial || d.name || '').replace(/'/g, "")}'; renderInventory();`
+      }))
+    });
+  }
+
+  if (sections.length === 0) {
+    resultsEl.innerHTML = '<p class="text-center text-sm text-slate-400 p-6">مفيش نتائج مطابقة</p>';
+    return;
+  }
+
+  resultsEl.innerHTML = sections.map(sec => `
+    <div class="mb-2">
+      <p class="text-[11px] font-bold text-slate-400 px-2 mb-1 flex items-center gap-1"><i class="ph ${sec.icon}"></i> ${sec.title}</p>
+      ${sec.items.map(item => `
+        <button type="button" onclick="${item.onClick}" class="w-full text-right px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-skyDark-800 flex flex-col transition-colors">
+          <span class="text-sm font-semibold text-slate-800 dark:text-white">${escapeHTML(item.label)}</span>
+          <span class="text-xs text-slate-400">${escapeHTML(item.sub)}</span>
+        </button>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
 // --- 2. CLIENTS & GUARANTORS ---
 function renderClients() {
   const searchVal = document.getElementById('client-search-input').value.toLowerCase();
@@ -1564,8 +1687,12 @@ function renderClients() {
   filtered.forEach(c => {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors';
+    const risk = getClientRiskInfo(c.id);
+    const riskBadgeHtml = (risk && risk.level !== 'none')
+      ? `<span class="badge ${risk.badgeClass} mr-1 text-[10px] align-middle">${risk.level === 'high' ? '⚠️ عالي المخاطر' : 'له سوابق تأخير'}</span>`
+      : '';
     tr.innerHTML = `
-      <td class="p-4 font-bold text-slate-800">${escapeHTML(c.name)}</td>
+      <td class="p-4 font-bold text-slate-800">${escapeHTML(c.name)} ${riskBadgeHtml}</td>
       <td class="p-4 text-slate-500 font-mono">${escapeHTML(c.nationalId)}</td>
       <td class="p-4 font-mono">${escapeHTML(c.phone)}</td>
       <td class="p-4 text-slate-800">${escapeHTML(c.guarantorName) || '-'}</td>
@@ -1590,8 +1717,12 @@ function renderClients() {
 function computeContractBalance(contract) {
   const contractInsts = db.installments.filter(i => i.contractId === contract.id);
   const paidInsts = contractInsts.filter(i => i.status === 'paid');
-  const paidFromInstallments = paidInsts.reduce((sum, i) => sum + (i.paidAmount || i.amount || 0), 0);
-  const totalPaid = (contract.downPayment || 0) + paidFromInstallments;
+  const paidFromInstallments = paidInsts.reduce((sum, i) => sum + safeNum(i.paidAmount || i.amount), 0);
+  // أي أقساط لسه "pending" لكن عليها سداد جزئي متسجل، برضه بتحسب في المسدد
+  const partialFromPending = contractInsts
+    .filter(i => i.status !== 'paid')
+    .reduce((sum, i) => sum + safeNum(i.paidAmount), 0);
+  const totalPaid = (contract.downPayment || 0) + paidFromInstallments + partialFromPending;
   const totalRemaining = Math.max(0, (contract.totalValue || 0) - totalPaid);
 
   return {
@@ -1604,6 +1735,53 @@ function computeContractBalance(contract) {
 }
 
 // بيحسب رصيد العميل الكامل مجمّع من كل عقوده (كل الأجهزة اللي واخدها)
+// بيفحص سجل العميل الكامل (كل عقوده وكل أقساطه) ويحدد هل عنده سوابق تأخير
+// عن الميعاد (بعد فترة السماح المحددة في كل عقد) — سواء أقساط اتسددت
+// متأخرة، أو أقساط لسه متأخرة دلوقتي. بنستخدمها كتحذير وقت عمل عقد جديد.
+function getClientRiskInfo(clientId) {
+  const clientContracts = db.contracts.filter(c => c.clientId === clientId);
+  if (clientContracts.length === 0) return null;
+  const contractIds = new Set(clientContracts.map(c => c.id));
+  const allInsts = db.installments.filter(i => contractIds.has(i.contractId));
+
+  let lateCount = 0;
+  allInsts.forEach(inst => {
+    const contract = clientContracts.find(c => c.id === inst.contractId);
+    if (!contract) return;
+    const graceDays = contract.graceDays || 0;
+    if (inst.status === 'paid') {
+      if (inst.paidDate && inst.dueDate) {
+        const diffDays = Math.floor((new Date(inst.paidDate) - new Date(inst.dueDate)) / (1000 * 60 * 60 * 24));
+        if (diffDays > graceDays) lateCount++;
+      }
+    } else {
+      const stats = getInstallmentOverdueStatus(inst);
+      if (stats.overdueDays > graceDays) lateCount++;
+    }
+  });
+
+  if (lateCount >= 3) return { level: 'high', label: `⚠️ عميل عالي المخاطر (${lateCount} حالة تأخير)`, badgeClass: 'badge-danger' };
+  if (lateCount >= 1) return { level: 'medium', label: `له سوابق تأخير (${lateCount} ${lateCount === 1 ? 'مرة' : 'مرات'})`, badgeClass: 'badge-warning' };
+  return { level: 'none', label: 'عميل ملتزم بالمواعيد', badgeClass: 'badge-success' };
+}
+
+window.checkClientRiskWarning = function() {
+  const clientId = document.getElementById('contract-client-select').value;
+  const warningEl = document.getElementById('contract-client-risk-warning');
+  if (!clientId) { warningEl.classList.add('hidden'); return; }
+
+  const risk = getClientRiskInfo(clientId);
+  if (!risk || risk.level === 'none') { warningEl.classList.add('hidden'); return; }
+
+  const colors = {
+    high: 'bg-rose-50 text-rose-700 border border-rose-200',
+    medium: 'bg-amber-50 text-amber-700 border border-amber-200'
+  };
+  warningEl.className = `mt-2 p-2 rounded-lg text-xs font-semibold ${colors[risk.level]}`;
+  warningEl.textContent = risk.label;
+  warningEl.classList.remove('hidden');
+};
+
 function computeClientBalance(clientId) {
   const clientContracts = db.contracts.filter(c => c.clientId === clientId);
   const devices = clientContracts.map(c => ({ contract: c, balance: computeContractBalance(c) }));
@@ -2376,9 +2554,9 @@ function computeSupplierBalance(supplierId) {
   const cashPurchases = txs.filter(t => t.type === 'purchase' && t.method === 'cash');
   const payments = txs.filter(t => t.type === 'payment');
 
-  const totalCreditPurchases = creditPurchases.reduce((s, t) => s + t.amount, 0);
-  const totalCashPurchases = cashPurchases.reduce((s, t) => s + t.amount, 0);
-  const totalPaid = payments.reduce((s, t) => s + t.amount, 0);
+  const totalCreditPurchases = creditPurchases.reduce((s, t) => s + safeNum(t.amount), 0);
+  const totalCashPurchases = cashPurchases.reduce((s, t) => s + safeNum(t.amount), 0);
+  const totalPaid = payments.reduce((s, t) => s + safeNum(t.amount), 0);
   const totalPurchases = totalCreditPurchases + totalCashPurchases;
   const balance = Math.max(0, totalCreditPurchases - totalPaid);
 
@@ -2821,7 +2999,7 @@ function renderProducts() {
   if (summaryProducts) summaryProducts.textContent = db.products.length;
   const lowStockProducts = db.products.filter(p => computeProductQuantity(p.id) <= (p.minQty || 0));
   if (summaryLowStock) summaryLowStock.textContent = lowStockProducts.length;
-  const totalStockValue = db.products.reduce((sum, p) => sum + (computeProductQuantity(p.id) * (p.costPrice || 0)), 0);
+  const totalStockValue = db.products.reduce((sum, p) => sum + (computeProductQuantity(p.id) * safeNum(p.costPrice)), 0);
   if (summaryValue) summaryValue.textContent = totalStockValue.toLocaleString();
 
   if (lowStockOnly) {
@@ -3295,8 +3473,8 @@ function renderContracts() {
 
   filtered.forEach(c => {
     const contractInsts = db.installments.filter(inst => inst.contractId === c.id);
-    const paidVal = contractInsts.filter(inst => inst.status === 'paid').reduce((sum, inst) => sum + inst.amount, 0);
-    const totalInstsAmount = contractInsts.reduce((sum, inst) => sum + inst.amount, 0);
+    const paidVal = contractInsts.filter(inst => inst.status === 'paid').reduce((sum, inst) => sum + safeNum(inst.amount), 0);
+    const totalInstsAmount = contractInsts.reduce((sum, inst) => sum + safeNum(inst.amount), 0);
     
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors text-xs sm:text-sm';
@@ -3394,7 +3572,7 @@ function renderCollections() {
     const client = db.clients.find(c => c.id === clientGroup.clientId);
     const totalRemaining = clientGroup.installments.filter(i => i.status !== 'paid').reduce((sum, i) => {
       const stats = getInstallmentOverdueStatus(i);
-      return sum + stats.totalDue;
+      return sum + safeNum(stats.totalDue);
     }, 0);
     const totalInsts = clientGroup.installments.length;
     const paidCount = clientGroup.installments.filter(i => i.status === 'paid').length;
@@ -3724,15 +3902,15 @@ function computeCapitalDays(timeline, periodStart, periodEnd) {
 
 function computeInvestorFinancials() {
   const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
-  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + dev.costPrice, 0);
-  const outstandingInstallments = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + inst.amount, 0);
+  const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + safeNum(dev.costPrice), 0);
+  const outstandingInstallments = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + safeNum(inst.amount), 0);
   const pendingCustody = db.collectorCustodies.filter(c => c.status === 'pending').reduce((sum, c) => sum + safeAmount(c), 0);
 
   const totalAssets = treasuryBalance + inventoryCapital + outstandingInstallments + pendingCustody;
 
   const investors = db.investors || [];
-  const totalCapital = investors.reduce((sum, inv) => sum + (inv.capitalAmount || 0), 0);
-  const totalWithdrawn = investors.reduce((sum, inv) => sum + (inv.totalWithdrawn || 0), 0);
+  const totalCapital = investors.reduce((sum, inv) => sum + safeNum(inv.capitalAmount), 0);
+  const totalWithdrawn = investors.reduce((sum, inv) => sum + safeNum(inv.totalWithdrawn), 0);
 
   const netProfit = totalAssets - totalCapital + totalWithdrawn;
 
@@ -3749,9 +3927,9 @@ function computeInvestorFinancials() {
 
   const fixedInvestors = investors.filter(hasFixedShare);
   const variableInvestors = investors.filter(inv => !hasFixedShare(inv));
-  const sumFixedPercent = Math.min(100, fixedInvestors.reduce((sum, inv) => sum + Number(inv.fixedSharePercent || 0), 0));
+  const sumFixedPercent = Math.min(100, fixedInvestors.reduce((sum, inv) => sum + safeNum(inv.fixedSharePercent), 0));
   const remainingPoolPercent = 100 - sumFixedPercent;
-  const variableCapitalTotal = variableInvestors.reduce((sum, inv) => sum + (inv.capitalAmount || 0), 0);
+  const variableCapitalTotal = variableInvestors.reduce((sum, inv) => sum + safeNum(inv.capitalAmount), 0);
 
   // رأس مال-أيام لكل مستثمر متغير خلال الفترة المفتوحة الحالية
   const capitalDaysByInvestor = {};
@@ -3812,7 +3990,7 @@ function computeInvestorExitReport(investorId) {
   const totalCapitalReturn = inv.capitalAmount || 0;
   const totalDue = totalCapitalReturn + Math.max(0, inv.remainingDue);
   // إجمالي مستحقات كل المستثمرين مجتمعين (رأس المال + الأرباح غير المسحوبة)
-  const totalAllInvestorsDue = stats.investors.reduce((sum, i) => sum + (i.capitalAmount || 0) + Math.max(0, i.remainingDue), 0);
+  const totalAllInvestorsDue = stats.investors.reduce((sum, i) => sum + safeNum(i.capitalAmount) + Math.max(0, safeNum(i.remainingDue)), 0);
 
   const fractionOfAssets = totalAllInvestorsDue > 0 ? (totalDue / totalAllInvestorsDue) : 0;
 
@@ -4571,14 +4749,28 @@ window.approveCollectorCustody = async function(id) {
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   custody.status = 'approved';
-  inst.status = 'paid';
-  inst.paidAmount = custody.amount;
-  inst.paidDate = timestamp.split(' ')[0];
-  inst.receiptId = custody.id;
-  
+
+  // مهم: لازم نحسب الغرامة الفعلية قبل ما نغيّر حالة القسط لـ 'paid'،
+  // لأن دالة حساب الغرامة نفسها بترجع القيمة القديمة زي ما هي فوراً
+  // لو لقيت القسط متسدد خلاص (عشان متحسبش غرامة على قسط لسه هينتظر).
   const contract = db.contracts.find(c => c.id === inst.contractId);
   if (contract) {
     inst.delayFines = calculateFinesForInstallment(inst, contract);
+  }
+
+  // بيدعم السداد الجزئي: بنجمع أي مبالغ سابقة اتحصّلت جزئياً على نفس
+  // القسط، ومنعتبروش "مسدد بالكامل" غير لما المجموع يغطي كامل المطلوب
+  // (القسط + الغرامة). لو لسه ناقص، القسط يفضل بحالته الحالية والمبلغ
+  // المتبقي يظهر تلقائياً في المرة الجاية.
+  const cumulativePaid = safeNum(inst.paidAmount) + safeNum(custody.amount);
+  const fullDueAmount = safeNum(inst.amount) + safeNum(inst.delayFines);
+  const isFullyPaid = cumulativePaid >= fullDueAmount - 0.01;
+
+  inst.paidAmount = cumulativePaid;
+  inst.receiptId = custody.id;
+  if (isFullyPaid) {
+    inst.status = 'paid';
+    inst.paidDate = timestamp.split(' ')[0];
   }
 
   const collectionTx = {
@@ -4586,12 +4778,12 @@ window.approveCollectorCustody = async function(id) {
     timestamp: timestamp,
     type: 'collection',
     amount: custody.amount,
-    notes: `تحصيل قسط رقم ${inst.installmentNum} لعقد ${inst.contractId.replace('con-', '')} للعميل ${custody.clientName} (بمعرفة المحصل ${custody.collectorName})`
+    notes: `تحصيل ${isFullyPaid ? '' : 'جزئي '}قسط رقم ${inst.installmentNum} لعقد ${inst.contractId.replace('con-', '')} للعميل ${custody.clientName} (بمعرفة المحصل ${custody.collectorName})`
   };
   db.treasuryTransactions.unshift(collectionTx);
 
   saveToLocalStorage();
-  logAction('اعتماد عهدة', `اعتماد عهدة المحصل ${custody.collectorName} بمبلغ ${custody.amount} ج.م للعميل ${custody.clientName}`);
+  logAction('اعتماد عهدة', `اعتماد ${isFullyPaid ? '' : 'دفعة جزئية من '}عهدة المحصل ${custody.collectorName} بمبلغ ${custody.amount} ج.م للعميل ${custody.clientName}`);
   
   await syncWithAppsScript('approveCustody', { 
     custodyId: id, 
@@ -4637,7 +4829,7 @@ function renderReports() {
 
   // ---- KPIs (حسب الفترة المختارة) ----
   const contractsInRange = db.contracts.filter(c => c.startDate >= fromDate && c.startDate <= toDate);
-  const salesInRange = contractsInRange.reduce((sum, c) => sum + c.totalValue, 0);
+  const salesInRange = contractsInRange.reduce((sum, c) => sum + safeNum(c.totalValue), 0);
 
   const txInRange = db.treasuryTransactions.filter(tx => {
     const txDate = (tx.timestamp || '').split(' ')[0];
@@ -4667,7 +4859,7 @@ function renderReports() {
     const paidInRange = db.installments.filter(i =>
       i.status === 'paid' && i.collectorName === col.name && i.paidDate >= fromDate && i.paidDate <= toDate
     );
-    const collectedAmount = paidInRange.reduce((sum, i) => sum + (i.paidAmount || i.amount), 0);
+    const collectedAmount = paidInRange.reduce((sum, i) => sum + safeNum(i.paidAmount || i.amount), 0);
     const overdueAssigned = db.installments.filter(i => {
       if (i.collectorName !== col.name || i.status === 'paid') return false;
       return getInstallmentOverdueStatus(i).overdueDays > 0;
@@ -5469,7 +5661,7 @@ window.printInstallmentReceipt = function(instId) {
 
   const remainingOnContract = db.installments
     .filter(i => i.contractId === inst.contractId && i.status !== 'paid')
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + safeNum(i.amount), 0);
 
   const html = `
     <div class="print-doc-header">
@@ -5809,13 +6001,38 @@ window.collectInstallmentBtn = async function(instId) {
     return;
   }
 
-  // تعطيل الزر (بصرياً عبر الـ Toast والـ Guard البرمجي)
   const stats = getInstallmentOverdueStatus(inst);
-  const collector = inst.collectorName || 'Khalifa (ADMIN)';
+  document.getElementById('collect-installment-id').value = instId;
+  document.getElementById('collect-installment-client-name').textContent = inst.clientName;
+  document.getElementById('collect-installment-total-due').textContent = stats.totalDue.toLocaleString();
+  document.getElementById('collect-installment-amount').value = stats.totalDue;
+  document.getElementById('collect-installment-amount').max = stats.totalDue;
+  openModal('collect-installment-modal');
+};
 
+document.getElementById('collect-installment-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const instId = document.getElementById('collect-installment-id').value;
+  const inst = db.installments.find(i => i.id === instId);
+  if (!inst) return;
+
+  const stats = getInstallmentOverdueStatus(inst);
+  const enteredAmount = parseFloat(document.getElementById('collect-installment-amount').value);
+
+  if (isNaN(enteredAmount) || enteredAmount <= 0) {
+    alert('⚠️ من فضلك اكتب مبلغ صحيح أكبر من صفر.');
+    return;
+  }
+  if (enteredAmount > stats.totalDue + 0.01) {
+    alert(`⚠️ المبلغ المكتوب أكبر من إجمالي المستحق (${stats.totalDue.toLocaleString()} ج.م).`);
+    return;
+  }
+
+  const collector = inst.collectorName || 'Khalifa (ADMIN)';
   const receiptId = `REC-${Date.now().toString().slice(-6)}`;
   const now = new Date();
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const isPartial = enteredAmount < stats.totalDue - 0.01;
 
   const newCustody = {
     id: receiptId,
@@ -5823,24 +6040,24 @@ window.collectInstallmentBtn = async function(instId) {
     contractId: inst.contractId,
     clientName: inst.clientName,
     collectorName: collector,
-    amount: stats.totalDue,
+    amount: enteredAmount,
+    isPartial,
     date: timestamp,
     status: 'pending'
   };
 
   db.collectorCustodies.unshift(newCustody);
   saveToLocalStorage();
-  logAction('تحصيل محلي بالعهد', `قام المحصل ${collector} بتحصيل عهدة بقيمة ${stats.totalDue} ج.م من العميل ${inst.clientName} (معلق بانتظار تأكيد الأدمن)`);
-  
-  // إظهار حالة تحميل
+  logAction('تحصيل محلي بالعهد', `قام المحصل ${collector} بتحصيل ${isPartial ? 'دفعة جزئية' : 'عهدة'} بقيمة ${enteredAmount} ج.م من العميل ${inst.clientName} (معلق بانتظار تأكيد الأدمن)`);
+
   showToast('جاري تسجيل عملية التحصيل...', 'info');
-  
   await syncWithAppsScript('addPendingCustody', newCustody);
 
+  closeModal('collect-installment-modal');
   renderCollections();
   renderTreasury();
-  showToast(`✅ تم تسجيل التحصيل بانتظار تأكيد الخزينة.`, 'success');
-};
+  showToast(`✅ تم تسجيل ${isPartial ? 'الدفعة الجزئية' : 'التحصيل'} بانتظار تأكيد الخزينة.`, 'success');
+});
 
 document.getElementById('cash-sale-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -6091,6 +6308,12 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
     let dueDate = new Date(start);
     dueDate.setMonth(start.getMonth() + (i - 1));
 
+    // آخر قسط بياخد أي فرق تقريب بسيط متبقي، عشان مجموع كل الأقساط يطابق
+    // بالظبط "المبلغ المتبقي على العقد" (مش أقل منه بقروش بسبب التقريب).
+    const installmentAmount = (i === duration)
+      ? parseFloat((remaining - monthly * (duration - 1)).toFixed(2))
+      : monthly;
+
     db.installments.push({
       id: `${contractId}_${i}`,
       contractId: contractId,
@@ -6101,7 +6324,7 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
       guarantorPhone: client.guarantorPhone,
       collectorName: collectorName,
       installmentNum: i,
-      amount: monthly,
+      amount: installmentAmount,
       dueDate: dueDate.toISOString().split('T')[0],
       status: 'pending',
       paidAmount: 0,
@@ -6789,7 +7012,7 @@ window.saveContractEdit = async function() {
     const contractInsts = db.installments.filter(i => i.contractId === c.id);
     const paidInsts = contractInsts.filter(i => i.status === 'paid');
     const paidCount = paidInsts.length;
-    const paidSum = paidInsts.reduce((sum, i) => sum + (i.paidAmount || i.amount || 0), 0);
+    const paidSum = paidInsts.reduce((sum, i) => sum + safeNum(i.paidAmount || i.amount), 0);
 
     const financialChanged = (
       newCashPrice !== c.cashPrice ||
@@ -7450,6 +7673,13 @@ window.viewClientDetails = function(clientId) {
     contractsHtml = '<p class="text-xs text-slate-400">لا توجد عقود مسجلة لهذا العميل حالياً.</p>';
   }
 
+  const risk = getClientRiskInfo(clientId);
+  const riskHtml = (risk && risk.level !== 'none') ? `
+    <div class="p-3 rounded-xl text-sm font-bold ${risk.level === 'high' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+      ${risk.label}
+    </div>
+  ` : (risk && risk.level === 'none' ? `<div class="p-3 rounded-xl text-sm font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">${risk.label}</div>` : '');
+
   const detailDiv = document.createElement('div');
   detailDiv.id = 'client-profile-modal';
   detailDiv.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
@@ -7508,6 +7738,8 @@ window.viewClientDetails = function(clientId) {
             </div>
           </div>
         </div>
+
+        ${riskHtml}
 
         <div>
           <h5 class="font-bold text-slate-700 border-b border-slate-100 pb-1 mb-2">العقود المفتوحة</h5>
