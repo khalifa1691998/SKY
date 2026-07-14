@@ -9,11 +9,14 @@
 
 :root {
   --font-family: 'Cairo', sans-serif;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --neon-cyan: #3b82f6;
-  --neon-pink: #7c3aed;
-  --neon-violet: #4f46e5;
+  --primary: #0071e3;
+  --primary-hover: #0058b3;
+  --primary-dark: #0a84ff;
+  --primary-dark-hover: #409cff;
+  --apple-bg-light: #f5f5f7;
+  --apple-bg-dark: #000000;
+  --apple-text-secondary-light: #6e6e73;
+  --apple-text-secondary-dark: rgba(255, 255, 255, 0.55);
 }
 
 html, body {
@@ -50,10 +53,16 @@ body {
   }
 }
 
-/* ================= خلفية زجاجية بلمسة نيون (Ambient Glow) =================
-   طبقة زخرفية ثابتة خلف كل المحتوى، مأخوذة روحها من إضاءة النيون في التصميم
-   المرجعي. في الوضع النهاري تكون خافتة جداً حتى لا تؤثر على وضوح القراءة،
-   وفي الوضع الليلي تظهر بوضوح أكبر لتعطي إحساس "الداشبورد" العصري. */
+/* ================= خلفية Apple النظيفة =================
+   بدل توهج النيون القديم، بنعتمد نفس فلسفة أبل: خلفية مسطحة هادئة
+   (#f5f5f7 نهاري / أسود حقيقي #000 ليلي) مع تلميحة لون واحدة خفيفة جداً
+   بعيدة عن منطقة القراءة، بدون أي إحساس "نيون". */
+body {
+  background: var(--apple-bg-light);
+}
+.dark body {
+  background: var(--apple-bg-dark);
+}
 body::before,
 body::after {
   content: '';
@@ -61,27 +70,28 @@ body::after {
   z-index: 0;
   pointer-events: none;
   border-radius: 9999px;
-  filter: blur(110px);
-  opacity: 0.10;
+  filter: blur(120px);
+  opacity: 0.05;
   transition: opacity 0.4s ease;
 }
 body::before {
-  top: -10%;
-  left: -10%;
-  width: 40vw;
-  height: 40vw;
-  background: var(--neon-cyan);
+  top: -14%;
+  left: -12%;
+  width: 34vw;
+  height: 34vw;
+  background: var(--primary);
 }
 body::after {
-  bottom: -15%;
-  right: -10%;
-  width: 45vw;
-  height: 45vw;
-  background: var(--neon-pink);
+  bottom: -18%;
+  right: -12%;
+  width: 34vw;
+  height: 34vw;
+  background: var(--primary);
 }
 .dark body::before,
 .dark body::after {
-  opacity: 0.16;
+  opacity: 0.08;
+  background: var(--primary-dark);
 }
 
 /* المحتوى نفسه لازم يكون فوق طبقة الإضاءة الزخرفية */
@@ -104,32 +114,33 @@ body::after {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-.dark ::-webkit-scrollbar-thumb { background: #3d2f7a; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #4d3d99; }
+.dark ::-webkit-scrollbar-thumb { background: #48484a; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #6e6e73; }
 
 /* إخفاء شريط التمرير لعناصر معينة (مثل صف الشارات العلوي على الموبايل) مع إبقاء إمكانية التمرير */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* ================= Glassmorphism ================= */
+/* ================= Glassmorphism – هوية Apple ================= */
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 20px 40px -28px rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
 }
 .dark .glass-card {
-  background: rgba(28, 20, 66, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+  background: rgba(28, 28, 30, 0.85);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 20px 40px -24px rgba(0, 0, 0, 0.6);
 }
 
 .glass-sidebar {
-  background: rgba(16, 10, 40, 0.97);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 0.5px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ================= Animations ================= */
@@ -165,16 +176,16 @@ body::after {
 .form-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
 }
 .dark .form-input {
-  background-color: #150f38;
-  border-color: #34266e;
-  color: #f1f5f9;
+  background-color: #1c1c1e;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f5f5f7;
 }
 .dark .form-input:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.28);
 }
 
 .form-label {
@@ -214,14 +225,14 @@ body::after {
   font-weight: 700;
   white-space: nowrap;
 }
-.badge-success { background-color: #dcfce7; color: #15803d; }
-.badge-warning { background-color: #fef9c3; color: #a16207; }
-.badge-danger  { background-color: #fee2e2; color: #b91c1c; }
-.badge-info    { background-color: #e0f2fe; color: #0369a1; }
-.dark .badge-success { background-color: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
-.dark .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #fcd34d; }
-.dark .badge-danger  { background-color: rgba(244, 63, 94, 0.15); color: #fda4af; }
-.dark .badge-info    { background-color: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+.badge-success { background-color: #e3f8e9; color: #248a3d; }
+.badge-warning { background-color: #fff2e0; color: #b25900; }
+.badge-danger  { background-color: #ffe5e3; color: #d70015; }
+.badge-info    { background-color: #e8f2fe; color: #0071e3; }
+.dark .badge-success { background-color: rgba(48, 209, 88, 0.15); color: #30d158; }
+.dark .badge-warning { background-color: rgba(255, 159, 10, 0.15); color: #ff9f0a; }
+.dark .badge-danger  { background-color: rgba(255, 69, 58, 0.15); color: #ff453a; }
+.dark .badge-info    { background-color: rgba(10, 132, 255, 0.15); color: #0a84ff; }
 
 /* ================= Timeline ================= */
 .timeline-item::after {
@@ -233,7 +244,7 @@ body::after {
   width: 2px;
   background-color: #e2e8f0;
 }
-.dark .timeline-item::after { background-color: #34266e; }
+.dark .timeline-item::after { background-color: #2c3a58; }
 .timeline-item:last-child::after { display: none; }
 
 /* ================= شاشة تسجيل الدخول ================= */
@@ -245,10 +256,10 @@ body::after {
   height: 100dvh;
 }
 
-/* بنفس روح التصميم المرجعي: خلفية داكنة متدرجة + توهج نيون خلف كارت الدخول
-   الزجاجي، بدل الخلفية المصمتة العادية اللي كانت موجودة قبل كده. */
+/* خلفية سوداء حقيقية نظيفة (بروح أبل) خلف كارت الدخول الزجاجي، مع تلميحة
+   لون أزرق خافتة جداً بدل توهج النيون القديم. */
 #login-overlay {
-  background: linear-gradient(160deg, #0c0a24 0%, #1c1442 55%, #0c0a24 100%);
+  background: #000000;
   overflow: hidden;
 }
 #login-overlay::before,
@@ -258,8 +269,8 @@ body::after {
   z-index: 0;
   pointer-events: none;
   border-radius: 9999px;
-  filter: blur(90px);
-  opacity: 0.35;
+  filter: blur(100px);
+  opacity: 0.18;
 }
 #login-overlay::before {
   top: -12%;
@@ -268,7 +279,7 @@ body::after {
   height: 30vw;
   min-width: 260px;
   min-height: 260px;
-  background: var(--neon-cyan);
+  background: var(--primary-dark);
 }
 #login-overlay::after {
   bottom: -15%;
@@ -277,58 +288,68 @@ body::after {
   height: 34vw;
   min-width: 300px;
   min-height: 300px;
-  background: var(--neon-pink);
+  background: var(--primary-dark);
 }
 #login-overlay > div {
   position: relative;
   z-index: 1;
+  background: rgba(28, 28, 30, 0.78) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* شاشة التحقق من الجلسة (اللي بتظهر أول ما تفتح الصفحة) بنفس الخلفية السوداء */
+#session-check-overlay {
+  background: #000000 !important;
 }
 
 /* ================= Icons (Phosphor) ================= */
 [class^="ph-"], [class*=" ph-"] { line-height: 1; vertical-align: -0.1em; }
 
 /* ================= Sidebar navigation – active tab ================= */
-/* التاب النشط بييجي بتدرج بنفسجي/نيلي مع هالة توهج خفيفة (Glow) تحاكي روح
-   العناصر المضيئة في التصميم المرجعي، بدل اللون المصمت العادي. */
+/* التاب النشط بلون Apple الأزرق المصمت، بدون تدرج أو توهج نيون، بروح
+   الـ segmented/selected state في تطبيقات أبل. */
 .nav-link {
   position: relative;
 }
 .nav-link-active {
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 60%, #1e3a8a 100%);
+  background: var(--primary-dark) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 18px 0 rgba(37, 99, 235, 0.45);
+  box-shadow: 0 4px 14px 0 rgba(10, 132, 255, 0.35);
 }
 
-/* ================= GLOBAL DARK MODE OVERRIDES ================= */
+/* ================= GLOBAL DARK MODE OVERRIDES – هوية Apple (أسود حقيقي) ================= */
 .dark .text-slate-900,
 .dark .text-slate-800,
-.dark .text-slate-700 { color: #f1f5f9 !important; }
+.dark .text-slate-700 { color: #f5f5f7 !important; }
 .dark .text-slate-600,
-.dark .text-slate-500 { color: #a6b2c5 !important; }
+.dark .text-slate-500 { color: #98989d !important; }
+.dark .text-slate-400 { color: #6e6e73 !important; }
 
-.dark .bg-white   { background-color: #1c1442 !important; }
-.dark .bg-slate-50  { background-color: #0c0a24 !important; }
-.dark .bg-slate-100 { background-color: #251c4d !important; }
-.dark .bg-slate-200 { background-color: #362a6e !important; }
+.dark .bg-white    { background-color: #1c1c1e !important; }
+.dark .bg-slate-50  { background-color: #000000 !important; }
+.dark .bg-slate-100 { background-color: #2c2c2e !important; }
+.dark .bg-slate-200 { background-color: #3a3a3c !important; }
 
 .dark .border-slate-100,
 .dark .border-slate-200,
-.dark .border-slate-150 { border-color: #34266e !important; }
-.dark .divide-slate-100 > * + * { border-color: #2b2060 !important; }
+.dark .border-slate-150 { border-color: rgba(255, 255, 255, 0.1) !important; }
+.dark .divide-slate-100 > * + * { border-color: rgba(255, 255, 255, 0.08) !important; }
 
-.dark .hover\:bg-slate-50:hover  { background-color: #251c4d !important; }
-.dark .hover\:bg-slate-100:hover { background-color: #362a6e !important; }
-.dark .hover\:bg-slate-200:hover { background-color: #443480 !important; }
+.dark .hover\:bg-slate-50:hover  { background-color: #2c2c2e !important; }
+.dark .hover\:bg-slate-100:hover { background-color: #3a3a3c !important; }
+.dark .hover\:bg-slate-200:hover { background-color: #48484a !important; }
 
 .dark table th {
-  background-color: #251c4d !important;
-  color: #cbd5e1 !important;
-  border-color: #34266e !important;
+  background-color: #1c1c1e !important;
+  color: #98989d !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
-.dark table td { border-color: #34266e !important; }
+.dark table td { border-color: rgba(255, 255, 255, 0.08) !important; }
 
 .dark .shadow-sm, .dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
 /* ---- ألوان الشارات (Badges) اللونية الشفافة: bg-*-50 / bg-*-100 مع
@@ -378,24 +399,64 @@ body::after {
 .dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.12) !important; }
 .dark .text-purple-500 { color: #d8b4fe !important; }
 
-.dark .bg-teal-50  { background-color: rgba(37, 99, 235, 0.14) !important; }
-.dark .bg-teal-100 { background-color: rgba(37, 99, 235, 0.20) !important; }
+.dark .bg-teal-50  { background-color: rgba(10, 132, 255, 0.12) !important; }
+.dark .bg-teal-100 { background-color: rgba(10, 132, 255, 0.18) !important; }
+.dark .text-teal-400,
 .dark .text-teal-500,
 .dark .text-teal-600,
-.dark .text-teal-700 { color: #93c5fd !important; }
+.dark .text-teal-700 { color: #0a84ff !important; }
 .dark .border-teal-50,
 .dark .border-teal-100,
-.dark .border-teal-200 { border-color: rgba(37, 99, 235, 0.32) !important; }
+.dark .border-teal-200 { border-color: rgba(10, 132, 255, 0.3) !important; }
 
-.dark .bg-gray-50  { background-color: #251c4d !important; }
-.dark .bg-gray-100 { background-color: #362a6e !important; }
-.dark .border-gray-300 { border-color: #443480 !important; }
+.dark .bg-indigo-50  { background-color: rgba(94, 92, 230, 0.14) !important; }
+.dark .bg-indigo-100 { background-color: rgba(94, 92, 230, 0.2) !important; }
+.dark .text-indigo-500,
+.dark .text-indigo-600,
+.dark .text-indigo-700 { color: #7d7aff !important; }
+.dark .border-indigo-100,
+.dark .border-indigo-200 { border-color: rgba(94, 92, 230, 0.3) !important; }
+
+.dark .bg-gray-50  { background-color: #1c1c1e !important; }
+.dark .bg-gray-100 { background-color: #2c2c2e !important; }
+.dark .border-gray-300 { border-color: #48484a !important; }
+
+/* ================= الهيدر العلوي الزجاجي (بروح Apple nav-bar) ================= */
+main > header {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08) !important;
+}
+.dark main > header {
+  background: rgba(0, 0, 0, 0.75) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+#mobile-topbar {
+  background: rgba(0, 0, 0, 0.92) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ================= أزرار الأيقونات الدائرية في الهيدر (بروح Apple) ================= */
+#global-search-btn,
+#theme-toggle-btn,
+#notif-bell-btn {
+  border-radius: 9999px !important;
+}
+
+/* ================= أزرار CTA بشكل الكبسولة (Pill) بروح Apple ================= */
+#login-submit-btn,
+#logout-btn {
+  border-radius: 9999px !important;
+}
 
 /* ================= لمسة تفاعل احترافية ================= */
 button, [role="button"], .badge, a[onclick] { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled):active { transform: scale(0.97); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.5);
+  outline: 2px solid rgba(0, 113, 227, 0.5);
   outline-offset: 2px;
 }
 
@@ -513,7 +574,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 2px solid #2563eb;
+  border-bottom: 2px solid #0071e3;
   padding-bottom: 12px;
   margin-bottom: 16px;
 }
@@ -522,7 +583,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-weight: 800;
   font-size: 1.1rem;
   margin: 10px 0 18px;
-  color: #2563eb;
+  color: #0071e3;
 }
 .print-doc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .print-doc-table th, .print-doc-table td {

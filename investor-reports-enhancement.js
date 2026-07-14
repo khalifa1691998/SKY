@@ -177,7 +177,7 @@ window.printInvestorCollectedProfitStatement = function(investorId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -276,14 +276,14 @@ window.viewProfitDistributionReport = function() {
       <td style="padding:8px; text-align:left; font-weight:bold;">${fmt(d.capitalAmount)} ج.م</td>
       <td style="padding:8px; text-align:left; font-weight:bold; color:#059669;">${fmt(d.totalProfitShare)} ج.م</td>
       <td style="padding:8px; text-align:left;">${fmt(d.alreadyWithdrawn)} ج.م</td>
-      <td style="padding:8px; text-align:left; font-weight:bold; color:#2563eb;">${fmt(d.remainingDue)} ج.م</td>
+      <td style="padding:8px; text-align:left; font-weight:bold; color:#0d9488;">${fmt(d.remainingDue)} ج.م</td>
     </tr>
   `).join('');
   
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">تقرير توزيع الأرباح المحصلة فعلياً</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -358,7 +358,7 @@ window.viewProfitComparisonReport = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">تقرير مقارن: الأرباح المحصلة vs الإجمالية</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -390,7 +390,7 @@ window.viewProfitComparisonReport = function() {
       </table>
     </div>
     
-    <div style="margin-top:18px; padding:12px; background:#eff6ff; border-radius:8px; border-left:4px solid #2563eb;">
+    <div style="margin-top:18px; padding:12px; background:#ecfdf5; border-radius:8px; border-left:4px solid #0d9488;">
       <strong style="font-size:0.9rem;">الأرباح الإجمالية المتوقعة</strong>
       <table class="print-doc-table" style="margin-top:8px;">
         <tr>
@@ -401,7 +401,7 @@ window.viewProfitComparisonReport = function() {
           <td style="text-align:right; padding:6px;">إجمالي رأس المال المستثمَر</td>
           <td style="text-align:left; font-weight:bold;">${fmt(report.projectedTotal.totalCapital)} ج.م</td>
         </tr>
-        <tr style="border-top:2px solid #2563eb;">
+        <tr style="border-top:2px solid #0d9488;">
           <td style="text-align:right; padding:6px; font-weight:bold;">صافي الأرباح الإجمالية</td>
           <td style="text-align:left; font-weight:bold; color:#059669;">${fmt(report.projectedTotal.netProfit)} ج.م</td>
         </tr>

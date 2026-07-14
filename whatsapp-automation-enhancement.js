@@ -416,7 +416,7 @@ window.viewTodayDueDetails = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">الأقساط المستحقة اليوم</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0d9488;">الأقساط المستحقة اليوم</div>
         <div style="font-size:0.75rem; color:#64748b;">التاريخ: ${today}</div>
       </div>
     </div>
@@ -456,7 +456,7 @@ window.viewTodayDueDetails = function() {
               <tr style="border-bottom:1px solid #e2e8f0;">
                 <td style="padding:8px; text-align:right; font-weight:bold;">${escapeHTML(inst.clientName)}</td>
                 <td style="padding:8px; text-align:center; font-family:monospace;">${escapeHTML(inst.clientPhone)}</td>
-                <td style="padding:8px; text-align:left; font-weight:bold; color:#2563eb;">${inst.amount.toLocaleString()} ج.م</td>
+                <td style="padding:8px; text-align:left; font-weight:bold; color:#0d9488;">${inst.amount.toLocaleString()} ج.م</td>
                 <td style="padding:8px; text-align:left; font-size:0.85rem;">${statusText}</td>
               </tr>
             `;

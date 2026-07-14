@@ -2909,7 +2909,7 @@ window.printSupplierStatement = function(supplierId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -4189,7 +4189,7 @@ function renderInvestorsCapitalChart(stats) {
   canvas.classList.remove('hidden');
   if (emptyMsg) emptyMsg.classList.add('hidden');
 
-  const palette = ['#2563eb', '#0ea5e9', '#f59e0b', '#f43f5e', '#8b5cf6', '#22c55e', '#eab308', '#6366f1', '#ec4899', '#14b8a6'];
+  const palette = ['#0071e3', '#0ea5e9', '#f59e0b', '#f43f5e', '#8b5cf6', '#22c55e', '#eab308', '#6366f1', '#ec4899', '#5e5ce6'];
   const ctx = canvas.getContext('2d');
   const isDarkMode = document.documentElement.classList.contains('dark');
 
@@ -4376,7 +4376,7 @@ window.printInvestorStatement = function(investorId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -4479,7 +4479,7 @@ window.printInvestorExitStatement = function(investorId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -4993,7 +4993,7 @@ window.printReportsPage = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${companyName}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${companyName}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5472,7 +5472,7 @@ window.printExpenseReceipt = function(id, mode) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5515,7 +5515,7 @@ window.printExpensesList = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5554,7 +5554,7 @@ window.printAuditLog = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5769,7 +5769,7 @@ window.printInstallmentReceipt = function(instId, mode) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -7927,7 +7927,7 @@ window.printClientStatement = function(clientId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#2563eb;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
