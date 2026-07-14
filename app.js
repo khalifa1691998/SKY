@@ -3732,7 +3732,6 @@ function renderCollections() {
                         <div class="inline-flex items-center gap-1">
                           <span class="text-emerald-600 font-bold text-[10px]"><i class="ph ph-check mr-0.5"></i> معتمد</span>
                           <button onclick="printInstallmentReceipt('${inst.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-[10px] transition-all"><i class="ph ph-printer"></i> إيصال</button>
-                          <button onclick="printInstallmentReceipt('${inst.id}', 'pdf')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded font-bold text-[10px] transition-all"><i class="ph ph-file-pdf"></i> PDF</button>
                         </div>
                       `}
                     </td>
@@ -5261,9 +5260,6 @@ function renderExpenses() {
           <button onclick="printExpenseReceipt('${e.id}')" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="طباعة سند صرف">
             <i class="ph ph-printer text-lg"></i>
           </button>
-          <button onclick="printExpenseReceipt('${e.id}', 'pdf')" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="تحميل PDF">
-            <i class="ph ph-file-pdf text-lg"></i>
-          </button>
           <button onclick="openEditExpenseModal('${e.id}')" class="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all admin-only" title="تعديل المصروف">
             <i class="ph ph-pencil-simple text-lg"></i>
           </button>
@@ -5464,7 +5460,7 @@ document.getElementById('edit-expense-form').addEventListener('submit', async (e
 });
 
 // طباعة سند صرف مصروف
-window.printExpenseReceipt = function(id, mode) {
+window.printExpenseReceipt = function(id) {
   const expense = db.expenses.find(e => e.id === id);
   if (!expense) return;
   const companyName = db.settings.companyName || 'شركة SKY';
@@ -5491,12 +5487,8 @@ window.printExpenseReceipt = function(id, mode) {
     </div>
     <div class="print-doc-footer">تم إصدار هذا السند إلكترونياً من نظام ${companyName} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
   `;
-  if (mode === 'pdf') {
-    downloadHTMLAsPDF(html, `سند-صرف-${escapeHTML(expense.category)}.pdf`);
-  } else {
-    printHTML(html);
-  }
-  logAction('طباعة سند صرف', `${mode === 'pdf' ? 'تحميل PDF لـ' : 'طباعة'} سند صرف مصروف رقم ${expense.id} بقيمة ${expense.amount} ج.م`);
+  printHTML(html);
+  logAction('طباعة سند صرف', `طباعة سند صرف مصروف رقم ${expense.id} بقيمة ${expense.amount} ج.م`);
 };
 
 // طباعة كشف بكل المصروفات المعروضة حالياً (حسب أي فلتر فئة/شهر مُطبّق)
@@ -5721,38 +5713,8 @@ function printHTML(innerHtml) {
   setTimeout(() => window.print(), 50);
 }
 
-// تحميل نفس محتوى HTML اللي بيتطبع كملف PDF تلقائياً (بدون ما يفتح مربع
-// حوار الطباعة). بنستخدم "foreignObjectRendering" بدل الطريقة الافتراضية،
-// لأن الطريقة الافتراضية بترسم كل حرف عربي لوحده على الـ canvas فبتقطع
-// الحروف المتصلة (زي "ياسر"). الخاصية دي بتخلي المتصفح نفسه يرسم النص
-// (بنفس جودة الطباعة العادية) بدل ما html2canvas يحاول يرسمه يدوياً.
-function downloadHTMLAsPDF(innerHtml, filename) {
-  if (typeof html2pdf === 'undefined') {
-    showToast('❌ تعذّر تحميل مكتبة PDF، تأكد من الاتصال بالإنترنت ثم أعد المحاولة.', 'error');
-    return;
-  }
-  const wrapper = document.createElement('div');
-  wrapper.setAttribute('dir', 'rtl');
-  wrapper.style.cssText = 'direction:rtl; font-family: var(--font-family); color:#000; background:#fff; padding:20px; width:750px;';
-  wrapper.innerHTML = innerHtml;
-  wrapper.querySelectorAll('.no-print').forEach(el => el.remove());
-
-  showToast('⏳ جاري تجهيز ملف PDF...', 'info');
-  html2pdf().set({
-    margin: 10,
-    filename: filename || `مستند-${Date.now()}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, foreignObjectRendering: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).from(wrapper).save().then(() => {
-    showToast('✅ تم تحميل ملف الـ PDF بنجاح', 'success');
-  }).catch(() => {
-    showToast('❌ حصل خطأ، جرّب زرار الطباعة واختر "حفظ كـ PDF" كبديل', 'error');
-  });
-}
-
 // طباعة إيصال تحصيل قسط بعد اعتماده
-window.printInstallmentReceipt = function(instId, mode) {
+window.printInstallmentReceipt = function(instId) {
   const inst = db.installments.find(i => i.id === instId);
   if (!inst || inst.status !== 'paid') {
     showToast('❌ لا يمكن طباعة إيصال لقسط غير مسدد بعد.', 'error');
@@ -5795,12 +5757,8 @@ window.printInstallmentReceipt = function(instId, mode) {
     </div>
     <div class="print-doc-footer">تم إصدار هذا الإيصال إلكترونياً من نظام ${companyName} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
   `;
-  if (mode === 'pdf') {
-    downloadHTMLAsPDF(html, `إيصال-قسط-${escapeHTML(inst.clientName)}-${inst.installmentNum}.pdf`);
-  } else {
-    printHTML(html);
-  }
-  logAction('طباعة إيصال', `${mode === 'pdf' ? 'تحميل PDF لـ' : 'طباعة'} إيصال تحصيل القسط رقم ${inst.installmentNum} للعقد ${inst.contractId}`);
+  printHTML(html);
+  logAction('طباعة إيصال', `طباعة إيصال تحصيل القسط رقم ${inst.installmentNum} للعقد ${inst.contractId}`);
 };
 
 // ================= WHATSAPP INTEGRATION =================
