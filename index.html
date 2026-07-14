@@ -148,14 +148,14 @@
   <div id="sidebar-backdrop" onclick="closeMobileSidebar()" style="-webkit-user-select: none; -webkit-touch-callout: none;"></div>
 
   <!-- Mobile top bar (visible only on small screens) -->
-  <div id="mobile-topbar" class="hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 text-white px-4 py-3 items-center justify-between shadow-lg" style="direction:rtl; height: 3.5rem; max-height: 3.5rem;">
+  <div id="mobile-topbar" class="hidden fixed top-0 left-0 right-0 z-30 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-3 items-center justify-between shadow-lg border-b border-slate-200 dark:border-transparent" style="direction:rtl; height: 3.5rem; max-height: 3.5rem;">
     <div class="flex items-center gap-2">
       <div class="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center">
         <i class="ph ph-cloud-lightning text-sm text-white"></i>
       </div>
-      <span id="mobile-company-name" class="font-bold text-teal-400 text-sm">شركة SKY</span>
+      <span id="mobile-company-name" class="font-bold text-teal-600 dark:text-teal-400 text-sm">شركة SKY</span>
     </div>
-    <button id="mobile-menu-btn" class="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-slate-700 transition-colors" onclick="openMobileSidebar()">
+    <button id="mobile-menu-btn" class="text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" onclick="openMobileSidebar()">
       <i class="ph ph-list text-xl"></i>
     </button>
   </div>
@@ -164,20 +164,20 @@
   <div id="app-wrapper" class="hidden min-h-screen flex flex-col md:flex-row w-full" style="padding-top:0; height: 100dvh; overflow: hidden;">
 
     <!-- Sidebar (Right Theme - RTL Layout) -->
-    <aside id="app-sidebar" class="md:w-80 glass-sidebar text-white flex flex-col h-screen md:sticky md:top-0" style="-webkit-overflow-scrolling: touch;">
+    <aside id="app-sidebar" class="md:w-80 glass-sidebar text-slate-900 dark:text-white flex flex-col h-screen md:sticky md:top-0" style="-webkit-overflow-scrolling: touch;">
     <!-- Brand / Logo -->
-    <div class="p-4 md:p-5 border-b border-skyDark-700 flex items-center justify-between">
+    <div class="p-4 md:p-5 border-b border-slate-200 dark:border-skyDark-700 flex items-center justify-between">
       <div class="flex items-center gap-2.5 md:gap-3">
         <div id="company-logo-container" class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/30 overflow-hidden shrink-0">
           <i id="company-logo-icon" class="ph ph-cloud-lightning text-lg md:text-xl text-white"></i>
           <img id="company-logo-img" class="w-full h-full object-cover hidden" src="" alt="شعار الشركة">
         </div>
         <div>
-          <h1 id="company-name-display" class="text-base md:text-xl font-bold tracking-wider text-teal-400">شركة SKY</h1>
-          <p class="text-[10px] md:text-xs text-slate-400">نظام إدارة الأقساط والخزينة</p>
+          <h1 id="company-name-display" class="text-base md:text-xl font-bold tracking-wider text-teal-600 dark:text-teal-400">شركة SKY</h1>
+          <p class="text-[10px] md:text-xs text-slate-500 dark:text-slate-400">نظام إدارة الأقساط والخزينة</p>
         </div>
       </div>
-      <button class="text-slate-400 hover:text-white" onclick="closeMobileSidebar()" title="إغلاق القائمة">
+      <button class="text-slate-400 hover:text-slate-900 dark:hover:text-white" onclick="closeMobileSidebar()" title="إغلاق القائمة">
         <i class="ph ph-x text-xl"></i>
       </button>
     </div>
@@ -188,80 +188,80 @@
         <i class="ph ph-chart-line text-base md:text-lg w-5 shrink-0"></i>
         <span>لوحة القيادة</span>
       </a>
-      <a href="#" data-tab="clients" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="clients" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-users text-base md:text-lg w-5 shrink-0"></i>
         <span>العملاء والضامنين</span>
       </a>
-      <a href="#" data-tab="client-balances" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="client-balances" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-wallet text-base md:text-lg w-5 shrink-0"></i>
         <span>أرصدة العملاء</span>
       </a>
-      <a href="#" data-tab="inventory" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="inventory" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-stack text-base md:text-lg w-5 shrink-0"></i>
         <span>المخزون والأجهزة</span>
       </a>
-      <a href="#" data-tab="suppliers" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="suppliers" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-truck text-base md:text-lg w-5 shrink-0"></i>
         <span>الموردين</span>
       </a>
-      <a href="#" data-tab="products" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="products" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-package text-base md:text-lg w-5 shrink-0"></i>
         <span>الأصناف والمنتجات</span>
       </a>
-      <a href="#" data-tab="contracts" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="contracts" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-signature text-base md:text-lg w-5 shrink-0"></i>
         <span>العقود والمبيعات</span>
       </a>
-      <a href="#" data-tab="collections" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="collections" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-hand-coins text-base md:text-lg w-5 shrink-0"></i>
         <span>التحصيلات</span>
       </a>
-      <a href="#" data-tab="treasury" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="treasury" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-lock-key text-base md:text-lg w-5 shrink-0"></i>
         <span>الخزينة</span>
       </a>
-      <a href="#" data-tab="investors" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="investors" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-chart-pie-slice text-base md:text-lg w-5 shrink-0"></i>
         <span>المستثمرون ورأس المال</span>
       </a>
-      <a href="#" data-tab="expenses" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="expenses" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-receipt text-base md:text-lg w-5 shrink-0"></i>
         <span>المصروفات</span>
       </a>
-      <a href="#" data-tab="today-reminders" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="today-reminders" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-bell-ringing text-base md:text-lg w-5 shrink-0"></i>
         <span>تنبيهات اليوم</span>
       </a>
-      <a href="#" data-tab="reports" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="reports" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-chart-bar text-base md:text-lg w-5 shrink-0"></i>
         <span>التقارير</span>
       </a>
-      <a href="#" data-tab="users" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="users" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-user-gear text-base md:text-lg w-5 shrink-0"></i>
         <span>إدارة المستخدمين</span>
       </a>
-      <a href="#" data-tab="audit-log" class="admin-only flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="audit-log" class="admin-only flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-clock-counter-clockwise text-base md:text-lg w-5 shrink-0"></i>
         <span>سجل العمليات</span>
       </a>
-      <a href="#" data-tab="settings" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200">
+      <a href="#" data-tab="settings" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-sliders text-base md:text-lg w-5 shrink-0"></i>
         <span>إعدادات النظام</span>
       </a>
     </nav>
 
     <!-- Bottom User Bar -->
-    <div class="p-4 border-t border-skyDark-700 bg-skyDark-950 flex flex-col gap-3">
+    <div class="p-4 border-t border-slate-200 dark:border-skyDark-700 bg-slate-50 dark:bg-skyDark-950 flex flex-col gap-3">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-teal-400 border border-slate-600">
+        <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-teal-600 dark:text-teal-400 border border-slate-200 dark:border-slate-600">
           <span id="sidebar-user-avatar">؟</span>
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold truncate" id="current-user-display">...</p>
-          <p class="text-xs text-teal-400 font-bold">المشرف العام</p>
+          <p class="text-xs text-teal-600 dark:text-teal-400 font-bold">المشرف العام</p>
         </div>
       </div>
-      <button id="logout-btn" class="w-full py-2 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200">
+      <button id="logout-btn" class="w-full py-2 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-600 dark:text-rose-400 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200">
         <i class="ph ph-sign-out"></i>
         <span>تسجيل الخروج</span>
       </button>

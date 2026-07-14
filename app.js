@@ -8185,7 +8185,7 @@ window.switchTab = function(tabName) {
     if (b.getAttribute('data-tab') === tabName) {
       b.className = 'nav-link nav-link-active flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 active-tab-btn';
     } else {
-      b.className = 'flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-skyDark-800 hover:text-white font-medium transition-all duration-200';
+      b.className = 'flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200';
     }
   });
 

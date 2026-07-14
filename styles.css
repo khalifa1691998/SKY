@@ -137,9 +137,13 @@ body::after {
 }
 
 .glass-sidebar {
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  border-left: 0.5px solid rgba(0, 0, 0, 0.06);
+}
+.dark .glass-sidebar {
+  background: rgba(0, 0, 0, 0.92);
   border-left: 0.5px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -434,9 +438,12 @@ main > header {
 }
 
 #mobile-topbar {
-  background: rgba(0, 0, 0, 0.92) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+.dark #mobile-topbar {
+  background: rgba(0, 0, 0, 0.92) !important;
 }
 
 /* ================= أزرار الأيقونات الدائرية في الهيدر (بروح Apple) ================= */
