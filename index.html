@@ -327,14 +327,14 @@
         <!-- KPI Cards Grid (9 metrics, 3x3 balanced grid) -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2.5 sm:gap-4 lg:gap-5">
           <!-- 1. Available Treasury Balance -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">رصيد الخزينة المتاح</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-treasury-balance">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-emerald-50 text-emerald-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-lock-key text-sm sm:text-xl"></i>
+              <div class="p-1 sm:p-3 bg-emerald-50 text-emerald-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-lock-key text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 flex items-center gap-1 text-[10px] sm:text-xs text-emerald-600">
@@ -344,14 +344,14 @@
           </div>
 
           <!-- 2. Total Sales -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي المبيعات</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-total-sales">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-teal-50 text-teal-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-shopping-cart text-sm sm:text-xl"></i>
+              <div class="p-1 sm:p-3 bg-teal-50 text-teal-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-shopping-cart text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
@@ -360,14 +360,14 @@
           </div>
 
           <!-- 3. Active Collections -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي التحصيلات الفعالة</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-active-collections">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-blue-50 text-blue-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-receipt text-sm sm:text-xl"></i>
+              <div class="p-1 sm:p-3 bg-blue-50 text-blue-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-receipt text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
@@ -376,14 +376,14 @@
           </div>
 
           <!-- 4. Total Expenses -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي المصروفات</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-total-expenses">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-rose-50 text-rose-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-trend-down text-sm sm:text-xl"></i>
+              <div class="p-1 sm:p-3 bg-rose-50 text-rose-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-trend-down text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-rose-600 truncate">
@@ -392,14 +392,14 @@
           </div>
 
           <!-- 5. Total Overdue Installments -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1" id="kpi-overdue-container">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1" id="kpi-overdue-container">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي الأقساط المتأخرة</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-overdue-installments">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-amber-50 text-amber-500 rounded-lg sm:rounded-xl shrink-0" id="kpi-overdue-icon-bg">
-                <i class="ph ph-warning-circle text-sm sm:text-xl"></i>
+              <div class="p-1 sm:p-3 bg-amber-50 text-amber-500 rounded-lg sm:rounded-xl shrink-0" id="kpi-overdue-icon-bg">
+                <i class="ph ph-warning-circle text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-amber-600 flex items-center gap-1 truncate" id="kpi-overdue-alert-text">
@@ -408,14 +408,14 @@
           </div>
 
           <!-- 6. Working Capital in Inventory -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">رأس المال العامل بالمخزون</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-inventory-capital">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-teal-50 text-teal-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-cube text-sm sm:text-xl"></i>
+              <div class="p-1 sm:p-3 bg-teal-50 text-teal-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-cube text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
@@ -424,14 +424,14 @@
           </div>
 
           <!-- 6b. Expected Profits (Remaining Installments) -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">الأرباح المتوقعة (أقساط متبقية)</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-expected-profits">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-sky-50 text-sky-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-trend-up text-sm sm:text-xl"></i>
+              <div class="p-1 sm:p-3 bg-sky-50 text-sky-500 rounded-lg sm:rounded-xl shrink-0">
+                <i class="ph ph-trend-up text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
@@ -447,7 +447,7 @@
                 <h3 class="text-sm sm:text-2xl font-black text-emerald-700 mt-1 sm:mt-2 truncate" id="kpi-net-profit">0.00 ج.م</h3>
               </div>
               <div class="p-1.5 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl shrink-0 shadow-lg shadow-emerald-500/30">
-                <i class="ph ph-bank text-sm sm:text-xl"></i>
+                <i class="ph ph-bank text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-emerald-600 font-bold truncate">
@@ -456,14 +456,14 @@
           </div>
 
           <!-- 8. Bad Debt Rate -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">معدل الديون المتعثرة</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-bad-debt-rate">0%</h3>
               </div>
               <div class="p-1.5 sm:p-3 bg-red-50 text-red-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-warning text-sm sm:text-xl"></i>
+                <i class="ph ph-warning text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4">
@@ -473,14 +473,14 @@
             </div>
           </div>
           <!-- 9. Suppliers Owed Balance -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <div class="glass-card rounded-xl sm:rounded-2xl p-2.5 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
                 <p class="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">إجمالي المستحق للموردين</p>
                 <h3 class="text-sm sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2 truncate" id="kpi-suppliers-due">0.00 ج.م</h3>
               </div>
               <div class="p-1.5 sm:p-3 bg-orange-50 text-orange-500 rounded-lg sm:rounded-xl shrink-0">
-                <i class="ph ph-truck text-sm sm:text-xl"></i>
+                <i class="ph ph-truck text-xs sm:text-xl"></i>
               </div>
             </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-slate-400 truncate">
