@@ -9,11 +9,11 @@
 
 :root {
   --font-family: 'Cairo', sans-serif;
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
-  --neon-cyan: #2dd4bf;
-  --neon-pink: #1e3a8a;
-  --neon-violet: #14b8a6;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --neon-cyan: #3b82f6;
+  --neon-pink: #7c3aed;
+  --neon-violet: #4f46e5;
 }
 
 html, body {
@@ -104,8 +104,8 @@ body::after {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-.dark ::-webkit-scrollbar-thumb { background: #334165; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #475a85; }
+.dark ::-webkit-scrollbar-thumb { background: #3d2f7a; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #4d3d99; }
 
 /* إخفاء شريط التمرير لعناصر معينة (مثل صف الشارات العلوي على الموبايل) مع إبقاء إمكانية التمرير */
 .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -120,13 +120,13 @@ body::after {
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
 }
 .dark .glass-card {
-  background: rgba(19, 27, 46, 0.88);
+  background: rgba(28, 20, 66, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
 }
 
 .glass-sidebar {
-  background: rgba(9, 13, 26, 0.97);
+  background: rgba(16, 10, 40, 0.97);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-left: 1px solid rgba(255, 255, 255, 0.06);
@@ -168,13 +168,13 @@ body::after {
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
 }
 .dark .form-input {
-  background-color: #0d1424;
-  border-color: #2c3a58;
+  background-color: #150f38;
+  border-color: #34266e;
   color: #f1f5f9;
 }
 .dark .form-input:focus {
-  border-color: #2dd4bf;
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
 .form-label {
@@ -233,7 +233,7 @@ body::after {
   width: 2px;
   background-color: #e2e8f0;
 }
-.dark .timeline-item::after { background-color: #2c3a58; }
+.dark .timeline-item::after { background-color: #34266e; }
 .timeline-item:last-child::after { display: none; }
 
 /* ================= شاشة تسجيل الدخول ================= */
@@ -248,7 +248,7 @@ body::after {
 /* بنفس روح التصميم المرجعي: خلفية داكنة متدرجة + توهج نيون خلف كارت الدخول
    الزجاجي، بدل الخلفية المصمتة العادية اللي كانت موجودة قبل كده. */
 #login-overlay {
-  background: linear-gradient(160deg, #030712 0%, #0a1a1f 55%, #030712 100%);
+  background: linear-gradient(160deg, #0c0a24 0%, #1c1442 55%, #0c0a24 100%);
   overflow: hidden;
 }
 #login-overlay::before,
@@ -294,9 +294,9 @@ body::after {
   position: relative;
 }
 .nav-link-active {
-  background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 60%, #115e59 100%);
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 60%, #1e3a8a 100%);
   color: #ffffff !important;
-  box-shadow: 0 4px 18px 0 rgba(13, 148, 136, 0.45);
+  box-shadow: 0 4px 18px 0 rgba(37, 99, 235, 0.45);
 }
 
 /* ================= GLOBAL DARK MODE OVERRIDES ================= */
@@ -306,26 +306,26 @@ body::after {
 .dark .text-slate-600,
 .dark .text-slate-500 { color: #a6b2c5 !important; }
 
-.dark .bg-white   { background-color: #131b2e !important; }
-.dark .bg-slate-50  { background-color: #0a0e1a !important; }
-.dark .bg-slate-100 { background-color: #1c2740 !important; }
-.dark .bg-slate-200 { background-color: #29344d !important; }
+.dark .bg-white   { background-color: #1c1442 !important; }
+.dark .bg-slate-50  { background-color: #0c0a24 !important; }
+.dark .bg-slate-100 { background-color: #251c4d !important; }
+.dark .bg-slate-200 { background-color: #362a6e !important; }
 
 .dark .border-slate-100,
 .dark .border-slate-200,
-.dark .border-slate-150 { border-color: #2c3a58 !important; }
-.dark .divide-slate-100 > * + * { border-color: #22304a !important; }
+.dark .border-slate-150 { border-color: #34266e !important; }
+.dark .divide-slate-100 > * + * { border-color: #2b2060 !important; }
 
-.dark .hover\:bg-slate-50:hover  { background-color: #1c2740 !important; }
-.dark .hover\:bg-slate-100:hover { background-color: #29344d !important; }
-.dark .hover\:bg-slate-200:hover { background-color: #334165 !important; }
+.dark .hover\:bg-slate-50:hover  { background-color: #251c4d !important; }
+.dark .hover\:bg-slate-100:hover { background-color: #362a6e !important; }
+.dark .hover\:bg-slate-200:hover { background-color: #443480 !important; }
 
 .dark table th {
-  background-color: #1c2740 !important;
+  background-color: #251c4d !important;
   color: #cbd5e1 !important;
-  border-color: #2c3a58 !important;
+  border-color: #34266e !important;
 }
-.dark table td { border-color: #2c3a58 !important; }
+.dark table td { border-color: #34266e !important; }
 
 .dark .shadow-sm, .dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -378,24 +378,24 @@ body::after {
 .dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.12) !important; }
 .dark .text-purple-500 { color: #d8b4fe !important; }
 
-.dark .bg-teal-50  { background-color: rgba(20, 184, 166, 0.12) !important; }
-.dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.18) !important; }
+.dark .bg-teal-50  { background-color: rgba(37, 99, 235, 0.14) !important; }
+.dark .bg-teal-100 { background-color: rgba(37, 99, 235, 0.20) !important; }
 .dark .text-teal-500,
 .dark .text-teal-600,
-.dark .text-teal-700 { color: #5eead4 !important; }
+.dark .text-teal-700 { color: #93c5fd !important; }
 .dark .border-teal-50,
 .dark .border-teal-100,
-.dark .border-teal-200 { border-color: rgba(20, 184, 166, 0.28) !important; }
+.dark .border-teal-200 { border-color: rgba(37, 99, 235, 0.32) !important; }
 
-.dark .bg-gray-50  { background-color: #1c2740 !important; }
-.dark .bg-gray-100 { background-color: #29344d !important; }
-.dark .border-gray-300 { border-color: #3a4a6b !important; }
+.dark .bg-gray-50  { background-color: #251c4d !important; }
+.dark .bg-gray-100 { background-color: #362a6e !important; }
+.dark .border-gray-300 { border-color: #443480 !important; }
 
 /* ================= لمسة تفاعل احترافية ================= */
 button, [role="button"], .badge, a[onclick] { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled):active { transform: scale(0.97); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid rgba(13, 148, 136, 0.5);
+  outline: 2px solid rgba(37, 99, 235, 0.5);
   outline-offset: 2px;
 }
 
@@ -513,7 +513,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 2px solid #0d9488;
+  border-bottom: 2px solid #2563eb;
   padding-bottom: 12px;
   margin-bottom: 16px;
 }
@@ -522,7 +522,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-weight: 800;
   font-size: 1.1rem;
   margin: 10px 0 18px;
-  color: #0d9488;
+  color: #2563eb;
 }
 .print-doc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .print-doc-table th, .print-doc-table td {
