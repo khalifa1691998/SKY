@@ -629,9 +629,9 @@ window.exportExcelBackup = function() {
   };
 
   // 1. ملخص عام
-  const totalTreasury = db.treasuryTransactions.reduce((s, t) => s + t.amount, 0);
-  const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection').reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'product_purchase' || t.type === 'supplier_payment').reduce((s, t) => s + t.amount, 0));
+  const totalTreasury = db.treasuryTransactions.reduce((s, t) => s + safeAmount(t), 0);
+  const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection').reduce((s, t) => s + safeAmount(t), 0);
+  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'product_purchase' || t.type === 'supplier_payment').reduce((s, t) => s + safeAmount(t), 0));
   const overdueInsts = db.installments.filter(i => i.status !== 'paid' && new Date(i.dueDate) < now).length;
   addSheet('ملخص عام', [{
     'اسم الشركة': db.settings.companyName || 'شركة SKY',
