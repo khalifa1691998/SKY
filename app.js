@@ -584,6 +584,7 @@ window.exportBackup = function() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
+  localStorage.setItem('sky_erp_last_backup_date', new Date().toISOString().split('T')[0]);
   logAction('نسخ احتياطي', `تم تصدير نسخة احتياطية كاملة: ${backupPayload._meta.label}`);
   showToast('✅ تم حفظ النسخة الاحتياطية بنجاح!', 'success');
 };
@@ -769,6 +770,7 @@ window.exportExcelBackup = function() {
 
   XLSX.writeFile(wb, `SKY_ERP_Excel_${dateStr}.xlsx`);
 
+  localStorage.setItem('sky_erp_last_backup_date', new Date().toISOString().split('T')[0]);
   logAction('نسخ احتياطي', `تم تصدير نسخة Excel منظمة للمراجعة والأرشفة`);
   showToast('✅ تم تصدير ملف Excel بنجاح!', 'success');
 };
@@ -1467,7 +1469,17 @@ function renderDashboard() {
 // بدل ما تكون متفرقة أو تظهر تلقائياً بشكل مزعج. الجرس نفسه بيتحدث في
 // كل مرة يتغير فيها أي جزء من البيانات (بعد renderDashboard).
 function getSystemNotifications() {
-  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null };
+  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null, backupDue: null };
+
+  // 0. تذكير النسخة الاحتياطية: لو عدّى أكتر من 7 أيام من غير أي تصدير
+  // (Excel أو JSON)، أو مفيش أي نسخة اتعملت من الأساس.
+  const lastBackup = localStorage.getItem('sky_erp_last_backup_date');
+  const daysSinceBackup = lastBackup
+    ? Math.floor((new Date() - new Date(lastBackup)) / (1000 * 60 * 60 * 24))
+    : Infinity;
+  if (daysSinceBackup > 7) {
+    notifications.backupDue = { days: lastBackup ? daysSinceBackup : null };
+  }
 
   // 1. أقساط متأخرة فعلياً (نفس منطق كارت الداشبورد بالظبط)
   let overdueCount = 0, overdueAmount = 0;
@@ -1509,7 +1521,7 @@ function updateNotificationBell() {
   const dot = document.getElementById('notif-bell-dot');
   if (!dot || !isAdmin()) return;
   const n = getSystemNotifications();
-  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody;
+  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue;
   dot.classList.toggle('hidden', !hasAny);
 
   // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
@@ -1549,6 +1561,14 @@ function renderNotificationsPanel(panel) {
   const n = getSystemNotifications();
   const items = [];
 
+  if (n.backupDue) {
+    items.push(`
+      <div class="p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/50 rounded-xl">
+        <p class="text-xs font-bold text-purple-700 dark:text-purple-400">تذكير بالنسخة الاحتياطية</p>
+        <p class="text-sm text-purple-600 dark:text-purple-400 mt-0.5">${n.backupDue.days ? `آخر نسخة احتياطية من ${n.backupDue.days} يوم` : 'لم يتم عمل أي نسخة احتياطية بعد'}</p>
+        <button onclick="switchTab('settings'); toggleNotificationsPanel();" class="w-full mt-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold">اعمل نسخة احتياطية الآن</button>
+      </div>`);
+  }
   if (n.overdue) {
     items.push(`
       <div class="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 rounded-xl">
@@ -5701,13 +5721,34 @@ function printHTML(innerHtml) {
   setTimeout(() => window.print(), 50);
 }
 
-// تحميل نفس محتوى HTML اللي بيتطبع كملف PDF — عن طريق نفس آلية الطباعة
-// بالظبط (مش مكتبة رسم منفصلة زي html2canvas اللي بتقص الحروف العربية
-// المتصلة زي "ياسر"). المتصفح نفسه بيوفر خيار "حفظ كـ PDF" جوه مربع حوار
-// الطباعة، وده بيضمن إن الشكل يطابق الطباعة العادية تماماً 100%.
+// تحميل نفس محتوى HTML اللي بيتطبع كملف PDF تلقائياً (بدون ما يفتح مربع
+// حوار الطباعة). بنستخدم "foreignObjectRendering" بدل الطريقة الافتراضية،
+// لأن الطريقة الافتراضية بترسم كل حرف عربي لوحده على الـ canvas فبتقطع
+// الحروف المتصلة (زي "ياسر"). الخاصية دي بتخلي المتصفح نفسه يرسم النص
+// (بنفس جودة الطباعة العادية) بدل ما html2canvas يحاول يرسمه يدوياً.
 function downloadHTMLAsPDF(innerHtml, filename) {
-  showToast('📄 هيفتح مربع حوار الطباعة — اختر "حفظ كـ PDF" بدل الطابعة', 'info');
-  printHTML(innerHtml);
+  if (typeof html2pdf === 'undefined') {
+    showToast('❌ تعذّر تحميل مكتبة PDF، تأكد من الاتصال بالإنترنت ثم أعد المحاولة.', 'error');
+    return;
+  }
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('dir', 'rtl');
+  wrapper.style.cssText = 'direction:rtl; font-family: var(--font-family); color:#000; background:#fff; padding:20px; width:750px;';
+  wrapper.innerHTML = innerHtml;
+  wrapper.querySelectorAll('.no-print').forEach(el => el.remove());
+
+  showToast('⏳ جاري تجهيز ملف PDF...', 'info');
+  html2pdf().set({
+    margin: 10,
+    filename: filename || `مستند-${Date.now()}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, foreignObjectRendering: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(wrapper).save().then(() => {
+    showToast('✅ تم تحميل ملف الـ PDF بنجاح', 'success');
+  }).catch(() => {
+    showToast('❌ حصل خطأ، جرّب زرار الطباعة واختر "حفظ كـ PDF" كبديل', 'error');
+  });
 }
 
 // طباعة إيصال تحصيل قسط بعد اعتماده
