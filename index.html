@@ -36,17 +36,17 @@
                  مانحتاجش نلمس آلاف الاستخدامات في index.html و app.js، بس
                  القيم الفعلية بقت هوية أبل الجديدة. */
               teal: {
-                50:  '#eaf4fe',
-                100: '#d6e9fd',
-                200: '#aed3fb',
-                300: '#7ab8f7',
-                400: '#4499f0',
-                500: '#1a83ea',
-                600: '#0071e3',
-                700: '#0058b3',
-                800: '#004488',
-                900: '#00305f',
-                950: '#001b36',
+                50:  '#eef0fd',
+                100: '#dde1fb',
+                200: '#bcc2f7',
+                300: '#969ef0',
+                400: '#7178e8',
+                500: '#5e5ce6',
+                600: '#5856d6',
+                700: '#4744b0',
+                800: '#37348a',
+                900: '#282566',
+                950: '#18163d',
               },
               /* لون ثانوي (نظام Apple Indigo) بدل indigo-* الافتراضي، للاستخدامات
                  القليلة اللي محتاجة تمايز بصري عن اللون الأساسي (زي شارات
@@ -324,8 +324,8 @@
           <span id="dashboard-filter-active-label" class="hidden text-[10px] sm:text-xs font-bold text-teal-600 self-center"></span>
         </div>
 
-        <!-- KPI Cards Grid (8 metrics) -->
-        <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
+        <!-- KPI Cards Grid (9 metrics, 3x3 balanced grid) -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2.5 sm:gap-4 lg:gap-5">
           <!-- 1. Available Treasury Balance -->
           <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-6 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
@@ -492,9 +492,9 @@
         <!-- Dashboard Bottom Split Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-10 gap-6">
           <!-- Right Side: Chart (60% width) -->
-          <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm flex flex-col">
+          <div class="lg:col-span-6 glass-card rounded-2xl p-4 sm:p-6 flex flex-col">
             <div class="flex items-center justify-between mb-4 sm:mb-6">
-              <h3 class="font-bold text-slate-800 text-sm sm:text-lg">التمثيل البياني لأصول الأنشطة والأرباح</h3>
+              <h3 class="font-bold text-slate-800 text-sm sm:text-lg">التمثيل البياني للمبيعات والتحصيلات</h3>
               <div class="flex gap-2">
                 <span class="w-3.5 h-3.5 rounded-full bg-teal-500 inline-block align-middle"></span>
                 <span class="text-xs text-slate-500">المبيعات</span>
@@ -508,7 +508,7 @@
           </div>
 
           <!-- Left Side: Audit Log Timeline (40% width) -->
-          <div class="lg:col-span-4 bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm flex flex-col">
+          <div class="lg:col-span-4 glass-card rounded-2xl p-4 sm:p-6 flex flex-col">
             <div class="flex items-center justify-between mb-4 sm:mb-6">
               <h3 class="font-bold text-slate-800 text-sm sm:text-lg">سجل التدقيق والمتابعة الأمني</h3>
               <span class="text-xs text-slate-400">آخر 5 عمليات</span>

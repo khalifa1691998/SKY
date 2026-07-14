@@ -1418,32 +1418,46 @@ function renderDashboard() {
     const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.12)' : '#f1f5f9';
     const tickColor = isDarkMode ? '#a6b2c5' : '#64748b';
 
+    const salesColor = isDarkMode ? '#7d7aff' : '#5856d6';
+    const collectionColor = isDarkMode ? '#6ee7b7' : '#10b981';
+
     financialChartInstance = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: months,
         datasets: [
           {
             label: 'إجمالي المبيعات',
             data: salesData,
-            backgroundColor: isDarkMode ? 'rgba(129, 140, 248, 0.9)' : 'rgba(79, 70, 229, 0.85)',
-            borderRadius: 8,
-            borderWidth: 0,
-            barPercentage: 0.6
+            borderColor: salesColor,
+            backgroundColor: salesColor + '1a',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: isDarkMode ? '#1c1c1e' : '#ffffff',
+            pointBorderColor: salesColor,
+            pointBorderWidth: 2
           },
           {
             label: 'إجمالي التحصيلات الفعالة',
             data: collectionData,
-            backgroundColor: isDarkMode ? 'rgba(45, 212, 191, 0.9)' : 'rgba(16, 185, 129, 0.85)',
-            borderRadius: 8,
-            borderWidth: 0,
-            barPercentage: 0.6
+            borderColor: collectionColor,
+            backgroundColor: collectionColor + '1a',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: isDarkMode ? '#1c1c1e' : '#ffffff',
+            pointBorderColor: collectionColor,
+            pointBorderWidth: 2
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: { legend: { display: false } },
         scales: {
           x: {
@@ -1452,7 +1466,10 @@ function renderDashboard() {
           },
           y: {
             grid: { color: gridColor },
-            ticks: { font: { family: 'Cairo', size: 10 }, color: tickColor }
+            ticks: {
+              font: { family: 'Cairo', size: 10 }, color: tickColor,
+              callback: (v) => (v >= 1000 ? (v / 1000).toFixed(0) + ' ألف' : v)
+            }
           }
         }
       }
@@ -2909,7 +2926,7 @@ window.printSupplierStatement = function(supplierId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -4376,7 +4393,7 @@ window.printInvestorStatement = function(investorId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -4479,7 +4496,7 @@ window.printInvestorExitStatement = function(investorId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -4993,7 +5010,7 @@ window.printReportsPage = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${companyName}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${companyName}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5472,7 +5489,7 @@ window.printExpenseReceipt = function(id, mode) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5515,7 +5532,7 @@ window.printExpensesList = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5554,7 +5571,7 @@ window.printAuditLog = function() {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -5769,7 +5786,7 @@ window.printInstallmentReceipt = function(instId, mode) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
@@ -7927,7 +7944,7 @@ window.printClientStatement = function(clientId) {
   const html = `
     <div class="print-doc-header">
       <div>
-        <div style="font-weight:800; font-size:1.2rem; color:#0071e3;">${escapeHTML(companyName)}</div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
         <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
       </div>
       <div style="text-align:left; font-size:0.8rem;">
