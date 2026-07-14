@@ -1256,19 +1256,64 @@ function safeNum(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+window.applyDashboardDateFilter = function() {
+  const from = document.getElementById('dashboard-filter-from').value;
+  const to = document.getElementById('dashboard-filter-to').value;
+  if (!from || !to) {
+    alert('⚠️ من فضلك حدد تاريخي "من" و"إلى" الاثنين معاً.');
+    return;
+  }
+  if (from > to) {
+    alert('⚠️ تاريخ "من" لازم يكون قبل تاريخ "إلى".');
+    return;
+  }
+  renderDashboard();
+};
+
+window.resetDashboardDateFilter = function() {
+  document.getElementById('dashboard-filter-from').value = '';
+  document.getElementById('dashboard-filter-to').value = '';
+  renderDashboard();
+};
+
 function renderDashboard() {
+  // فلتر الفترة (اختياري): لو الأدمن حدد "من - إلى" في أعلى الداشبورد،
+  // بنفلتر بيه بس مؤشرات "النشاط" (مبيعات/تحصيلات/مصروفات/ربح) لأنها بس
+  // اللي منطقي تتحسب لفترة معينة. الرصيد والمخزون والمستحقات "حالة حالية"
+  // بتفضل كل الوقت زي ما هي بغض النظر عن الفلتر.
+  const fromVal = document.getElementById('dashboard-filter-from')?.value;
+  const toVal = document.getElementById('dashboard-filter-to')?.value;
+  const hasFilter = !!(fromVal && toVal);
+  const inRange = (dateStr) => {
+    if (!hasFilter) return true;
+    const d = (dateStr || '').substring(0, 10);
+    return d >= fromVal && d <= toVal;
+  };
+  const filteredTx = db.treasuryTransactions.filter(tx => inRange(tx.timestamp));
+  const filteredContracts = db.contracts.filter(c => inRange(c.startDate));
+
+  const labelEl = document.getElementById('dashboard-filter-active-label');
+  if (labelEl) {
+    if (hasFilter) {
+      labelEl.textContent = `📅 عرض نشاط الفترة: ${fromVal} → ${toVal}`;
+      labelEl.classList.remove('hidden');
+    } else {
+      labelEl.classList.add('hidden');
+    }
+  }
+
   const totalTreasury = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-treasury-balance').textContent = `${totalTreasury.toLocaleString()} ج.م`;
   
-  const directSales = db.treasuryTransactions.filter(tx => tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
-  const contractSales = db.contracts.reduce((sum, c) => sum + safeNum(c.totalValue), 0);
+  const directSales = filteredTx.filter(tx => tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  const contractSales = filteredContracts.reduce((sum, c) => sum + safeNum(c.totalValue), 0);
   const totalSales = directSales + contractSales;
   document.getElementById('kpi-total-sales').textContent = `${totalSales.toLocaleString()} ج.م`;
 
-  const activeCollections = db.treasuryTransactions.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  const activeCollections = filteredTx.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-active-collections').textContent = `${activeCollections.toLocaleString()} ج.م`;
 
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
+  const totalExpenses = Math.abs(filteredTx.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
   document.getElementById('kpi-total-expenses').textContent = `${totalExpenses.toLocaleString()} ج.م`;
 
   // حساب صافي الربح الحقيقي = إجمالي التحصيلات - إجمالي المصروفات والمشتريات
@@ -3667,6 +3712,7 @@ function renderCollections() {
                         <div class="inline-flex items-center gap-1">
                           <span class="text-emerald-600 font-bold text-[10px]"><i class="ph ph-check mr-0.5"></i> معتمد</span>
                           <button onclick="printInstallmentReceipt('${inst.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-[10px] transition-all"><i class="ph ph-printer"></i> إيصال</button>
+                          <button onclick="printInstallmentReceipt('${inst.id}', 'pdf')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded font-bold text-[10px] transition-all"><i class="ph ph-file-pdf"></i> PDF</button>
                         </div>
                       `}
                     </td>
@@ -5195,6 +5241,9 @@ function renderExpenses() {
           <button onclick="printExpenseReceipt('${e.id}')" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="طباعة سند صرف">
             <i class="ph ph-printer text-lg"></i>
           </button>
+          <button onclick="printExpenseReceipt('${e.id}', 'pdf')" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="تحميل PDF">
+            <i class="ph ph-file-pdf text-lg"></i>
+          </button>
           <button onclick="openEditExpenseModal('${e.id}')" class="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all admin-only" title="تعديل المصروف">
             <i class="ph ph-pencil-simple text-lg"></i>
           </button>
@@ -5395,7 +5444,7 @@ document.getElementById('edit-expense-form').addEventListener('submit', async (e
 });
 
 // طباعة سند صرف مصروف
-window.printExpenseReceipt = function(id) {
+window.printExpenseReceipt = function(id, mode) {
   const expense = db.expenses.find(e => e.id === id);
   if (!expense) return;
   const companyName = db.settings.companyName || 'شركة SKY';
@@ -5422,8 +5471,12 @@ window.printExpenseReceipt = function(id) {
     </div>
     <div class="print-doc-footer">تم إصدار هذا السند إلكترونياً من نظام ${companyName} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
   `;
-  printHTML(html);
-  logAction('طباعة سند صرف', `طباعة سند صرف مصروف رقم ${expense.id} بقيمة ${expense.amount} ج.م`);
+  if (mode === 'pdf') {
+    downloadHTMLAsPDF(html, `سند-صرف-${escapeHTML(expense.category)}.pdf`);
+  } else {
+    printHTML(html);
+  }
+  logAction('طباعة سند صرف', `${mode === 'pdf' ? 'تحميل PDF لـ' : 'طباعة'} سند صرف مصروف رقم ${expense.id} بقيمة ${expense.amount} ج.م`);
 };
 
 // طباعة كشف بكل المصروفات المعروضة حالياً (حسب أي فلتر فئة/شهر مُطبّق)
@@ -5648,8 +5701,35 @@ function printHTML(innerHtml) {
   setTimeout(() => window.print(), 50);
 }
 
+// تحويل نفس محتوى HTML اللي بيتطبع لملف PDF قابل للتحميل والإرسال، بدل
+// ما يفتح نافذة الطباعة بس. بيستخدم مكتبة html2pdf.js المحمّلة من CDN.
+function downloadHTMLAsPDF(innerHtml, filename) {
+  if (typeof html2pdf === 'undefined') {
+    showToast('❌ مكتبة تحميل PDF لم يتم تحميلها، تأكد من الاتصال بالإنترنت.', 'error');
+    return;
+  }
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'direction:rtl; font-family: var(--font-family); color:#000; background:#fff; padding:20px; width:750px;';
+  wrapper.innerHTML = innerHtml;
+  // نشيل الأزرار التفاعلية (زي أزرار الطباعة/التعديل) من نسخة الـ PDF
+  wrapper.querySelectorAll('.no-print').forEach(el => el.remove());
+
+  showToast('جاري تجهيز ملف PDF...', 'info');
+  html2pdf().set({
+    margin: 10,
+    filename: filename || `مستند-${Date.now()}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(wrapper).save().then(() => {
+    showToast('✅ تم تحميل ملف الـ PDF بنجاح', 'success');
+  }).catch(() => {
+    showToast('❌ حصل خطأ أثناء إنشاء الـ PDF', 'error');
+  });
+}
+
 // طباعة إيصال تحصيل قسط بعد اعتماده
-window.printInstallmentReceipt = function(instId) {
+window.printInstallmentReceipt = function(instId, mode) {
   const inst = db.installments.find(i => i.id === instId);
   if (!inst || inst.status !== 'paid') {
     showToast('❌ لا يمكن طباعة إيصال لقسط غير مسدد بعد.', 'error');
@@ -5692,8 +5772,12 @@ window.printInstallmentReceipt = function(instId) {
     </div>
     <div class="print-doc-footer">تم إصدار هذا الإيصال إلكترونياً من نظام ${companyName} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
   `;
-  printHTML(html);
-  logAction('طباعة إيصال', `طباعة إيصال تحصيل القسط رقم ${inst.installmentNum} للعقد ${inst.contractId}`);
+  if (mode === 'pdf') {
+    downloadHTMLAsPDF(html, `إيصال-قسط-${escapeHTML(inst.clientName)}-${inst.installmentNum}.pdf`);
+  } else {
+    printHTML(html);
+  }
+  logAction('طباعة إيصال', `${mode === 'pdf' ? 'تحميل PDF لـ' : 'طباعة'} إيصال تحصيل القسط رقم ${inst.installmentNum} للعقد ${inst.contractId}`);
 };
 
 // ================= WHATSAPP INTEGRATION =================
@@ -7929,15 +8013,145 @@ window.viewContractDetails = function(contractId) {
           </table>
         </div>
       </div>
-      <div class="pt-3 border-t border-slate-100 flex justify-end">
+      <div class="pt-3 border-t border-slate-100 flex justify-between items-center">
+        ${contractInsts.some(i => i.status !== 'paid') ? `
+          <button onclick="document.getElementById('contract-detail-modal').remove(); openRescheduleModal('${contract.id}')" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-xs font-bold flex items-center gap-1 admin-only">
+            <i class="ph ph-calendar-x"></i> إعادة جدولة الأقساط المتبقية
+          </button>
+        ` : '<span></span>'}
         <button onclick="document.getElementById('contract-detail-modal').remove()" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">إغلاق</button>
       </div>
     </div>
   `;
   document.body.appendChild(detailDiv);
+  updateUIForRole();
 };
 
 // ================= ROUTING & TAB NAVIGATION =================
+// ================= إعادة جدولة الأقساط المتبقية على عقد =================
+window.openRescheduleModal = function(contractId) {
+  if (!isAdmin()) return;
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+
+  const unpaidInsts = db.installments.filter(i => i.contractId === contractId && i.status !== 'paid');
+  if (unpaidInsts.length === 0) {
+    alert('كل أقساط العقد ده مسددة بالكامل، مفيش حاجة تتعاد جدولتها.');
+    return;
+  }
+
+  const remainingBalance = unpaidInsts.reduce((sum, i) => sum + Math.max(0, safeNum(i.amount) - safeNum(i.paidAmount)), 0);
+
+  const modal = document.createElement('div');
+  modal.id = 'reschedule-modal';
+  modal.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">إعادة جدولة الأقساط المتبقية</h4>
+        <button onclick="document.getElementById('reschedule-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
+      </div>
+      <div class="p-3 bg-slate-50 rounded-lg text-sm mb-4 space-y-1">
+        <p>عدد الأقساط المتبقية حالياً: <strong>${unpaidInsts.length}</strong></p>
+        <p>إجمالي المبلغ المتبقي (المطلوب إعادة جدولته): <strong class="text-teal-600">${remainingBalance.toLocaleString()} ج.م</strong></p>
+      </div>
+      <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700 mb-4 flex items-start gap-2">
+        <i class="ph ph-warning mt-0.5"></i>
+        <span>هيتم حذف الأقساط المتبقية الحالية (اللي لسه ماتسددتش) واستبدالها بجدول جديد. الأقساط اللي اتسددت خلاص مش هتتأثر خالص.</span>
+      </div>
+      <div>
+        <label class="form-label">عدد الأقساط الجديد</label>
+        <input type="number" id="reschedule-new-duration" min="1" value="${unpaidInsts.length}" class="form-input" oninput="updateReschedulePreview(${remainingBalance})">
+        <p class="text-xs text-slate-500 mt-1">قيمة القسط الشهري الجديد التقريبية: <span id="reschedule-preview" class="font-bold text-slate-800">${(remainingBalance / unpaidInsts.length).toLocaleString(undefined, {maximumFractionDigits: 2})}</span> ج.م</p>
+      </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <button onclick="document.getElementById('reschedule-modal').remove()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+        <button onclick="confirmReschedule('${contractId}')" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد إعادة الجدولة</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+};
+
+window.updateReschedulePreview = function(remainingBalance) {
+  const n = parseInt(document.getElementById('reschedule-new-duration').value) || 1;
+  document.getElementById('reschedule-preview').textContent = (remainingBalance / n).toLocaleString(undefined, {maximumFractionDigits: 2});
+};
+
+window.confirmReschedule = async function(contractId) {
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+
+  const newDuration = parseInt(document.getElementById('reschedule-new-duration').value);
+  if (!newDuration || newDuration < 1) {
+    alert('⚠️ من فضلك اكتب عدد أقساط صحيح (1 على الأقل).');
+    return;
+  }
+
+  const unpaidInsts = db.installments.filter(i => i.contractId === contractId && i.status !== 'paid');
+  const remainingBalance = unpaidInsts.reduce((sum, i) => sum + Math.max(0, safeNum(i.amount) - safeNum(i.paidAmount)), 0);
+  const lastPaidNum = db.installments
+    .filter(i => i.contractId === contractId && i.status === 'paid')
+    .reduce((max, i) => Math.max(max, i.installmentNum || 0), 0);
+
+  if (!(await customConfirm(`هيتم استبدال ${unpaidInsts.length} قسط بـ ${newDuration} قسط جديد، بإجمالي ${remainingBalance.toLocaleString()} ج.م. متأكد؟`))) {
+    return;
+  }
+
+  // حذف الأقساط القديمة غير المسددة محلياً (فايربيس هيتزامن دفعة واحدة تحت)
+  const oldIds = unpaidInsts.map(i => i.id);
+  db.installments = db.installments.filter(i => !oldIds.includes(i.id));
+
+  const monthly = parseFloat((remainingBalance / newDuration).toFixed(2));
+  const startFrom = new Date();
+  const sampleInst = unpaidInsts[0];
+  const newInsts = [];
+
+  for (let i = 1; i <= newDuration; i++) {
+    const dueDate = new Date(startFrom);
+    dueDate.setMonth(startFrom.getMonth() + i);
+    const installmentAmount = (i === newDuration)
+      ? parseFloat((remainingBalance - monthly * (newDuration - 1)).toFixed(2))
+      : monthly;
+
+    const newInst = {
+      id: `${contractId}_resched_${i}_${Date.now()}`,
+      contractId: contractId,
+      clientId: contract.clientId,
+      clientName: contract.clientName,
+      clientPhone: sampleInst.clientPhone,
+      guarantorName: sampleInst.guarantorName,
+      guarantorPhone: sampleInst.guarantorPhone,
+      collectorName: contract.collectorName,
+      installmentNum: lastPaidNum + i,
+      amount: installmentAmount,
+      dueDate: dueDate.toISOString().split('T')[0],
+      status: 'pending',
+      paidAmount: 0,
+      paidDate: '',
+      receiptId: '',
+      delayFines: 0
+    };
+    db.installments.push(newInst);
+    newInsts.push(newInst);
+  }
+
+  // إجراء واحد دفعي (batch) جاهز أصلاً في النظام: بيحذف الأقساط الغير
+  // مسددة القديمة لنفس العقد ويكتب الجديدة في عملية واحدة آمنة.
+  await syncWithAppsScript('regenerateInstallments', { contractId, installments: newInsts });
+
+  contract.monthlyInstallment = monthly;
+  await syncWithAppsScript('updateContract', contract);
+
+  saveToLocalStorage();
+  logAction('إعادة جدولة عقد', `إعادة جدولة العقد ${contractId} — ${unpaidInsts.length} قسط قديم استُبدل بـ ${newDuration} قسط جديد بإجمالي ${remainingBalance.toLocaleString()} ج.م`);
+
+  document.getElementById('reschedule-modal').remove();
+  renderContracts();
+  renderCollections();
+  showToast('✅ تم إعادة جدولة الأقساط بنجاح', 'success');
+};
+
 window.switchTab = function(tabName) {
   // منع أي مستخدم من الانتقال إلى تبويب غير مصرح له به حسب دوره وصلاحياته
   if (currentUser && !isTabAllowedForCurrentUser(tabName)) {
