@@ -345,6 +345,17 @@ body::after {
 .dark .hover\:bg-slate-100:hover { background-color: #3a3a3c !important; }
 .dark .hover\:bg-slate-200:hover { background-color: #48484a !important; }
 
+/* نسخ الشفافية (bg-slate-50/50, /60, /75) اللي بتتفلت من قاعدة .bg-slate-50
+   العادية لأن اسم الكلاس مختلف بسبب علامة الـ opacity — دي كانت سبب ظهور
+   خانات فاتحة/رمادية غريبة فوق الخلفية الداكنة في تابات الموردين والتحصيلات
+   وأرصدة العملاء والمنتجات وغيرها. */
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/60,
+.dark .bg-slate-50\/75 { background-color: rgba(255, 255, 255, 0.04) !important; }
+.dark .hover\:bg-slate-50\/50:hover,
+.dark .hover\:bg-slate-50\/60:hover,
+.dark .hover\:bg-slate-50\/75:hover { background-color: rgba(255, 255, 255, 0.06) !important; }
+
 .dark table th {
   background-color: #1c1c1e !important;
   color: #98989d !important;

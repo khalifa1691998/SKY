@@ -1920,9 +1920,9 @@ function renderClientBalances() {
     const isExpanded = expandedBalanceClients.has(client.id);
 
     const card = document.createElement('div');
-    card.className = 'bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden';
+    card.className = 'glass-card rounded-2xl overflow-hidden';
     card.innerHTML = `
-      <div onclick="toggleClientBalanceRow('${client.id}')" class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors select-none">
+      <div onclick="toggleClientBalanceRow('${client.id}')" class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 cursor-pointer hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors select-none">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm">
             <i class="ph ${isExpanded ? 'ph-folder-open' : 'ph-folder'} text-lg"></i>
@@ -1946,7 +1946,7 @@ function renderClientBalances() {
         </div>
       </div>
 
-      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 bg-white space-y-2">
+      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 space-y-2">
         <div class="overflow-x-auto">
           <table class="w-full text-right border-collapse text-xs">
             <thead>
@@ -2699,9 +2699,9 @@ function renderSuppliers() {
     const typeBadge = SUPPLIER_TYPE_BADGE_CLASS[supplier.type] || 'badge-warning';
 
     const card = document.createElement('div');
-    card.className = 'bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden';
+    card.className = 'glass-card rounded-2xl overflow-hidden';
     card.innerHTML = `
-      <div class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+      <div class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors">
         <div onclick="toggleSupplierRow('${supplier.id}')" class="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0">
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm shrink-0">
             <i class="ph ${isExpanded ? 'ph-folder-open' : 'ph-truck'} text-lg"></i>
@@ -2727,7 +2727,7 @@ function renderSuppliers() {
         </div>
       </div>
 
-      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 bg-white space-y-2">
+      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 space-y-2">
         ${bal.transactions.length === 0 ? '<p class="text-xs text-slate-400 text-center py-4">لا توجد حركات مسجلة لهذا المورد بعد.</p>' : `
         <div class="overflow-x-auto">
           <table class="w-full text-right border-collapse text-xs">
@@ -3662,10 +3662,10 @@ function renderCollections() {
     const isExpanded = expandedClients.has(clientGroup.clientId);
     
     const clientCard = document.createElement('div');
-    clientCard.className = 'bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-200';
+    clientCard.className = 'glass-card rounded-2xl overflow-hidden transition-all duration-200';
     
     clientCard.innerHTML = `
-      <div onclick="toggleClientInstallments('${clientGroup.clientId}')" class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors select-none">
+      <div onclick="toggleClientInstallments('${clientGroup.clientId}')" class="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 cursor-pointer hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors select-none">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm">
             <i class="ph ${isExpanded ? 'ph-folder-open' : 'ph-folder'} text-lg"></i>
@@ -3691,7 +3691,7 @@ function renderCollections() {
         </div>
       </div>
 
-      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 bg-white space-y-3">
+      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 space-y-3">
         <div class="overflow-x-auto">
           <table class="w-full text-right border-collapse text-xs">
             <thead>
