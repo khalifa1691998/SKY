@@ -5701,31 +5701,13 @@ function printHTML(innerHtml) {
   setTimeout(() => window.print(), 50);
 }
 
-// تحويل نفس محتوى HTML اللي بيتطبع لملف PDF قابل للتحميل والإرسال، بدل
-// ما يفتح نافذة الطباعة بس. بيستخدم مكتبة html2pdf.js المحمّلة من CDN.
+// تحميل نفس محتوى HTML اللي بيتطبع كملف PDF — عن طريق نفس آلية الطباعة
+// بالظبط (مش مكتبة رسم منفصلة زي html2canvas اللي بتقص الحروف العربية
+// المتصلة زي "ياسر"). المتصفح نفسه بيوفر خيار "حفظ كـ PDF" جوه مربع حوار
+// الطباعة، وده بيضمن إن الشكل يطابق الطباعة العادية تماماً 100%.
 function downloadHTMLAsPDF(innerHtml, filename) {
-  if (typeof html2pdf === 'undefined') {
-    showToast('❌ مكتبة تحميل PDF لم يتم تحميلها، تأكد من الاتصال بالإنترنت.', 'error');
-    return;
-  }
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'direction:rtl; font-family: var(--font-family); color:#000; background:#fff; padding:20px; width:750px;';
-  wrapper.innerHTML = innerHtml;
-  // نشيل الأزرار التفاعلية (زي أزرار الطباعة/التعديل) من نسخة الـ PDF
-  wrapper.querySelectorAll('.no-print').forEach(el => el.remove());
-
-  showToast('جاري تجهيز ملف PDF...', 'info');
-  html2pdf().set({
-    margin: 10,
-    filename: filename || `مستند-${Date.now()}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).from(wrapper).save().then(() => {
-    showToast('✅ تم تحميل ملف الـ PDF بنجاح', 'success');
-  }).catch(() => {
-    showToast('❌ حصل خطأ أثناء إنشاء الـ PDF', 'error');
-  });
+  showToast('📄 هيفتح مربع حوار الطباعة — اختر "حفظ كـ PDF" بدل الطابعة', 'info');
+  printHTML(innerHtml);
 }
 
 // طباعة إيصال تحصيل قسط بعد اعتماده
