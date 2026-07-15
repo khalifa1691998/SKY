@@ -505,13 +505,13 @@ function updateUIForRole() {
   if (roleBadge) {
     if (isAdmin()) {
       roleBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-teal-600 animate-ping"></span>الوصول: مشرف (ADMIN)';
-      roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-100';
+      roleBadge.className = 'shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold bg-teal-50 text-teal-700 border border-teal-100';
     } else if (isCollector) {
       roleBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>الوصول: محصل (COLLECTOR)';
-      roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100';
+      roleBadge.className = 'shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100';
     } else {
       roleBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-600"></span>الوصول: ${currentUser ? currentUser.role : 'مجهول'}`;
-      roleBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-50 text-slate-700 border border-slate-100';
+      roleBadge.className = 'shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold bg-slate-50 text-slate-700 border border-slate-100';
     }
   }
 }
@@ -986,7 +986,7 @@ function showSyncFailureWarning(action, errorDetail) {
   const headerBadge = document.getElementById('header-sync-badge');
   if (headerBadge) {
     headerBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span><span>فشل حفظ آخر عملية! (دوس هنا) ⚠️</span>`;
-    headerBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer';
+    headerBadge.className = 'shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold transition-all duration-200 bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer';
     headerBadge.onclick = showLastSyncFailureDetail;
     headerBadge.title = `فشلت عملية "${action}": ${errorDetail || 'خطأ غير معروف'}. البيانات ظاهرة عندك حالياً لكنها لسه ما اتحفظتش فعلياً في قاعدة البيانات، وممكن تختفي لو عملت Refresh. تأكد من صلاحيات Firestore واتصال الإنترنت.`;
   }
@@ -1084,7 +1084,7 @@ function updateSyncStatusUI() {
   
   if (headerBadge) {
     headerBadge.innerHTML = `${icon}<span>${text}</span>`;
-    headerBadge.className = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${badgeClass}`;
+    headerBadge.className = `shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold transition-all duration-200 ${badgeClass}`;
   }
   
   if (settingsBadge) {

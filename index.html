@@ -287,18 +287,18 @@
         <button id="theme-toggle-btn" class="shrink-0 p-2 rounded-xl bg-slate-100 dark:bg-skyDark-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-skyDark-700 transition-colors" title="تبديل الوضع الليلي/النهاري">
           <i id="theme-toggle-icon" class="ph ph-moon"></i>
         </button>
-        <span id="header-sync-badge" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold transition-all duration-200"></span>
+        <span id="header-sync-badge" class="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold transition-all duration-200"></span>
         <div class="relative shrink-0 admin-only" id="notif-bell-wrapper">
           <button id="notif-bell-btn" onclick="toggleNotificationsPanel()" class="relative p-2 rounded-xl bg-slate-100 dark:bg-skyDark-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-skyDark-700 transition-colors" title="التنبيهات">
             <i class="ph ph-bell text-lg"></i>
             <span id="notif-bell-dot" class="hidden absolute top-1 left-1 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-white dark:border-skyDark-900"></span>
           </button>
         </div>
-        <span id="header-role-badge" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-100 dark:border-teal-800/50">
+        <span id="header-role-badge" class="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-bold bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-100 dark:border-teal-800/50">
           <span class="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-ping"></span>
           الوصول: رئيسي (ADMIN)
         </span>
-        <span class="shrink-0 hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
+        <span class="shrink-0 whitespace-nowrap hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[11px] md:text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
           أمن النظام ونزاهة التدقيق مفعلان 🔒
         </span>
       </div>
@@ -312,18 +312,22 @@
         <!-- فلتر فترة الداشبورد: بيأثر بس على مؤشرات "النشاط" (مبيعات، تحصيلات،
              مصروفات، صافي ربح)، أما رصيد الخزينة والمخزون والمستحقات فهي
              "حالة حالية" مش مرتبطة بفترة زمنية فبتفضل كل الوقت زي ما هي -->
-        <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-wrap items-end gap-2 sm:gap-3">
-          <div>
-            <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1">من تاريخ</label>
-            <input type="date" id="dashboard-filter-from" class="form-input text-xs sm:text-sm py-1.5">
+        <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-3">
+          <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+            <div class="min-w-0">
+              <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1">من تاريخ</label>
+              <input type="date" id="dashboard-filter-from" class="form-input text-xs sm:text-sm py-1.5 w-full">
+            </div>
+            <div class="min-w-0">
+              <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1">إلى تاريخ</label>
+              <input type="date" id="dashboard-filter-to" class="form-input text-xs sm:text-sm py-1.5 w-full">
+            </div>
           </div>
-          <div>
-            <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1">إلى تاريخ</label>
-            <input type="date" id="dashboard-filter-to" class="form-input text-xs sm:text-sm py-1.5">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <button onclick="applyDashboardDateFilter()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs sm:text-sm font-semibold">تطبيق</button>
+            <button onclick="resetDashboardDateFilter()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs sm:text-sm font-semibold">كل الفترة</button>
+            <span id="dashboard-filter-active-label" class="hidden text-[10px] sm:text-xs font-bold text-teal-600 self-center"></span>
           </div>
-          <button onclick="applyDashboardDateFilter()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs sm:text-sm font-semibold">تطبيق</button>
-          <button onclick="resetDashboardDateFilter()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs sm:text-sm font-semibold">كل الفترة</button>
-          <span id="dashboard-filter-active-label" class="hidden text-[10px] sm:text-xs font-bold text-teal-600 self-center"></span>
         </div>
 
         <!-- KPI Cards Grid (9 metrics, 3x3 balanced grid) -->
