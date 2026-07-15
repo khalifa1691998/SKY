@@ -1159,6 +1159,86 @@ main > header > div:last-child {
   box-shadow: none;
 }
 .dark .dashboard-quick-actions button:hover { background: rgba(157, 140, 244, .16); border-color: rgba(196,181,253,.25); }
+
+/* ========================================================================
+   PHASE 4 — RESPONSIVE, ACCESSIBILITY & PERFORMANCE FINISH
+   ======================================================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* One highly visible keyboard focus treatment in both themes. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--sky-brand) 64%, white) !important;
+  outline-offset: 3px;
+}
+.dark :where(a, button, input, select, textarea, [tabindex]):focus-visible { outline-color: #c4b5fd !important; }
+
+/* Avoid accidental hover states on touch hardware and preserve comfortable tap targets. */
+@media (hover: none) and (pointer: coarse) {
+  #global-search-btn, #theme-toggle-btn, #notif-bell-btn, #mobile-menu-btn, #sidebar-collapse-btn,
+  #sidebar-menu a, #logout-btn { min-width: 44px; min-height: 44px; }
+  #sidebar-menu a { transform: none !important; }
+  #main-content-tabs button[class*="rounded"]:hover, [id$="-modal"] button[class*="rounded"]:hover { transform: none; }
+}
+
+/* Tablet: protect hierarchy before content begins to feel compressed. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  #app-sidebar { width: 15.5rem; }
+  #sidebar-menu a { font-size: .76rem; padding-inline: .68rem !important; }
+  main > header { padding-inline: 1rem !important; }
+  main > header p { max-width: 22rem; }
+  .dashboard-hero { align-items: flex-start; flex-direction: column; }
+  .dashboard-quick-actions { justify-content: flex-start; }
+  #tab-dashboard .dashboard-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Phone: controls remain readable and content never depends on hover. */
+@media (max-width: 767px) {
+  #mobile-topbar { padding-inline: max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-left)); }
+  main > header { gap: .7rem !important; }
+  main > header > div:last-child { width: 100%; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
+  main > header > div:last-child::-webkit-scrollbar { display: none; }
+  main > header p { display: none; }
+  .header-current-date { display: none !important; }
+  #header-sync-badge, #header-role-badge { flex: 0 0 auto; }
+  #main-content-tabs { padding: .85rem !important; }
+  #tab-dashboard .dashboard-kpis { gap: .75rem !important; }
+  #tab-dashboard .dashboard-kpis > .glass-card { padding: .9rem !important; }
+  #tab-dashboard .dashboard-kpis h3 { font-size: 1.08rem !important; }
+  .dashboard-quick-actions button { min-height: 2.75rem; }
+  [id$="-modal"] > div { width: 100%; }
+}
+
+/* Less work for the browser on long dashboard surfaces. */
+@media (min-width: 768px) {
+  #tab-dashboard .dashboard-kpis > .glass-card,
+  #tab-dashboard .dashboard-chart-panel,
+  #tab-dashboard .dashboard-activity-panel { content-visibility: auto; contain-intrinsic-size: 1px 260px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root { --sky-line: rgba(15, 23, 42, .28); }
+  .dark { --sky-line: rgba(255, 255, 255, .28); }
+  #sidebar-menu a, .form-input, [id$="-modal"] > div { border-width: 2px !important; }
+}
 .dark #tab-dashboard .dashboard-filter-panel button:first-child { background: #7c6bd4 !important; }
 .dark #tab-dashboard .dashboard-kpis .bg-teal-50, .dark #tab-dashboard .dashboard-kpis .bg-blue-50, .dark #tab-dashboard .dashboard-kpis .bg-sky-50 { background-color: rgba(157,140,244,.13) !important; }
 

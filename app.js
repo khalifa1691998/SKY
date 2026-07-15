@@ -5623,19 +5623,40 @@ function renderSettings() {
 }
 
 // ================= MODAL INTERACTIONS =================
+let lastModalTrigger = null;
 window.openModal = function(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) {
+    lastModalTrigger = document.activeElement;
     modal.classList.remove('hidden', 'modal-opening');
     void modal.offsetWidth;
     modal.classList.add('modal-opening');
+    const firstFocusable = modal.querySelector('button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]');
+    if (firstFocusable) setTimeout(() => firstFocusable.focus(), 40);
   }
 };
 
 window.closeModal = function(modalId) {
   const modal = document.getElementById(modalId);
-  if (modal) modal.classList.add('hidden');
+  if (modal) {
+    modal.classList.add('hidden');
+    if (lastModalTrigger && typeof lastModalTrigger.focus === 'function') {
+      lastModalTrigger.focus();
+      lastModalTrigger = null;
+    }
+  }
 };
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const openModal = document.querySelector('[id$="-modal"]:not(.hidden)');
+  if (openModal) {
+    closeModal(openModal.id);
+    return;
+  }
+  const sidebar = document.getElementById('app-sidebar');
+  if (sidebar && sidebar.classList.contains('sidebar-open')) closeMobileSidebar();
+});
 
 // ================= IMAGE UPLOAD =================
 function setupFileReader(inputId, tempKey, previewBoxId, statusId) {
