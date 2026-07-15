@@ -1044,3 +1044,99 @@ main > header h2::before { display: none; }
   #tab-dashboard .dashboard-kpis > .glass-card { min-height: 8.7rem; }
   #tab-dashboard .dashboard-chart-panel, #tab-dashboard .dashboard-activity-panel { min-height: 20rem; }
 }
+
+/* Dark-mode visual correction: graphite first; restrained violet/teal only for intent. */
+.dark {
+  --sky-brand: #9d8cf4;
+  --sky-brand-strong: #c4b5fd;
+  --sky-brand-soft: rgba(157, 140, 244, .14);
+}
+.dark #app-sidebar {
+  background: #191a1d !important;
+}
+.dark #sidebar-menu a.nav-link-active,
+.dark #sidebar-menu a.active-tab-btn {
+  background: rgba(157, 140, 244, .13) !important;
+  border-color: rgba(196, 181, 253, .16) !important;
+  color: #c4b5fd !important;
+}
+.dark #sidebar-menu a.nav-link-active i,
+.dark #sidebar-menu a.active-tab-btn i { color: #b8a8ff !important; }
+.dark #sidebar-menu a.nav-link-active::after,
+.dark #sidebar-menu a.active-tab-btn::after { background: #9d8cf4; box-shadow: 0 2px 7px rgba(157, 140, 244, .36); }
+
+/* A disciplined header: identity on the right, a single operations cluster on the left. */
+.dark main > header {
+  min-height: 5.15rem;
+  padding: .7rem 1.45rem !important;
+  background: rgba(25, 26, 29, .96) !important;
+  border-bottom-color: rgba(255,255,255,.075) !important;
+}
+main > header > .header-intro { padding-inline: .25rem; }
+.header-breadcrumb { margin-bottom: .16rem; font-size: .65rem; }
+.header-breadcrumb strong { color: var(--sky-brand-strong); }
+main > header h2 { margin: 0; font-size: 1.18rem !important; }
+main > header p { max-width: 34rem; margin-top: .08rem !important; font-size: .67rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+main > header > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: .42rem !important;
+  padding: .32rem;
+  border: 1px solid var(--sky-line);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+}
+.dark #global-search-btn, .dark #theme-toggle-btn, .dark #notif-bell-btn {
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: rgba(255,255,255,.045) !important;
+  box-shadow: none !important;
+}
+.dark #global-search-btn:hover, .dark #theme-toggle-btn:hover, .dark #notif-bell-btn:hover { color: #c4b5fd !important; background: rgba(157,140,244,.13) !important; transform: none; }
+.header-current-date {
+  min-height: 2.3rem;
+  padding: 0 .62rem;
+  border: 0;
+  border-right: 1px solid var(--sky-line);
+  border-radius: 0;
+  background: transparent;
+  font-size: .66rem;
+}
+.dark #header-sync-badge, .dark #header-role-badge {
+  min-height: 2.3rem;
+  padding-inline: .6rem !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  font-size: .64rem !important;
+}
+.dark #header-role-badge { background: rgba(157,140,244,.12) !important; color: #bfb2ff !important; }
+.dark #header-role-badge .bg-teal-600 { background-color: #9d8cf4 !important; }
+
+/* Dashboard: remove the saturated blue banner and keep the hero within the same dark material language. */
+.dashboard-hero {
+  border-color: rgba(167, 139, 250, .18);
+  background: linear-gradient(120deg, #222329 0%, #1d2022 55%, #22212b 100%);
+  box-shadow: var(--sky-shadow-sm);
+}
+.dashboard-hero::after {
+  border-color: rgba(167, 139, 250, .14);
+  box-shadow: 0 0 0 32px rgba(167, 139, 250, .035), 0 0 0 64px rgba(45, 212, 191, .02);
+}
+.dashboard-eyebrow { color: #bfb2ff; }
+.dashboard-hero h1 span { color: #c4b5fd; }
+.dashboard-quick-actions button {
+  border-color: rgba(255, 255, 255, .11);
+  background: rgba(255, 255, 255, .045);
+  color: #d8d5e7;
+}
+.dashboard-quick-actions button:hover { background: rgba(157, 140, 244, .16); border-color: rgba(196,181,253,.25); }
+.dark #tab-dashboard .dashboard-filter-panel button:first-child { background: #7c6bd4 !important; }
+.dark #tab-dashboard .dashboard-kpis .bg-teal-50, .dark #tab-dashboard .dashboard-kpis .bg-blue-50, .dark #tab-dashboard .dashboard-kpis .bg-sky-50 { background-color: rgba(157,140,244,.13) !important; }
+
+@media (max-width: 1023px) {
+  main > header > div:last-child { padding: 0; border: 0; background: transparent; }
+  .header-current-date { border: 0; }
+}

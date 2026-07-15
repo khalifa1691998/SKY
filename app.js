@@ -1420,7 +1420,7 @@ function renderDashboard() {
     const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.12)' : '#f1f5f9';
     const tickColor = isDarkMode ? '#a6b2c5' : '#64748b';
 
-    const salesColor = isDarkMode ? '#71a8ff' : '#2563eb';
+    const salesColor = isDarkMode ? '#9d8cf4' : '#6d5bd0';
     const collectionColor = isDarkMode ? '#5eead4' : '#0f9f8c';
 
     financialChartInstance = new Chart(ctx, {
