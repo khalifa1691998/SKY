@@ -1239,6 +1239,28 @@ main > header > div:last-child {
   .dark { --sky-line: rgba(255, 255, 255, .28); }
   #sidebar-menu a, .form-input, [id$="-modal"] > div { border-width: 2px !important; }
 }
+
+/* Mobile correction: the fixed app bar already owns its vertical space. */
+@media (max-width: 767px) {
+  main.pt-14 { padding-top: 0 !important; }
+  main > header { top: 0; padding: .7rem .85rem !important; }
+  .header-breadcrumb { margin-bottom: .08rem; font-size: .61rem; }
+  main > header h2 { font-size: 1rem !important; }
+  #tab-dashboard { gap: .75rem !important; }
+  .dashboard-hero { gap: .8rem; padding: 1rem !important; border-radius: 14px; }
+  .dashboard-hero h1 { margin: .18rem 0; font-size: 1.12rem; }
+  .dashboard-hero p { font-size: .68rem; line-height: 1.55; }
+  .dashboard-quick-actions { gap: .4rem; }
+  .dashboard-quick-actions button { min-width: 0; padding-inline: .5rem; font-size: .66rem; }
+  .dashboard-quick-actions button i { display: none; }
+  #tab-dashboard .dashboard-filter-panel { padding: .7rem !important; }
+  #tab-dashboard .dashboard-filter-panel > div:first-child { gap: .55rem !important; }
+  #tab-dashboard .dashboard-filter-panel .form-input { min-height: 2.35rem; }
+  #tab-dashboard .dashboard-kpis > .glass-card { min-height: 7.65rem; }
+  #tab-dashboard .dashboard-kpis > .glass-card > div > div:last-child { margin-top: .7rem !important; }
+  #tab-dashboard .dashboard-kpis p { font-size: .62rem !important; }
+  #tab-dashboard .dashboard-kpis h3 { font-size: .97rem !important; }
+}
 .dark #tab-dashboard .dashboard-filter-panel button:first-child { background: #7c6bd4 !important; }
 .dark #tab-dashboard .dashboard-kpis .bg-teal-50, .dark #tab-dashboard .dashboard-kpis .bg-blue-50, .dark #tab-dashboard .dashboard-kpis .bg-sky-50 { background-color: rgba(157,140,244,.13) !important; }
 

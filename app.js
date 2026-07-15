@@ -5649,14 +5649,26 @@ window.closeModal = function(modalId) {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
-  const openModal = document.querySelector('[id$="-modal"]:not(.hidden)');
+  const openModal = [...document.querySelectorAll('[id$="-modal"]')]
+    .filter(modal => !modal.classList.contains('hidden') && modal.getClientRects().length)
+    .sort((a, b) => {
+      const aZ = Number.parseInt(window.getComputedStyle(a).zIndex, 10) || 0;
+      const bZ = Number.parseInt(window.getComputedStyle(b).zIndex, 10) || 0;
+      return bZ - aZ;
+    })[0];
   if (openModal) {
+    event.preventDefault();
+    event.stopPropagation();
     closeModal(openModal.id);
     return;
   }
   const sidebar = document.getElementById('app-sidebar');
-  if (sidebar && sidebar.classList.contains('sidebar-open')) closeMobileSidebar();
-});
+  if (sidebar && sidebar.classList.contains('sidebar-open')) {
+    event.preventDefault();
+    event.stopPropagation();
+    closeMobileSidebar();
+  }
+}, true);
 
 // ================= IMAGE UPLOAD =================
 function setupFileReader(inputId, tempKey, previewBoxId, statusId) {
