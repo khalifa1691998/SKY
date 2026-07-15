@@ -1140,3 +1140,148 @@ main > header > div:last-child {
   main > header > div:last-child { padding: 0; border: 0; background: transparent; }
   .header-current-date { border: 0; }
 }
+
+/* ========================================================================
+   PHASE 3 — DATA WORKSPACE: tables, forms, filters and dialogs
+   ======================================================================== */
+:root {
+  --control-height: 2.7rem;
+  --control-radius: 10px;
+}
+
+/* Form and filter primitives */
+.form-label {
+  margin-bottom: .42rem;
+  color: var(--sky-muted);
+  font-size: .74rem;
+  font-weight: 750;
+}
+.form-input,
+select.form-input,
+textarea.form-input {
+  min-height: var(--control-height);
+  padding: .62rem .8rem;
+  border: 1px solid var(--sky-line);
+  border-radius: var(--control-radius);
+  background: var(--sky-surface-strong);
+  color: var(--sky-ink);
+  font-family: var(--sky-font-sans);
+  font-size: .8rem;
+  box-shadow: 0 1px 1px rgba(16,24,40,.025);
+  transition: border-color .18s var(--sky-ease), box-shadow .18s var(--sky-ease), background-color .18s var(--sky-ease);
+}
+textarea.form-input { min-height: auto; }
+.form-input::placeholder { color: #98a2b3; }
+.form-input:hover { border-color: rgba(100,116,139,.32); }
+.form-input:focus,
+select.form-input:focus,
+textarea.form-input:focus {
+  border-color: var(--sky-brand) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sky-brand) 19%, transparent) !important;
+}
+.dark .form-input,
+.dark select.form-input,
+.dark textarea.form-input { background: #202227; border-color: rgba(255,255,255,.09); color: #f3f4f6; }
+.dark .form-input:hover { border-color: rgba(196,181,253,.26); }
+.dark .form-input:focus,
+.dark select.form-input:focus,
+.dark textarea.form-input:focus { border-color: #9d8cf4 !important; box-shadow: 0 0 0 3px rgba(157,140,244,.16) !important; }
+select.form-input { cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--sky-brand); }
+
+/* Search and filter bars used across all operational tabs */
+#main-content-tabs > section:not(#tab-dashboard) > div.bg-white.rounded-2xl.p-4.border {
+  border-color: var(--sky-line) !important;
+  box-shadow: var(--sky-shadow-xs) !important;
+}
+.dark #main-content-tabs > section:not(#tab-dashboard) > div.bg-white.rounded-2xl.p-4.border { background: #1b1d21 !important; }
+
+/* Tables: fixed context header, calmer density and useful row feedback. */
+.table-scroll-wrapper {
+  max-width: 100%;
+  overflow: auto;
+  scrollbar-color: rgba(148,163,184,.4) transparent;
+}
+#main-content-tabs table {
+  min-width: 46rem;
+  border-collapse: separate !important;
+  border-spacing: 0;
+  color: var(--sky-ink);
+}
+#main-content-tabs table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: .88rem 1rem !important;
+  border-bottom: 1px solid var(--sky-line) !important;
+  background: #f8fafc !important;
+  color: #667085 !important;
+  font-size: .69rem !important;
+  font-weight: 800 !important;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+#main-content-tabs table tbody td {
+  padding: .86rem 1rem !important;
+  border-bottom: 1px solid var(--sky-line) !important;
+  font-size: .78rem;
+  vertical-align: middle;
+}
+#main-content-tabs table tbody tr { transition: background-color .16s var(--sky-ease); }
+#main-content-tabs table tbody tr:hover { background: rgba(157,140,244,.045); }
+#main-content-tabs table tbody tr:last-child td { border-bottom: 0 !important; }
+#main-content-tabs table tbody td button { border-radius: 8px; transition: transform .16s var(--sky-ease), box-shadow .16s var(--sky-ease); }
+#main-content-tabs table tbody td button:hover { transform: translateY(-1px); box-shadow: var(--sky-shadow-xs); }
+.dark #main-content-tabs table { color: #e5e7eb; }
+.dark #main-content-tabs table thead th { background: #202227 !important; border-bottom-color: rgba(255,255,255,.09) !important; color: #aab1bc !important; }
+.dark #main-content-tabs table tbody td { border-bottom-color: rgba(255,255,255,.075) !important; }
+.dark #main-content-tabs table tbody tr:hover { background: rgba(157,140,244,.065); }
+
+/* Dialog surface and opening motion. Keeps all existing modal IDs and handlers intact. */
+[id$="-modal"] {
+  padding: clamp(.75rem, 2vw, 1.4rem) !important;
+  background: rgba(15,16,19,.62) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+[id$="-modal"] > div {
+  border: 1px solid var(--sky-line) !important;
+  border-radius: 16px !important;
+  background: var(--sky-surface-strong) !important;
+  box-shadow: 0 24px 72px rgba(0,0,0,.24) !important;
+}
+.dark [id$="-modal"] > div { background: #1b1d21 !important; border-color: rgba(255,255,255,.10) !important; }
+[id$="-modal"].modal-opening > div { animation: sky-modal-in .2s var(--sky-ease) both; }
+@keyframes sky-modal-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+[id$="-modal"] > div > :first-child:not(form) {
+  border-bottom-color: var(--sky-line) !important;
+}
+[id$="-modal"] h3, [id$="-modal"] h4 { color: var(--sky-ink) !important; }
+[id$="-modal"] form > .border-t,
+[id$="-modal"] > div > .border-t:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  border-top-color: var(--sky-line) !important;
+  background: var(--sky-surface-strong);
+}
+.dark [id$="-modal"] form > .border-t,
+.dark [id$="-modal"] > div > .border-t:last-child { background: #1b1d21 !important; }
+[id$="-modal"] .bg-slate-50 { background: rgba(148,163,184,.06) !important; border-color: var(--sky-line) !important; }
+.dark [id$="-modal"] .bg-slate-50 { background: rgba(255,255,255,.035) !important; }
+
+/* Consistent action button feel without changing semantic colors supplied by the markup. */
+#main-content-tabs button[class*="rounded"], [id$="-modal"] button[class*="rounded"] {
+  min-height: 2.35rem;
+  border-radius: 9px !important;
+  font-family: var(--sky-font-sans);
+  transition: transform .16s var(--sky-ease), box-shadow .16s var(--sky-ease), filter .16s var(--sky-ease) !important;
+}
+#main-content-tabs button[class*="rounded"]:hover, [id$="-modal"] button[class*="rounded"]:hover { transform: translateY(-1px); filter: brightness(1.03); }
+
+@media (max-width: 640px) {
+  #main-content-tabs table { min-width: 38rem; }
+  #main-content-tabs table thead th, #main-content-tabs table tbody td { padding: .72rem .8rem !important; }
+  [id$="-modal"] { align-items: flex-end !important; }
+  [id$="-modal"] > div { max-height: min(91dvh, 46rem); border-bottom-left-radius: 12px !important; border-bottom-right-radius: 12px !important; }
+}

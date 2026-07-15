@@ -5625,7 +5625,11 @@ function renderSettings() {
 // ================= MODAL INTERACTIONS =================
 window.openModal = function(modalId) {
   const modal = document.getElementById(modalId);
-  if (modal) modal.classList.remove('hidden');
+  if (modal) {
+    modal.classList.remove('hidden', 'modal-opening');
+    void modal.offsetWidth;
+    modal.classList.add('modal-opening');
+  }
 };
 
 window.closeModal = function(modalId) {
