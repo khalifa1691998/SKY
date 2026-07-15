@@ -945,6 +945,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   #tab-dashboard .dashboard-filter-panel > .grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* Native-browser dialog replacement: every system message stays inside the application shell. */
+.system-dialog {
+  background: rgba(10, 12, 16, .60);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: system-dialog-fade .16s ease-out both;
+}
+.system-dialog-card {
+  border: 1px solid rgba(15, 23, 42, .10);
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+  text-align: right;
+  animation: system-dialog-card-in .2s var(--sky-ease) both;
+}
+.dark .system-dialog-card { border-color: rgba(255,255,255,.10); background: #1b1d21; box-shadow: 0 26px 72px rgba(0,0,0,.46); }
+.system-dialog-icon { display: grid; place-items: center; width: 2.8rem; height: 2.8rem; margin-bottom: .9rem; border-radius: 12px; background: rgba(148, 163, 184, .11); }
+.system-dialog-title { margin: 0 0 .45rem; color: var(--sky-ink); font-size: 1.05rem; font-weight: 800; }
+.system-dialog-message { margin: 0 0 1.25rem; color: var(--sky-muted); font-size: .83rem; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; }
+.system-dialog-button, .system-dialog-cancel {
+  min-height: 2.55rem;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 1.15rem;
+  color: #fff;
+  font: 750 .8rem var(--sky-font-sans);
+  transition: transform .16s var(--sky-ease), filter .16s var(--sky-ease);
+}
+.system-dialog-button { width: 100%; background: var(--sky-brand); }
+.system-dialog-button:hover, .system-dialog-cancel:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.system-dialog-input { margin-bottom: 1rem; }
+.system-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+.system-dialog-actions .system-dialog-button { width: auto; }
+.system-dialog-cancel { background: #eef2f7; color: #475467; }
+.dark .system-dialog-cancel { background: #2a2d33; color: #d0d5dd; }
+@keyframes system-dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes system-dialog-card-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 639px) {
+  .system-dialog { align-items: flex-end; }
+  .system-dialog-card { margin-bottom: env(safe-area-inset-bottom); border-radius: 16px; }
+}
+
 /* Phase 1 refinement: a single neutral dark shell, with blue reserved for intent. */
 .dark {
   --sky-canvas: #111214;

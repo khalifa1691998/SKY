@@ -218,9 +218,8 @@ function customConfirm(message, title) {
     const cancelBtn = document.getElementById('custom-confirm-cancel-btn');
 
     if (!modal || !msgEl || !okBtn || !cancelBtn) {
-      // شبكة أمان: لو حصل أي خطأ غير متوقع في تحميل عناصر المودال، نرجع
-      // للسلوك الافتراضي بدل ما نوقف العملية بالكامل
-      resolve(window.confirm(message));
+      showSystemAlert(message, 'تعذر فتح نافذة التأكيد');
+      resolve(false);
       return;
     }
 
@@ -232,16 +231,129 @@ function customConfirm(message, title) {
       modal.classList.add('hidden');
       okBtn.removeEventListener('click', onOk);
       cancelBtn.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKeydown, true);
       resolve(result);
     }
     function onOk() { cleanup(true); }
     function onCancel() { cleanup(false); }
+    function onKeydown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cleanup(false);
+      }
+    }
 
     okBtn.addEventListener('click', onOk);
     cancelBtn.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKeydown, true);
   });
 }
 window.customConfirm = customConfirm;
+
+// ================= SYSTEM DIALOGS =================
+// بديل موحّد لأي alert / prompt من المتصفح، حتى تبقى كل الرسائل داخل هوية النظام.
+function showSystemAlert(message, title) {
+  document.getElementById('system-alert-dialog')?.remove();
+  const text = String(message || '');
+  const isError = /❌|⛔|فشل|خطأ|تعذر/.test(text);
+  const isWarning = !isError && /⚠️|تحذير|يرجى|لا توجد/.test(text);
+  const accent = isError ? '#f43f5e' : isWarning ? '#f59e0b' : '#8b7cf6';
+  const icon = isError ? 'ph-x-circle' : isWarning ? 'ph-warning-circle' : 'ph-info';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'system-alert-dialog';
+  overlay.className = 'system-dialog fixed inset-0 z-[10000] flex items-center justify-center p-4';
+  const card = document.createElement('section');
+  card.className = 'system-dialog-card w-full max-w-md rounded-2xl p-5 sm:p-6';
+  card.setAttribute('role', 'alertdialog');
+  card.setAttribute('aria-modal', 'true');
+  const iconEl = document.createElement('div');
+  iconEl.className = 'system-dialog-icon';
+  iconEl.style.color = accent;
+  iconEl.innerHTML = `<i class="ph ${icon} text-2xl"></i>`;
+  const titleEl = document.createElement('h3');
+  titleEl.className = 'system-dialog-title';
+  titleEl.textContent = title || (isError ? 'تعذر إتمام العملية' : isWarning ? 'تنبيه' : 'رسالة من النظام');
+  const messageEl = document.createElement('p');
+  messageEl.className = 'system-dialog-message';
+  messageEl.textContent = text;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'system-dialog-button';
+  button.textContent = 'حسناً';
+  button.style.background = accent;
+  const close = () => {
+    document.removeEventListener('keydown', onKeydown, true);
+    overlay.remove();
+  };
+  const onKeydown = (event) => {
+    if (event.key === 'Escape' || event.key === 'Enter') {
+      event.preventDefault();
+      close();
+    }
+  };
+  button.addEventListener('click', close);
+  overlay.addEventListener('click', (event) => { if (event.target === overlay) close(); });
+  card.append(iconEl, titleEl, messageEl, button);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  document.addEventListener('keydown', onKeydown, true);
+  requestAnimationFrame(() => button.focus());
+}
+
+function customPrompt(message, defaultValue = '', title = 'أدخل البيانات المطلوبة') {
+  return new Promise((resolve) => {
+    document.getElementById('system-prompt-dialog')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'system-prompt-dialog';
+    overlay.className = 'system-dialog fixed inset-0 z-[10000] flex items-center justify-center p-4';
+    const card = document.createElement('section');
+    card.className = 'system-dialog-card w-full max-w-md rounded-2xl p-5 sm:p-6';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    const heading = document.createElement('h3');
+    heading.className = 'system-dialog-title';
+    heading.textContent = title;
+    const description = document.createElement('p');
+    description.className = 'system-dialog-message';
+    description.textContent = message;
+    const input = document.createElement('input');
+    input.className = 'form-input system-dialog-input';
+    input.value = defaultValue;
+    const actions = document.createElement('div');
+    actions.className = 'system-dialog-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'system-dialog-cancel';
+    cancel.textContent = 'إلغاء';
+    const confirm = document.createElement('button');
+    confirm.type = 'button';
+    confirm.className = 'system-dialog-button';
+    confirm.textContent = 'تأكيد';
+    const cleanup = (value) => {
+      document.removeEventListener('keydown', onKeydown, true);
+      overlay.remove();
+      resolve(value);
+    };
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); cleanup(null); }
+      if (event.key === 'Enter') { event.preventDefault(); cleanup(input.value); }
+    };
+    cancel.addEventListener('click', () => cleanup(null));
+    confirm.addEventListener('click', () => cleanup(input.value));
+    overlay.addEventListener('click', (event) => { if (event.target === overlay) cleanup(null); });
+    actions.append(cancel, confirm);
+    card.append(heading, description, input, actions);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', onKeydown, true);
+    requestAnimationFrame(() => input.focus());
+  });
+}
+
+window.showSystemAlert = showSystemAlert;
+window.customPrompt = customPrompt;
+window.alert = (message) => showSystemAlert(message);
 
 // ================= أمان العرض: تعقيم أي نص قبل حقنه في innerHTML =================
 // أي بيانات كتبها مستخدم (اسم عميل، ملاحظة، اسم مورد، اسم محصل...) لازم تمر
@@ -2431,7 +2543,7 @@ function computeWarrantyExpiry(dev) {
 window.sendDeviceToMaintenance = async function(deviceId) {
   const dev = db.inventory.find(d => d.id === deviceId);
   if (!dev || dev.status !== 'available') return;
-  const reason = window.prompt('سبب إرسال القطعة للصيانة (اختياري):', '') || '';
+  const reason = (await customPrompt('سبب إرسال القطعة للصيانة (اختياري):', '', 'إرسال قطعة للصيانة')) || '';
 
   dev.status = 'maintenance';
   addDeviceHistory(dev, 'إرسال للصيانة', reason);
@@ -2476,7 +2588,7 @@ window.returnDeviceToStockFromClient = async function(deviceId) {
   );
   if (!confirmed) return;
 
-  const reason = window.prompt('سبب الاسترجاع:', '') || '';
+  const reason = (await customPrompt('سبب الاسترجاع:', '', 'استرجاع قطعة من العميل')) || '';
   const previousOwner = dev.soldTo;
   dev.status = 'available';
   dev.soldTo = '';
@@ -2499,7 +2611,7 @@ window.returnDeviceToSupplier = async function(deviceId) {
     alert('⛔ إرجاع القطع للموردين مخصص للمشرف (ADMIN) فقط.');
     return;
   }
-  const reason = window.prompt('سبب إرجاع القطعة للمورد (مثال: عيب مصنعي):', '') || '';
+  const reason = (await customPrompt('سبب إرجاع القطعة للمورد (مثال: عيب مصنعي):', '', 'إرجاع قطعة للمورد')) || '';
   const refund = await customConfirm(`هل استرد المورد قيمة القطعة (${dev.costPrice.toLocaleString()} ج.م) نقداً في الخزينة؟`, 'استرداد قيمة القطعة');
 
   if (refund) {
@@ -5670,6 +5782,7 @@ window.closeModal = function(modalId) {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  if (document.getElementById('system-alert-dialog') || document.getElementById('system-prompt-dialog')) return;
   const notificationsPanel = document.getElementById('notifications-panel');
   if (notificationsPanel) {
     event.preventDefault();
@@ -5685,6 +5798,7 @@ document.addEventListener('keydown', (event) => {
       return bZ - aZ;
     })[0];
   if (openModal) {
+    if (openModal.id === 'custom-confirm-modal') return;
     event.preventDefault();
     event.stopPropagation();
     closeModal(openModal.id);
