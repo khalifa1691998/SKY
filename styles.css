@@ -879,6 +879,49 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   #sidebar-menu { padding-top: 1.1rem !important; }
 }
 
+/* Stability pass: the desktop shell owns one scroll region; the sidebar never recalculates sticky position. */
+@media (min-width: 769px) {
+  #app-wrapper { align-items: stretch; }
+  #app-sidebar {
+    position: relative !important;
+    top: auto !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    flex: 0 0 18.5rem;
+    overflow: hidden;
+  }
+  .sidebar-collapsed #app-sidebar { flex-basis: 5.25rem; }
+  #sidebar-menu { min-height: 0; }
+}
+
+/* Hover gives feedback without shifting the sidebar's scroll geometry. */
+#sidebar-menu a:hover { transform: none; }
+#sidebar-menu a:hover i { transform: none; }
+
+/* Dashboard period selector: clear presets and a stack that remains legible on phones. */
+.dashboard-filter-presets { display: flex; flex-wrap: wrap; gap: .45rem; }
+.dashboard-filter-presets button {
+  min-height: 2rem;
+  padding: 0 .68rem;
+  border: 1px solid var(--sky-line);
+  border-radius: 999px;
+  background: var(--sky-surface-strong);
+  color: var(--sky-muted);
+  font: 700 .69rem var(--sky-font-sans);
+  transition: color .16s var(--sky-ease), border-color .16s var(--sky-ease), background-color .16s var(--sky-ease);
+}
+.dashboard-filter-presets button:hover { color: var(--sky-brand-strong); border-color: var(--sky-brand); background: var(--sky-brand-soft); }
+.dark .dashboard-filter-presets button { background: #202227; }
+
+@media (max-width: 639px) {
+  #tab-dashboard .dashboard-filter-panel > .grid { grid-template-columns: 1fr !important; }
+  #tab-dashboard .dashboard-filter-panel > .grid > div { width: 100%; }
+  .dashboard-filter-presets { padding-top: .1rem; }
+  .dashboard-filter-presets button { flex: 1 1 0; justify-content: center; }
+  #tab-dashboard .dashboard-filter-panel > .flex:last-child { display: grid; grid-template-columns: 1fr 1fr; }
+  #tab-dashboard .dashboard-filter-panel > .flex:last-child #dashboard-filter-active-label { grid-column: 1 / -1; }
+}
+
 /* Phase 1 refinement: a single neutral dark shell, with blue reserved for intent. */
 .dark {
   --sky-canvas: #111214;

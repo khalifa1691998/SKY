@@ -1229,13 +1229,14 @@ function renderActiveTab(tabName) {
 }
 
 function renderAllTabs() {
-  const activeTabBtn = document.querySelector('#sidebar-menu a.bg-teal-600');
+  const activeTabBtn = document.querySelector('#sidebar-menu a.nav-link-active');
   if (activeTabBtn) {
     const tabName = activeTabBtn.getAttribute('data-tab');
     renderActiveTab(tabName);
   }
   // تحديث القوائم المنسدلة في نماذج الإضافة دائماً عند وصول بيانات جديدة
   populateDropdowns();
+  updateNotificationBell();
 }
 
 
@@ -1269,6 +1270,22 @@ window.applyDashboardDateFilter = function() {
     alert('⚠️ تاريخ "من" لازم يكون قبل تاريخ "إلى".');
     return;
   }
+  renderDashboard();
+};
+
+window.setDashboardDateRange = function(range) {
+  const toLocalDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const today = new Date();
+  const from = new Date(today);
+  if (range === 'week') from.setDate(today.getDate() - 6);
+  if (range === 'month') from.setDate(1);
+  document.getElementById('dashboard-filter-from').value = toLocalDateKey(from);
+  document.getElementById('dashboard-filter-to').value = toLocalDateKey(today);
   renderDashboard();
 };
 
@@ -1538,10 +1555,13 @@ function getSystemNotifications() {
 
 function updateNotificationBell() {
   const dot = document.getElementById('notif-bell-dot');
+  const btn = document.getElementById('notif-bell-btn');
   if (!dot || !isAdmin()) return;
   const n = getSystemNotifications();
   const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue;
   dot.classList.toggle('hidden', !hasAny);
+  const itemCount = [n.overdue, n.dueToday, n.dueSoon, n.lowStock, n.pendingCustody, n.backupDue].filter(Boolean).length;
+  if (btn) btn.setAttribute('aria-label', hasAny ? `لديك ${itemCount} تنبيهات تحتاج للمراجعة` : 'لا توجد تنبيهات جديدة');
 
   // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
   const panel = document.getElementById('notifications-panel');
@@ -1560,11 +1580,12 @@ window.toggleNotificationsPanel = function() {
   }
 
   const btn = document.getElementById('notif-bell-btn');
+  if (!btn) return;
   const rect = btn.getBoundingClientRect();
   const panel = document.createElement('div');
   panel.id = 'notifications-panel';
-  panel.className = 'fixed w-80 max-w-[90vw] bg-white dark:bg-skyDark-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-skyDark-700 z-[9999] p-4 space-y-3';
-  panel.style.top = `${rect.bottom + 8}px`;
+  panel.className = 'fixed w-80 max-w-[90vw] max-h-[calc(100dvh-1rem)] overflow-y-auto bg-white dark:bg-skyDark-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-skyDark-700 z-[9999] p-4 space-y-3';
+  panel.style.top = `${window.innerWidth < 640 ? 8 : rect.bottom + 8}px`;
   // نحسب أقرب موقع يخلي النافذة كاملة ظاهرة جوه الشاشة (بدل ما تخرج برّه يمين/شمال)
   const panelWidth = Math.min(320, window.innerWidth * 0.9);
   let leftPos = rect.right - panelWidth;
@@ -1602,7 +1623,7 @@ function renderNotificationsPanel(panel) {
         <p class="text-sm text-amber-600 dark:text-amber-400 mt-0.5">عدد ${n.dueToday.totalCount} قسط، بإجمالي ${n.dueToday.totalDueAmount.toLocaleString()} ج.م</p>
         <div class="flex gap-2 mt-2">
           <button onclick="sendTodayDueRemindersInBulk()" class="flex-1 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold">إرسال تنبيهات جماعية</button>
-          <button onclick="viewTodayDueDetails()" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">عرض التفاصيل</button>
+          <button onclick="switchTab('today-reminders'); toggleNotificationsPanel();" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">عرض التفاصيل</button>
         </div>
       </div>`);
   }
@@ -5649,6 +5670,13 @@ window.closeModal = function(modalId) {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  const notificationsPanel = document.getElementById('notifications-panel');
+  if (notificationsPanel) {
+    event.preventDefault();
+    event.stopPropagation();
+    notificationsPanel.remove();
+    return;
+  }
   const openModal = [...document.querySelectorAll('[id$="-modal"]')]
     .filter(modal => !modal.classList.contains('hidden') && modal.getClientRects().length)
     .sort((a, b) => {
@@ -8248,9 +8276,9 @@ window.switchTab = function(tabName) {
   
   document.querySelectorAll('#sidebar-menu a').forEach(b => {
     if (b.getAttribute('data-tab') === tabName) {
-      b.className = 'nav-link nav-link-active flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 active-tab-btn';
+      b.className = 'nav-link nav-link-active flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-colors duration-200 active-tab-btn';
     } else {
-      b.className = 'flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200';
+      b.className = 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-colors duration-200';
     }
   });
 
@@ -8506,12 +8534,12 @@ function renderTodayReminders() {
       <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-teal-400 truncate">${stats.totalDueAmount.toLocaleString()} ج.م</h4>
     </div>
     <div class="bg-rose-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
-      <p class="text-[10px] sm:text-xs text-rose-200 font-semibold truncate">متأخرة</p>
+      <p class="text-[10px] sm:text-xs text-rose-200 font-semibold truncate">الأقساط المتأخرة</p>
       <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-rose-300 truncate">${stats.overdueCount}</h4>
     </div>
     <div class="bg-emerald-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
-      <p class="text-[10px] sm:text-xs text-emerald-200 font-semibold truncate">قيد الاستحقاق</p>
-      <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-emerald-300 truncate">${stats.pendingCount}</h4>
+      <p class="text-[10px] sm:text-xs text-emerald-200 font-semibold truncate">إجمالي المتأخرات</p>
+      <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-emerald-300 truncate">${stats.overdueDueAmount.toLocaleString()} ج.م</h4>
     </div>
   `;
   
@@ -8521,7 +8549,7 @@ function renderTodayReminders() {
   
   if (!tbody) return;
   
-  if (stats.totalCount === 0) {
+  if (stats.installments.length === 0) {
     tbody.innerHTML = '';
     if (emptyState) emptyState.classList.remove('hidden');
   } else {
@@ -8552,5 +8580,4 @@ function renderTodayReminders() {
     }).join('');
   }
   
-  logAction('عرض تنبيهات اليوم', `عرض ${stats.totalCount} قسط مستحق اليوم`);
 }

@@ -340,6 +340,11 @@
               <input type="date" id="dashboard-filter-to" class="form-input text-xs sm:text-sm py-1.5 w-full">
             </div>
           </div>
+          <div class="dashboard-filter-presets" aria-label="اختصارات فترة التقرير">
+            <button type="button" onclick="setDashboardDateRange('today')">اليوم</button>
+            <button type="button" onclick="setDashboardDateRange('week')">آخر 7 أيام</button>
+            <button type="button" onclick="setDashboardDateRange('month')">هذا الشهر</button>
+          </div>
           <div class="flex flex-wrap items-center gap-2 sm:gap-3">
             <button onclick="applyDashboardDateFilter()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs sm:text-sm font-semibold">تطبيق</button>
             <button onclick="resetDashboardDateFilter()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs sm:text-sm font-semibold">كل الفترة</button>

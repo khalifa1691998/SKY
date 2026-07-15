@@ -7,14 +7,21 @@
  */
 
 // ================= حساب الأقساط المستحقة اليوم =================
+function getLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /**
- * الحصول على الأقساط المستحقة اليوم
+ * الحصول على الأقساط المستحقة اليوم وفق توقيت جهاز المستخدم المحلي.
  */
 function getTodayDueInstallments() {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const today = getLocalDateKey();
   
   const todayInstallments = db.installments.filter(inst => {
-    return inst.dueDate === today && inst.status !== 'paid';
+    return (inst.dueDate || '').substring(0, 10) === today && inst.status !== 'paid';
   });
   
   return todayInstallments;
@@ -25,19 +32,26 @@ function getTodayDueInstallments() {
  */
 function getTodayDueStats() {
   const todayInstallments = getTodayDueInstallments();
+  const today = getLocalDateKey();
+  const overdueInstallments = db.installments.filter(inst => {
+    const dueDate = (inst.dueDate || '').substring(0, 10);
+    return inst.status !== 'paid' && dueDate && dueDate < today;
+  });
   
   const totalDueAmount = todayInstallments.reduce((sum, inst) => sum + safeNum(inst.amount), 0);
-  const overdueCount = todayInstallments.filter(inst => {
+  const overdueDueAmount = overdueInstallments.reduce((sum, inst) => {
     const status = getInstallmentOverdueStatus(inst);
-    return status.overdueDays > 0;
-  }).length;
+    return sum + status.totalDue;
+  }, 0);
   
   return {
     totalCount: todayInstallments.length,
     totalDueAmount,
-    overdueCount,
-    pendingCount: todayInstallments.length - overdueCount,
-    installments: todayInstallments
+    overdueCount: overdueInstallments.length,
+    overdueDueAmount,
+    pendingCount: todayInstallments.length,
+    installments: [...overdueInstallments, ...todayInstallments],
+    todayInstallments
   };
 }
 
@@ -480,7 +494,7 @@ window.viewTodayDueDetails = function() {
 function initializeDailyReminders() {
   // التحقق من آخر مرة تم فيها عرض التنبيه اليوم
   const lastReminderDate = localStorage.getItem('lastDailyReminderDate');
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
   
   if (lastReminderDate !== today) {
     // عرض التنبيه الصباحي
