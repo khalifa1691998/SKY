@@ -8197,6 +8197,15 @@ window.switchTab = function(tabName) {
   if (currentUser && !isTabAllowedForCurrentUser(tabName)) {
     tabName = currentUser.role === 'COLLECTOR' ? 'collections' : 'dashboard';
   }
+  const tabLabels = {
+    dashboard: 'لوحة القيادة', clients: 'العملاء والضامنين', 'client-balances': 'أرصدة العملاء',
+    inventory: 'المخزون والأجهزة', suppliers: 'الموردون', products: 'الأصناف والمنتجات',
+    contracts: 'العقود والمبيعات', collections: 'التحصيلات', treasury: 'الخزينة',
+    investors: 'المستثمرون ورأس المال', expenses: 'المصروفات', 'today-reminders': 'تنبيهات اليوم',
+    reports: 'التقارير', users: 'إدارة المستخدمين', 'audit-log': 'سجل العمليات', settings: 'إعدادات النظام'
+  };
+  const headerActivePage = document.getElementById('header-active-page');
+  if (headerActivePage) headerActivePage.textContent = tabLabels[tabName] || 'مساحة العمل';
   
   document.querySelectorAll('#sidebar-menu a').forEach(b => {
     if (b.getAttribute('data-tab') === tabName) {
@@ -8265,6 +8274,21 @@ window.closeMobileSidebar = closeMobileSidebar;
 // ================= DARK MODE TOGGLE =================
 const themeToggleBtn = document.getElementById('theme-toggle-btn');
 const themeToggleIcon = document.getElementById('theme-toggle-icon');
+
+const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
+if (sidebarCollapseBtn) {
+  const sidebarCollapsed = localStorage.getItem('sky_erp_sidebar_collapsed') === 'true';
+  document.documentElement.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+  sidebarCollapseBtn.addEventListener('click', () => {
+    const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sky_erp_sidebar_collapsed', String(collapsed));
+  });
+}
+
+const headerCurrentDate = document.getElementById('header-current-date');
+if (headerCurrentDate) {
+  headerCurrentDate.textContent = new Intl.DateTimeFormat('ar-EG', { weekday: 'short', day: 'numeric', month: 'long' }).format(new Date());
+}
 
 function updateThemeIcon(isDark) {
   if (isDark) {

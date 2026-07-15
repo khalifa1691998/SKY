@@ -878,3 +878,56 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   main > header h2::before { display: none; }
   #sidebar-menu { padding-top: 1.1rem !important; }
 }
+
+/* Phase 1 refinement: a single neutral dark shell, with blue reserved for intent. */
+.dark {
+  --sky-canvas: #111214;
+  --sky-surface: rgba(25, 27, 31, .94);
+  --sky-surface-strong: #202228;
+  --sky-line: rgba(255, 255, 255, .085);
+  --sky-ink: #f3f4f6;
+  --sky-muted: #9ca3af;
+  --sky-brand: #71a8ff;
+  --sky-brand-strong: #9cc4ff;
+  --sky-brand-soft: rgba(64, 119, 220, .18);
+}
+.dark body, .dark #app-wrapper, .dark main { background: var(--sky-canvas) !important; }
+.dark #app-sidebar {
+  background: #191b1f !important;
+  border-left-color: var(--sky-line) !important;
+  box-shadow: -14px 0 40px rgba(0, 0, 0, .16) !important;
+}
+.dark #app-sidebar > :last-child { background: #1d1f24 !important; }
+.dark #sidebar-menu a { color: #a7afbd !important; }
+.dark #sidebar-menu a i { color: #7c8799; }
+.dark #sidebar-menu a:hover { background: #24272e !important; color: #f5f7fa !important; }
+.dark #sidebar-menu a.nav-link-active,
+.dark #sidebar-menu a.active-tab-btn { background: rgba(63, 112, 204, .22) !important; border-color: rgba(113, 168, 255, .18) !important; color: #b8d3ff !important; }
+.dark main > header { background: rgba(25, 27, 31, .92) !important; }
+.dark #global-search-btn, .dark #theme-toggle-btn, .dark #notif-bell-btn { background: #202228 !important; color: #aeb7c6 !important; }
+
+/* Header information hierarchy */
+.header-intro { min-width: 0; }
+.header-breadcrumb { display: flex; align-items: center; gap: .38rem; margin-bottom: .3rem; color: var(--sky-muted); font-size: .7rem; font-weight: 650; }
+.header-breadcrumb i { font-size: .65rem; opacity: .65; }
+.header-breadcrumb strong { color: var(--sky-brand); font-weight: 800; }
+main > header h2::before { display: none; }
+.header-current-date { align-items: center; min-height: 2.5rem; padding: 0 .75rem; border: 1px solid var(--sky-line); border-radius: 11px; color: var(--sky-muted); background: var(--sky-surface-strong); font-size: .72rem; font-weight: 700; white-space: nowrap; }
+
+/* Collapsed desktop state retains every navigable item and its accessible name. */
+@media (min-width: 768px) {
+  #app-sidebar { transition: width .28s var(--sky-ease), box-shadow .28s var(--sky-ease); }
+  .sidebar-collapsed #app-sidebar { width: 5.25rem !important; }
+  .sidebar-collapsed #app-sidebar #company-name-display,
+  .sidebar-collapsed #app-sidebar #company-name-display + p,
+  .sidebar-collapsed #sidebar-menu a span,
+  .sidebar-collapsed #app-sidebar > :last-child p,
+  .sidebar-collapsed #logout-btn span { display: none; }
+  .sidebar-collapsed #app-sidebar > :first-child { justify-content: center; }
+  .sidebar-collapsed #app-sidebar > :first-child > div { display: none; }
+  .sidebar-collapsed #sidebar-menu { padding-inline: .6rem !important; }
+  .sidebar-collapsed #sidebar-menu a { justify-content: center; padding-inline: .5rem !important; }
+  .sidebar-collapsed #sidebar-menu a::before, .sidebar-collapsed #sidebar-menu a::after { display: none; }
+  .sidebar-collapsed #app-sidebar > :last-child > div:first-child { justify-content: center; }
+  .sidebar-collapsed #logout-btn { padding-inline: .4rem !important; }
+}

@@ -179,7 +179,10 @@
           <p class="text-[10px] md:text-xs text-slate-500 dark:text-slate-400">نظام إدارة الأقساط والخزينة</p>
         </div>
       </div>
-      <button class="text-slate-400 hover:text-slate-900 dark:hover:text-white" onclick="closeMobileSidebar()" title="إغلاق القائمة">
+      <button id="sidebar-collapse-btn" class="hidden md:inline-flex text-slate-400 hover:text-slate-900 dark:hover:text-white" type="button" title="طي القائمة الجانبية" aria-label="طي القائمة الجانبية">
+        <i class="ph ph-sidebar-simple text-xl"></i>
+      </button>
+      <button class="md:hidden text-slate-400 hover:text-slate-900 dark:hover:text-white" onclick="closeMobileSidebar()" title="إغلاق القائمة">
         <i class="ph ph-x text-xl"></i>
       </button>
     </div>
@@ -274,13 +277,15 @@
   <main class="flex-1 flex flex-col min-w-0 overflow-y-auto dark:bg-skyDark-950 transition-colors duration-300 pt-14 md:pt-0" style="-webkit-overflow-scrolling: touch; overflow-x: hidden;">
     <!-- Top Header -->
     <header class="p-4 md:p-6 bg-white dark:bg-skyDark-900 border-b border-slate-100 dark:border-skyDark-800 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 transition-colors duration-300">
-      <div>
+      <div class="header-intro">
+        <div class="header-breadcrumb" aria-label="مسار الصفحة"><span>مساحة العمل</span><i class="ph ph-caret-left"></i><strong id="header-active-page">لوحة القيادة</strong></div>
         <h2 class="text-lg md:text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
           أهلاً بك، <span id="header-username">...</span> 👋
         </h2>
         <p id="header-company-subtitle" class="hidden md:block text-sm text-slate-500 dark:text-slate-400 mt-1">تتابع الآن لوحة التحكم المالية الموحدة والرقابة الإدارية الذكية لمبيعات التقسيط وحسابات الأمانة لدى شركة SKY.</p>
       </div>
       <div class="flex items-center gap-2 md:gap-3 overflow-x-auto md:flex-wrap no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+        <span id="header-current-date" class="header-current-date hidden lg:inline-flex"></span>
         <button id="global-search-btn" onclick="openGlobalSearch()" class="shrink-0 p-2 rounded-xl bg-slate-100 dark:bg-skyDark-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-skyDark-700 transition-colors" title="بحث شامل (عملاء، عقود، أجهزة)">
           <i class="ph ph-magnifying-glass text-lg"></i>
         </button>
