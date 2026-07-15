@@ -931,3 +931,116 @@ main > header h2::before { display: none; }
   .sidebar-collapsed #app-sidebar > :last-child > div:first-child { justify-content: center; }
   .sidebar-collapsed #logout-btn { padding-inline: .4rem !important; }
 }
+
+/* ========================================================================
+   PHASE 2 — EXECUTIVE DASHBOARD
+   Scoped to the dashboard: data structures and other application pages stay intact.
+   ======================================================================== */
+#tab-dashboard { --dashboard-card: var(--sky-surface-strong); }
+.dashboard-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: clamp(1.25rem, 2.6vw, 2.1rem);
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(37, 99, 235, .18);
+  border-radius: var(--sky-radius-lg);
+  background: linear-gradient(120deg, #1d4ed8 0%, #2563eb 46%, #4f46e5 100%);
+  box-shadow: 0 18px 42px rgba(37, 99, 235, .19);
+  color: white;
+}
+.dashboard-hero::after {
+  content: '';
+  position: absolute;
+  width: 19rem;
+  height: 19rem;
+  left: -4rem;
+  bottom: -12rem;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 50%;
+  box-shadow: 0 0 0 32px rgba(255, 255, 255, .045), 0 0 0 64px rgba(255, 255, 255, .03);
+  pointer-events: none;
+}
+.dashboard-hero-copy, .dashboard-quick-actions { position: relative; z-index: 1; }
+.dashboard-eyebrow { display: inline-flex; align-items: center; gap: .35rem; font-size: .71rem; font-weight: 800; color: rgba(255,255,255,.78); }
+.dashboard-hero h1 { margin: .45rem 0; font-size: clamp(1.35rem, 2.4vw, 2rem); font-weight: 800; letter-spacing: -.03em; }
+.dashboard-hero h1 span { color: #dbeafe; }
+.dashboard-hero p { max-width: 36rem; margin: 0; color: rgba(255,255,255,.78); font-size: .82rem; }
+.dashboard-quick-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .55rem; }
+.dashboard-quick-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 2.55rem;
+  padding: 0 .8rem;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .13);
+  color: white;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 750;
+  backdrop-filter: blur(10px);
+  transition: background .18s var(--sky-ease), transform .18s var(--sky-ease), border-color .18s var(--sky-ease);
+}
+.dashboard-quick-actions button:hover { background: rgba(255, 255, 255, .23); border-color: rgba(255,255,255,.45); transform: translateY(-2px); }
+
+#tab-dashboard .dashboard-filter-panel {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1rem !important;
+  border: 1px solid var(--sky-line);
+  box-shadow: var(--sky-shadow-xs);
+}
+#tab-dashboard .dashboard-filter-panel > div:first-child { flex: 1; }
+#tab-dashboard .dashboard-filter-panel .form-input { min-height: 2.5rem; border-radius: 9px; }
+#tab-dashboard .dashboard-filter-panel button:first-child { border-radius: 9px; background: var(--sky-brand) !important; }
+
+#tab-dashboard .dashboard-kpis > .glass-card {
+  min-height: 10.2rem;
+  padding: 1.1rem !important;
+  border: 1px solid var(--sky-line);
+  background: var(--dashboard-card);
+  box-shadow: var(--sky-shadow-xs);
+  transition: transform .22s var(--sky-ease), box-shadow .22s var(--sky-ease), border-color .22s var(--sky-ease) !important;
+}
+#tab-dashboard .dashboard-kpis > .glass-card:hover { transform: translateY(-4px) !important; border-color: rgba(37, 99, 235, .22); box-shadow: var(--sky-shadow-sm); }
+#tab-dashboard .dashboard-kpis h3 { color: var(--sky-ink) !important; letter-spacing: -.035em; font-size: clamp(1.1rem, 1.5vw, 1.5rem) !important; }
+#tab-dashboard .dashboard-kpis p { color: var(--sky-muted) !important; font-weight: 700 !important; }
+#tab-dashboard .dashboard-kpis > .glass-card > div > div:last-child { margin-top: 1.15rem !important; }
+#tab-dashboard .dashboard-kpis .bg-emerald-50, #tab-dashboard .dashboard-kpis .bg-teal-50, #tab-dashboard .dashboard-kpis .bg-blue-50, #tab-dashboard .dashboard-kpis .bg-rose-50, #tab-dashboard .dashboard-kpis .bg-amber-50, #tab-dashboard .dashboard-kpis .bg-sky-50, #tab-dashboard .dashboard-kpis .bg-red-50, #tab-dashboard .dashboard-kpis .bg-orange-50 { border-radius: 12px !important; }
+#tab-dashboard #kpi-net-profit { color: #10b981 !important; }
+#tab-dashboard #kpi-overdue-container { border-color: var(--sky-line) !important; }
+#tab-dashboard .dashboard-chart-panel, #tab-dashboard .dashboard-activity-panel {
+  border: 1px solid var(--sky-line);
+  background: var(--dashboard-card);
+  box-shadow: var(--sky-shadow-xs);
+}
+#tab-dashboard .dashboard-chart-panel h3, #tab-dashboard .dashboard-activity-panel h3 { color: var(--sky-ink) !important; }
+#tab-dashboard .dashboard-chart-panel { min-height: 25rem; }
+#tab-dashboard .dashboard-activity-panel { min-height: 25rem; }
+#tab-dashboard #dashboard-audit-timeline { padding-left: .25rem; }
+#tab-dashboard .timeline-item::after { background: var(--sky-line); }
+#tab-dashboard .timeline-item { padding-bottom: 1.05rem; }
+
+.dark #tab-dashboard .dashboard-kpis > .glass-card,
+.dark #tab-dashboard .dashboard-chart-panel,
+.dark #tab-dashboard .dashboard-activity-panel,
+.dark #tab-dashboard .dashboard-filter-panel { background: #1b1d21 !important; }
+.dark #tab-dashboard .dashboard-kpis .bg-emerald-50 { background-color: rgba(16,185,129,.14) !important; }
+.dark #tab-dashboard .dashboard-kpis .bg-teal-50, .dark #tab-dashboard .dashboard-kpis .bg-blue-50, .dark #tab-dashboard .dashboard-kpis .bg-sky-50 { background-color: rgba(59,130,246,.14) !important; }
+.dark #tab-dashboard .dashboard-kpis .bg-rose-50, .dark #tab-dashboard .dashboard-kpis .bg-red-50 { background-color: rgba(244,63,94,.14) !important; }
+.dark #tab-dashboard .dashboard-kpis .bg-amber-50, .dark #tab-dashboard .dashboard-kpis .bg-orange-50 { background-color: rgba(245,158,11,.14) !important; }
+
+@media (max-width: 767px) {
+  .dashboard-hero { align-items: flex-start; flex-direction: column; }
+  .dashboard-quick-actions { justify-content: flex-start; width: 100%; }
+  .dashboard-quick-actions button { flex: 1; justify-content: center; }
+  #tab-dashboard .dashboard-filter-panel { display: block; }
+  #tab-dashboard .dashboard-kpis > .glass-card { min-height: 8.7rem; }
+  #tab-dashboard .dashboard-chart-panel, #tab-dashboard .dashboard-activity-panel { min-height: 20rem; }
+}

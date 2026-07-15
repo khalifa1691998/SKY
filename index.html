@@ -314,10 +314,22 @@
 
       <!-- ================= TAB: DASHBOARD ================= -->
       <section id="tab-dashboard" class="space-y-6">
+        <div class="dashboard-hero">
+          <div class="dashboard-hero-copy">
+            <span class="dashboard-eyebrow"><i class="ph ph-sparkle"></i> نظرة تنفيذية</span>
+            <h1>صباح الخير، <span id="dashboard-username">فريق SKY</span></h1>
+            <p>تابع السيولة والتحصيلات ومؤشرات التشغيل من مساحة واحدة واضحة.</p>
+          </div>
+          <div class="dashboard-quick-actions" aria-label="إجراءات سريعة">
+            <button type="button" onclick="openAddClientModal()"><i class="ph ph-user-plus"></i><span>عميل جديد</span></button>
+            <button type="button" onclick="openAddContractModal()"><i class="ph ph-file-plus"></i><span>عقد جديد</span></button>
+            <button type="button" onclick="switchTab('collections')"><i class="ph ph-hand-coins"></i><span>التحصيلات</span></button>
+          </div>
+        </div>
         <!-- فلتر فترة الداشبورد: بيأثر بس على مؤشرات "النشاط" (مبيعات، تحصيلات،
              مصروفات، صافي ربح)، أما رصيد الخزينة والمخزون والمستحقات فهي
              "حالة حالية" مش مرتبطة بفترة زمنية فبتفضل كل الوقت زي ما هي -->
-        <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-3">
+        <div class="glass-card dashboard-filter-panel rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-3">
           <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
             <div class="min-w-0">
               <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1">من تاريخ</label>
@@ -336,7 +348,7 @@
         </div>
 
         <!-- KPI Cards Grid (9 metrics, 3x3 balanced grid) -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-4">
+        <div class="dashboard-kpis grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-4">
           <!-- 1. Available Treasury Balance -->
           <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 relative overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
@@ -503,7 +515,7 @@
         <!-- Dashboard Bottom Split Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-10 gap-6">
           <!-- Right Side: Chart (60% width) -->
-          <div class="lg:col-span-6 glass-card rounded-2xl p-4 sm:p-6 flex flex-col">
+          <div class="dashboard-chart-panel lg:col-span-6 glass-card rounded-2xl p-4 sm:p-6 flex flex-col">
             <div class="flex items-center justify-between mb-4 sm:mb-6">
               <h3 class="font-bold text-slate-800 text-sm sm:text-lg">التمثيل البياني للمبيعات والتحصيلات</h3>
               <div class="flex gap-2">
@@ -519,7 +531,7 @@
           </div>
 
           <!-- Left Side: Audit Log Timeline (40% width) -->
-          <div class="lg:col-span-4 glass-card rounded-2xl p-4 sm:p-6 flex flex-col">
+          <div class="dashboard-activity-panel lg:col-span-4 glass-card rounded-2xl p-4 sm:p-6 flex flex-col">
             <div class="flex items-center justify-between mb-4 sm:mb-6">
               <h3 class="font-bold text-slate-800 text-sm sm:text-lg">سجل التدقيق والمتابعة الأمني</h3>
               <span class="text-xs text-slate-400">آخر 5 عمليات</span>

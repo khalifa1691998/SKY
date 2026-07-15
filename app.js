@@ -1279,6 +1279,8 @@ window.resetDashboardDateFilter = function() {
 };
 
 function renderDashboard() {
+  const dashboardUsername = document.getElementById('dashboard-username');
+  if (dashboardUsername) dashboardUsername.textContent = getCurrentUserName() || 'فريق SKY';
   // فلتر الفترة (اختياري): لو الأدمن حدد "من - إلى" في أعلى الداشبورد،
   // بنفلتر بيه بس مؤشرات "النشاط" (مبيعات/تحصيلات/مصروفات/ربح) لأنها بس
   // اللي منطقي تتحسب لفترة معينة. الرصيد والمخزون والمستحقات "حالة حالية"
@@ -1418,8 +1420,8 @@ function renderDashboard() {
     const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.12)' : '#f1f5f9';
     const tickColor = isDarkMode ? '#a6b2c5' : '#64748b';
 
-    const salesColor = isDarkMode ? '#7d7aff' : '#5856d6';
-    const collectionColor = isDarkMode ? '#6ee7b7' : '#10b981';
+    const salesColor = isDarkMode ? '#71a8ff' : '#2563eb';
+    const collectionColor = isDarkMode ? '#5eead4' : '#0f9f8c';
 
     financialChartInstance = new Chart(ctx, {
       type: 'line',
@@ -1435,7 +1437,7 @@ function renderDashboard() {
             tension: 0.35,
             borderWidth: 2,
             pointRadius: 3,
-            pointBackgroundColor: isDarkMode ? '#1c1c1e' : '#ffffff',
+            pointBackgroundColor: isDarkMode ? '#191b1f' : '#ffffff',
             pointBorderColor: salesColor,
             pointBorderWidth: 2
           },
@@ -1448,7 +1450,7 @@ function renderDashboard() {
             tension: 0.35,
             borderWidth: 2,
             pointRadius: 3,
-            pointBackgroundColor: isDarkMode ? '#1c1c1e' : '#ffffff',
+            pointBackgroundColor: isDarkMode ? '#191b1f' : '#ffffff',
             pointBorderColor: collectionColor,
             pointBorderWidth: 2
           }
