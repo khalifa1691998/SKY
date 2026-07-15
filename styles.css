@@ -1115,24 +1115,50 @@ main > header > div:last-child {
 .dark #header-role-badge { background: rgba(157,140,244,.12) !important; color: #bfb2ff !important; }
 .dark #header-role-badge .bg-teal-600 { background-color: #9d8cf4 !important; }
 
-/* Dashboard: remove the saturated blue banner and keep the hero within the same dark material language. */
+/* Dashboard hero: light mode is airy; dark mode stays graphite. */
 .dashboard-hero {
+  border-color: rgba(109, 91, 208, .14);
+  background: linear-gradient(120deg, #ffffff 0%, #faf9ff 58%, #f5f3ff 100%);
+  box-shadow: 0 12px 32px rgba(16,24,40,.055);
+  color: #1f2937;
+}
+.dashboard-hero::after {
+  border-color: rgba(109, 91, 208, .10);
+  box-shadow: 0 0 0 32px rgba(109, 91, 208, .025), 0 0 0 64px rgba(45, 212, 191, .018);
+}
+.dashboard-eyebrow { color: #6d5bd0; }
+.dashboard-hero h1 { color: #1f2937; }
+.dashboard-hero h1 span { color: #6d5bd0; }
+.dashboard-hero p { color: #667085; }
+.dashboard-quick-actions button {
+  border-color: rgba(109, 91, 208, .14);
+  background: #ffffff;
+  color: #4c3fa0;
+  box-shadow: 0 1px 2px rgba(16,24,40,.035);
+}
+.dashboard-quick-actions button:hover { background: #f5f3ff; border-color: rgba(109,91,208,.25); }
+
+.dark .dashboard-hero {
   border-color: rgba(167, 139, 250, .18);
   background: linear-gradient(120deg, #222329 0%, #1d2022 55%, #22212b 100%);
   box-shadow: var(--sky-shadow-sm);
+  color: white;
 }
-.dashboard-hero::after {
+.dark .dashboard-hero::after {
   border-color: rgba(167, 139, 250, .14);
   box-shadow: 0 0 0 32px rgba(167, 139, 250, .035), 0 0 0 64px rgba(45, 212, 191, .02);
 }
-.dashboard-eyebrow { color: #bfb2ff; }
-.dashboard-hero h1 span { color: #c4b5fd; }
-.dashboard-quick-actions button {
+.dark .dashboard-eyebrow { color: #bfb2ff; }
+.dark .dashboard-hero h1 { color: white; }
+.dark .dashboard-hero h1 span { color: #c4b5fd; }
+.dark .dashboard-hero p { color: rgba(255,255,255,.78); }
+.dark .dashboard-quick-actions button {
   border-color: rgba(255, 255, 255, .11);
   background: rgba(255, 255, 255, .045);
   color: #d8d5e7;
+  box-shadow: none;
 }
-.dashboard-quick-actions button:hover { background: rgba(157, 140, 244, .16); border-color: rgba(196,181,253,.25); }
+.dark .dashboard-quick-actions button:hover { background: rgba(157, 140, 244, .16); border-color: rgba(196,181,253,.25); }
 .dark #tab-dashboard .dashboard-filter-panel button:first-child { background: #7c6bd4 !important; }
 .dark #tab-dashboard .dashboard-kpis .bg-teal-50, .dark #tab-dashboard .dashboard-kpis .bg-blue-50, .dark #tab-dashboard .dashboard-kpis .bg-sky-50 { background-color: rgba(157,140,244,.13) !important; }
 
