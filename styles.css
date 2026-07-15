@@ -116,6 +116,9 @@ body::after {
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 .dark ::-webkit-scrollbar-thumb { background: #48484a; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #6e6e73; }
+/* نفس شكل الـ scrollbar الرفيع في فايرفوكس (بيستخدم خصائص مختلفة عن كروم/سفاري) */
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.dark * { scrollbar-color: #48484a transparent; }
 
 /* إخفاء شريط التمرير لعناصر معينة (مثل صف الشارات العلوي على الموبايل) مع إبقاء إمكانية التمرير */
 .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -192,6 +195,13 @@ body::after {
   box-shadow: 0 0 0 3px rgba(125, 122, 255, 0.28);
 }
 
+/* أيقونة التقويم في حقول input[type=date] بتيجي سودا من المتصفح بشكل افتراضي،
+   وكانت بتختفي تماماً فوق خلفية الفورم الداكنة في الوضع الليلي (كروم/إيدج/سفاري) */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.4);
+}
+
 .form-label {
   display: block;
   font-size: 0.875rem;
@@ -214,6 +224,7 @@ body::after {
 /* ================= Modals ================= */
 [id$="-modal"] > div {
   max-height: 90vh;
+  max-height: 90dvh; /* dvh بيراعي شريط عنوان السفاري وارتفاع لوحة المفاتيح على آيفون */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -518,6 +529,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     -webkit-overflow-scrolling: touch;
     max-height: 100vh;
     max-height: 100dvh;
+    /* مساحة أمان للنوتش/Dynamic Island فوق وشريط الهوم تحت في آيفون لما
+       الموقع يشتغل كـ"تطبيق" مضاف للشاشة الرئيسية (standalone) */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   aside#app-sidebar.sidebar-open { transform: translateX(0); }
   #sidebar-backdrop {
@@ -529,7 +544,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     backdrop-filter: blur(2px);
   }
   #sidebar-backdrop.visible { display: block; }
-  #mobile-topbar { display: flex; }
+  #mobile-topbar {
+    display: flex;
+    /* بنسيب height: 3.5rem التقليدي زي ما هو ونضيف مساحة النوتش فوقه كـ padding
+       بدل ما نغير الـ height نفسه، عشان محتوى الشريط (اللوجو والزرار) يفضل
+       في النص الرأسي الصحيح وميتزحزحش لجوه منطقة النوتش */
+    padding-top: env(safe-area-inset-top) !important;
+    height: calc(3.5rem + env(safe-area-inset-top)) !important;
+    max-height: calc(3.5rem + env(safe-area-inset-top)) !important;
+    box-sizing: border-box !important;
+  }
+  main.pt-14 {
+    padding-top: calc(3.5rem + env(safe-area-inset-top)) !important;
+  }
 }
 @media (min-width: 769px) {
   #mobile-topbar { display: none; }
