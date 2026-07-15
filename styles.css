@@ -680,3 +680,201 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .print-doc-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.9rem; }
 .print-doc-signatures { display: flex; justify-content: space-between; margin-top: 50px; font-size: 0.85rem; }
 .print-doc-footer { margin-top: 24px; font-size: 0.7rem; color: #64748b; text-align: center; }
+
+/* ========================================================================
+   PHASE 1 — NAVIGATION & SHELL DESIGN SYSTEM
+   Scoped shell primitives: preserves the application markup, IDs and logic.
+   ======================================================================== */
+:root {
+  --sky-font-sans: 'Cairo', ui-sans-serif, system-ui, sans-serif;
+  --sky-ink: #172033;
+  --sky-muted: #667085;
+  --sky-canvas: #f6f8fc;
+  --sky-surface: rgba(255, 255, 255, .88);
+  --sky-surface-strong: #ffffff;
+  --sky-line: rgba(16, 24, 40, .08);
+  --sky-brand: #2563eb;
+  --sky-brand-strong: #1d4ed8;
+  --sky-brand-soft: #eff6ff;
+  --sky-success: #059669;
+  --sky-danger: #e11d48;
+  --sky-radius-sm: 10px;
+  --sky-radius-md: 14px;
+  --sky-radius-lg: 20px;
+  --sky-shadow-xs: 0 1px 2px rgba(16, 24, 40, .04);
+  --sky-shadow-sm: 0 8px 24px rgba(16, 24, 40, .06);
+  --sky-shadow-lg: 0 24px 56px rgba(16, 24, 40, .12);
+  --sky-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+.dark {
+  --sky-ink: #f8fafc;
+  --sky-muted: #94a3b8;
+  --sky-canvas: #0b1020;
+  --sky-surface: rgba(15, 23, 42, .84);
+  --sky-surface-strong: #111827;
+  --sky-line: rgba(226, 232, 240, .10);
+  --sky-brand: #60a5fa;
+  --sky-brand-strong: #93c5fd;
+  --sky-brand-soft: rgba(37, 99, 235, .16);
+  --sky-shadow-sm: 0 8px 24px rgba(0, 0, 0, .24);
+  --sky-shadow-lg: 0 24px 56px rgba(0, 0, 0, .40);
+}
+
+body { font-family: var(--sky-font-sans); background: var(--sky-canvas); }
+
+/* Application frame */
+#app-wrapper { background: var(--sky-canvas); }
+main { background: var(--sky-canvas); }
+
+/* Sidebar */
+#app-sidebar {
+  width: 18.5rem;
+  background: var(--sky-surface) !important;
+  border-left: 1px solid var(--sky-line) !important;
+  box-shadow: -12px 0 36px rgba(16, 24, 40, .035);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+
+#app-sidebar > :first-child {
+  min-height: 5.6rem;
+  padding: 1.25rem !important;
+  border-color: var(--sky-line) !important;
+}
+
+#company-logo-container {
+  width: 2.7rem !important;
+  height: 2.7rem !important;
+  border-radius: 13px !important;
+  background: linear-gradient(135deg, var(--sky-brand), #6366f1) !important;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, .25) !important;
+}
+#company-name-display { color: var(--sky-ink) !important; letter-spacing: -.025em; }
+
+#sidebar-menu {
+  padding: 1rem .75rem 1.25rem !important;
+  scrollbar-gutter: stable;
+}
+#sidebar-menu a {
+  min-height: 2.9rem;
+  margin: 2px 0;
+  padding: .7rem .8rem !important;
+  border: 1px solid transparent;
+  border-radius: var(--sky-radius-sm) !important;
+  color: var(--sky-muted) !important;
+  font-size: .84rem;
+  font-weight: 650 !important;
+  transition: color .18s var(--sky-ease), background-color .18s var(--sky-ease), transform .18s var(--sky-ease), box-shadow .18s var(--sky-ease) !important;
+}
+#sidebar-menu a i { color: #7c8aa2; font-size: 1.15rem !important; transition: color .18s var(--sky-ease), transform .18s var(--sky-ease); }
+#sidebar-menu a:hover {
+  color: var(--sky-ink) !important;
+  background: rgba(148, 163, 184, .11) !important;
+  transform: translateX(-2px);
+}
+#sidebar-menu a:hover i { color: var(--sky-brand); transform: scale(1.06); }
+#sidebar-menu a.nav-link-active,
+#sidebar-menu a.active-tab-btn {
+  color: var(--sky-brand-strong) !important;
+  background: var(--sky-brand-soft) !important;
+  border-color: rgba(37, 99, 235, .12) !important;
+  box-shadow: var(--sky-shadow-xs) !important;
+}
+#sidebar-menu a.nav-link-active::after,
+#sidebar-menu a.active-tab-btn::after {
+  content: '';
+  position: absolute;
+  right: -.76rem;
+  width: 3px;
+  height: 1.35rem;
+  border-radius: 99px;
+  background: var(--sky-brand);
+  box-shadow: 0 2px 7px rgba(37, 99, 235, .4);
+}
+#sidebar-menu a.nav-link-active i,
+#sidebar-menu a.active-tab-btn i { color: var(--sky-brand) !important; }
+
+/* Visual navigation groups without changing the tab DOM used by app.js. */
+#sidebar-menu a[data-tab='dashboard'] { margin-bottom: 1rem; }
+#sidebar-menu a[data-tab='clients']::before,
+#sidebar-menu a[data-tab='contracts']::before,
+#sidebar-menu a[data-tab='expenses']::before,
+#sidebar-menu a[data-tab='reports']::before,
+#sidebar-menu a[data-tab='users']::before {
+  position: absolute;
+  right: .85rem;
+  top: -.95rem;
+  color: #98a2b3;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+}
+#sidebar-menu a[data-tab='clients']::before { content: 'إدارة الأعمال'; }
+#sidebar-menu a[data-tab='contracts']::before { content: 'العمليات المالية'; }
+#sidebar-menu a[data-tab='expenses']::before { content: 'الرقابة والتخطيط'; }
+#sidebar-menu a[data-tab='reports']::before { content: 'الرؤى'; }
+#sidebar-menu a[data-tab='users']::before { content: 'النظام'; }
+#sidebar-menu a[data-tab='clients'], #sidebar-menu a[data-tab='contracts'], #sidebar-menu a[data-tab='expenses'], #sidebar-menu a[data-tab='reports'], #sidebar-menu a[data-tab='users'] { margin-top: 1.45rem; }
+
+#app-sidebar > :last-child {
+  padding: 1rem !important;
+  background: rgba(148, 163, 184, .055) !important;
+  border-color: var(--sky-line) !important;
+}
+#app-sidebar > :last-child > div:first-child { padding: .2rem; }
+#sidebar-user-avatar { color: var(--sky-brand); }
+#logout-btn {
+  min-height: 2.7rem;
+  border: 1px solid rgba(225, 29, 72, .16);
+  border-radius: var(--sky-radius-sm) !important;
+  background: rgba(225, 29, 72, .06) !important;
+  color: var(--sky-danger) !important;
+}
+#logout-btn:hover { background: var(--sky-danger) !important; color: white !important; box-shadow: 0 8px 18px rgba(225, 29, 72, .2); transform: translateY(-1px); }
+
+/* Premium sticky header */
+main > header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 5.6rem;
+  padding: 1rem 1.5rem !important;
+  background: color-mix(in srgb, var(--sky-surface) 92%, transparent) !important;
+  border-color: var(--sky-line) !important;
+  box-shadow: 0 1px 0 var(--sky-line);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+main > header h2 { color: var(--sky-ink) !important; font-size: clamp(1.05rem, 1.5vw, 1.35rem) !important; letter-spacing: -.025em; }
+main > header h2::before { content: 'مساحة العمل  /  '; color: var(--sky-muted); font-size: .7rem; font-weight: 700; }
+main > header p { color: var(--sky-muted) !important; font-size: .74rem !important; }
+
+#global-search-btn, #theme-toggle-btn, #notif-bell-btn {
+  width: 2.55rem;
+  height: 2.55rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--sky-line);
+  border-radius: 12px !important;
+  background: var(--sky-surface-strong) !important;
+  color: var(--sky-muted) !important;
+  box-shadow: var(--sky-shadow-xs);
+  transition: transform .18s var(--sky-ease), color .18s var(--sky-ease), border-color .18s var(--sky-ease), box-shadow .18s var(--sky-ease) !important;
+}
+#global-search-btn:hover, #theme-toggle-btn:hover, #notif-bell-btn:hover { color: var(--sky-brand) !important; border-color: rgba(37, 99, 235, .24); box-shadow: var(--sky-shadow-sm); transform: translateY(-1px); }
+#header-sync-badge, #header-role-badge { border-color: var(--sky-line) !important; box-shadow: var(--sky-shadow-xs); }
+
+/* Shared interaction, type and accessibility primitives for the phase. */
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(37, 99, 235, .32); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+@media (max-width: 767px) {
+  #mobile-topbar { background: var(--sky-surface) !important; border-color: var(--sky-line) !important; backdrop-filter: blur(18px) saturate(145%); }
+  #app-sidebar { width: min(19rem, 88vw); box-shadow: -18px 0 46px rgba(16, 24, 40, .18); }
+  main > header { top: 3.5rem; min-height: auto; padding: .85rem 1rem !important; }
+  main > header h2::before { display: none; }
+  #sidebar-menu { padding-top: 1.1rem !important; }
+}
