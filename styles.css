@@ -922,6 +922,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   #tab-dashboard .dashboard-filter-panel > .flex:last-child #dashboard-filter-active-label { grid-column: 1 / -1; }
 }
 
+/* Prevent dashboard date controls from expanding beyond their panel at tablet widths. */
+#tab-dashboard .dashboard-filter-panel {
+  display: block;
+}
+#tab-dashboard .dashboard-filter-panel > .grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: .75rem;
+}
+#tab-dashboard .dashboard-filter-panel > .grid > div {
+  min-width: 0;
+  width: auto;
+}
+#tab-dashboard .dashboard-filter-panel .form-input {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#tab-dashboard .dashboard-filter-panel > .flex:last-child { margin-top: .75rem; }
+@media (max-width: 639px) {
+  #tab-dashboard .dashboard-filter-panel > .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Phase 1 refinement: a single neutral dark shell, with blue reserved for intent. */
 .dark {
   --sky-canvas: #111214;
