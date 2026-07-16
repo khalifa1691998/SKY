@@ -7,6 +7,11 @@ console.log('SKY_BUILD_VERSION: v3-balances-standalone-tab-2026-07-05');
 // ================= STATE MANAGEMENT & INITIAL DATABASE =================
 // متغير عالمي لحالة الاتصال بـ Firebase
 let firebaseSubscriptionActive = false;
+// دالة إلغاء الاشتراك في التحديثات الفورية (onSnapshot) الراجعة من
+// FirebaseService.subscribeToUpdates. كانت قبل كده بتترمي وما تتخزنش، فكل
+// دخول جديد بعد خروج كان بيضيف 18 listener فوق اللي قبله من غير ما يقفلهم
+// أبداً (Memory/Listener Leak). دلوقتي بنخزنها هنا عشان نقدر نقفلها صح.
+let firebaseUnsubscribeUpdates = null;
 
 let db = {
 
@@ -486,7 +491,6 @@ async function resolveCurrentUserFromAuth(uid, email) {
     if (user) {
       console.warn(`تم إيجاد المستخدم "${user.username}" عن طريق الإيميل بدل authUid. جاري إصلاح ملفه تلقائياً...`);
       user.authUid = uid;
-      saveToLocalStorage();
       // FIX: نضمن وجود مستند userRoles أولاً عشان تنجح عملية updateUser بعدين
       // (Rules بتحتاج مستند userRoles عشان تسمح للأدمن بالكتابة)
       if (window.FirebaseAuthService.ensureUserRoleDoc) {
@@ -544,7 +548,6 @@ async function resolveCurrentUserFromAuth(uid, email) {
           area: 'المركز الرئيسي'
         };
         db.users.push(user);
-        saveToLocalStorage();
         // نحفظه في Firestore كمان عشان المرة الجاية يتلاقى عادي
         await syncWithAppsScript('addUser', user);
       }
@@ -580,6 +583,15 @@ async function resolveCurrentUserFromAuth(uid, email) {
 async function handleUserLogout() {
   currentUser = null;
   firebaseSubscriptionActive = false;
+
+  // FIX: قفل كل الـ 18 onSnapshot listener الفعلية قبل الخروج. قبل كده كان
+  // بيتم تصفير الـ flag بس من غير ما تتقفل الـ listeners الحقيقية، فكانت
+  // تفضل شغالة في الخلفية وتتضاعف مع كل دورة دخول/خروج جديدة.
+  if (typeof firebaseUnsubscribeUpdates === 'function') {
+    firebaseUnsubscribeUpdates();
+    firebaseUnsubscribeUpdates = null;
+  }
+
   try {
     if (window.FirebaseAuthService) await window.FirebaseAuthService.signOut();
   } catch (e) {
@@ -643,13 +655,12 @@ function initDatabase() {
   updateSyncStatusUI();
 }
 
-function saveToLocalStorage() {
-  // تم إلغاء تخزين نسخة كاملة من قاعدة البيانات (عملاء/عقود/خزينة) في
-  // sessionStorage: كانت بتتخزن كنص عادي (plaintext) بعد كل عملية، وبعد
-  // فحص الكود بالكامل تأكدنا إن مفيش أي مكان بيقرأها تاني أصلاً (البيانات
-  // بتيجي دايماً من Firebase مباشرة عبر initDatabase). سبنا الدالة فاضية
-  // بدل ما نمسحها من كل الأماكن اللي بتستدعيها (55+ مكان) عشان صفر مخاطرة.
-}
+// ملاحظة: تم إلغاء تخزين نسخة كاملة من قاعدة البيانات (عملاء/عقود/خزينة) في
+// sessionStorage نهائياً: كانت بتتخزن كنص عادي (plaintext) بعد كل عملية، وبعد
+// فحص الكود بالكامل تأكدنا إن مفيش أي مكان بيقرأها تاني أصلاً (البيانات
+// بتيجي دايماً من Firebase مباشرة عبر initDatabase). دالة saveToLocalStorage()
+// الفارغة اللي كانت بتتنادى من 62 مكان اتشالت بالكامل مع كل استدعاءاتها
+// (كانت no-op مش بتعمل حاجة أصلاً) — راجع تقرير الـ Code Audit للتفاصيل.
 
 // ================= BACKUP & RESTORE SYSTEM =================
 window.exportBackup = function() {
@@ -945,13 +956,12 @@ window.handleRestoreFileSelected = function(event) {
         if (!db.settings.staffPermissions) db.settings.staffPermissions = getDefaultStaffPermissions();
       }
 
-      saveToLocalStorage();
       applyCompanyBranding();
       updateSyncStatusUI();
       renderAllTabs();
 
       logAction('استرجاع نسخة احتياطية', `تم استرجاع النسخة: ${meta.label} (أنشئت بواسطة: ${meta.createdBy})`);
-      showToast(`✅ تم استرجاع النسخة الاحتياطية بنجاح! (${meta.label})`, 'success');
+      showToast(`✅ تم استرجاع النسخة الاحتياطية بنجاح! (${escapeHTML(meta.label)})`, 'success');
 
     } catch (err) {
       showToast('❌ خطأ في قراءة الملف. تأكد أنه ملف JSON صحيح!', 'error');
@@ -1021,7 +1031,6 @@ function logAction(actionType, details) {
   });
   
   if (db.auditLogs.length > 100) db.auditLogs.pop();
-  saveToLocalStorage();
   
   syncWithAppsScript('addAuditLog', { user: userName, actionType, details, timestamp });
 }
@@ -1147,7 +1156,6 @@ async function loadFromServer() {
           db.settings = { ...db.settings, ...fbData.settings };
         }
         
-        saveToLocalStorage();
         renderAllTabs();
         
         if (statusMsg) statusMsg.innerHTML = '<span class="text-emerald-600">تمت المزامنة بنجاح (Firebase)!</span>';
@@ -2410,7 +2418,6 @@ window.deleteDeviceGroup = async function(brand, name) {
 
     db.inventory = db.inventory.filter(d => !devicesToDelete.some(td => td.id === d.id));
     
-    saveToLocalStorage();
     logAction('حذف كمية أجهزة', `حذف ${devicesToDelete.length} قطعة من ${brand} ${name} وإرجاع ${refundedAmount} ج.م للخزينة`);
     
     await syncWithAppsScript('deleteDeviceGroup', { brand, name });
@@ -2457,7 +2464,6 @@ window.saveInventoryEdit = async function() {
     }
   });
 
-  saveToLocalStorage();
   logAction('تعديل مخزون', `تعديل أسعار صنف ${brand} ${name}: تكلفة ${newCost} ج.م، بيع ${newPrice} ج.م، حد أدنى ${newMinQty}`);
   
   await syncWithAppsScript('updateDeviceGroup', { brand, name, costPrice: newCost, sellingPrice: newPrice, supplier: newSupplier, minQty: newMinQty });
@@ -2547,7 +2553,6 @@ window.sendDeviceToMaintenance = async function(deviceId) {
 
   dev.status = 'maintenance';
   addDeviceHistory(dev, 'إرسال للصيانة', reason);
-  saveToLocalStorage();
   logAction('إرسال جهاز للصيانة', `${dev.brand} ${dev.name} (SN: ${dev.serial}) — ${reason}`);
   await syncWithAppsScript('updateDevice', { id: dev.id, status: dev.status, history: dev.history });
 
@@ -2562,7 +2567,6 @@ window.returnDeviceFromMaintenance = async function(deviceId) {
 
   dev.status = 'available';
   addDeviceHistory(dev, 'إرجاع من الصيانة', 'تم الانتهاء من الصيانة وإرجاع القطعة للمتاح');
-  saveToLocalStorage();
   logAction('إرجاع جهاز من الصيانة', `${dev.brand} ${dev.name} (SN: ${dev.serial})`);
   await syncWithAppsScript('updateDevice', { id: dev.id, status: dev.status, history: dev.history });
 
@@ -2593,7 +2597,6 @@ window.returnDeviceToStockFromClient = async function(deviceId) {
   dev.status = 'available';
   dev.soldTo = '';
   addDeviceHistory(dev, 'استرجاع من العميل', `تم استرجاع القطعة من (${previousOwner}). السبب: ${reason}`);
-  saveToLocalStorage();
   logAction('استرجاع جهاز من عميل', `${dev.brand} ${dev.name} (SN: ${dev.serial}) من ${previousOwner} — ${reason}`);
   await syncWithAppsScript('updateDevice', { id: dev.id, status: dev.status, soldTo: dev.soldTo, history: dev.history });
 
@@ -2629,7 +2632,6 @@ window.returnDeviceToSupplier = async function(deviceId) {
   }
 
   db.inventory = db.inventory.filter(d => d.id !== deviceId);
-  saveToLocalStorage();
   logAction('إرجاع جهاز للمورد', `${dev.brand} ${dev.name} (SN: ${dev.serial}) للمورد ${dev.supplier} — ${reason}${refund ? ' (تم استرداد القيمة)' : ''}`);
   await syncWithAppsScript('deleteDevice', { id: deviceId });
 
@@ -2742,7 +2744,6 @@ window.submitImportInventory = async function() {
     added++;
   });
 
-  saveToLocalStorage();
   if (added > 0) {
     logAction('استيراد مخزون جماعي', `تمت إضافة ${added} قطعة عبر الاستيراد الجماعي`);
   }
@@ -2930,7 +2931,6 @@ window.deleteSupplier = async function(supplierId) {
   if (await customConfirm('هل أنت متأكد من حذف هذا المورد نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
     const supplier = db.suppliers.find(s => s.id === supplierId);
     db.suppliers = db.suppliers.filter(s => s.id !== supplierId);
-    saveToLocalStorage();
     if (supplier) logAction('حذف مورد', `حذف المورد ${supplier.name} من السجلات`);
     renderSuppliers();
     populateDropdowns();
@@ -2951,7 +2951,6 @@ document.getElementById('add-supplier-form').addEventListener('submit', async (e
     const s = db.suppliers.find(x => x.id === editId);
     if (!s) return;
     s.name = name; s.phone = phone; s.type = type; s.address = address; s.notes = notes;
-    saveToLocalStorage();
     logAction('تعديل مورد', `تعديل بيانات المورد ${name}`);
     await syncWithAppsScript('updateSupplier', s);
   } else {
@@ -2960,7 +2959,6 @@ document.getElementById('add-supplier-form').addEventListener('submit', async (e
       name, phone, type, address, notes
     };
     db.suppliers.push(supplierObj);
-    saveToLocalStorage();
     logAction('إضافة مورد', `تم إضافة مورد جديد ${name} (${SUPPLIER_TYPE_LABELS[type] || type})`);
     await syncWithAppsScript('addSupplier', supplierObj);
   }
@@ -3025,7 +3023,6 @@ document.getElementById('supplier-payment-form').addEventListener('submit', asyn
   };
   db.supplierTransactions.unshift(supplierTx);
 
-  saveToLocalStorage();
   logAction('سداد مورد', `سداد مبلغ ${amount.toLocaleString()} ج.م للمورد ${supplier.name} من الخزينة`);
 
   await syncWithAppsScript('supplierPayment', { transaction: treasuryTx, supplierTransaction: supplierTx });
@@ -3344,7 +3341,6 @@ window.deleteProductCategory = async function(categoryId) {
   if (await customConfirm(`هل أنت متأكد من حذف صنف "${cat.name}" نهائياً؟`)) {
     db.productCategories = db.productCategories.filter(c => c.id !== categoryId);
     if (selectedProductCategoryId === categoryId) selectedProductCategoryId = '';
-    saveToLocalStorage();
     logAction('حذف صنف منتجات', `حذف الصنف ${cat.name}`);
     renderProducts();
     populateDropdowns();
@@ -3363,13 +3359,11 @@ document.getElementById('add-product-category-form').addEventListener('submit', 
     const cat = db.productCategories.find(c => c.id === editId);
     if (!cat) return;
     cat.name = name; cat.notes = notes;
-    saveToLocalStorage();
     logAction('تعديل صنف منتجات', `تعديل بيانات الصنف ${name}`);
     await syncWithAppsScript('updateProductCategory', cat);
   } else {
     const newCat = { id: `pcat-${Date.now()}-${Math.floor(Math.random() * 10000)}`, name, notes };
     db.productCategories.push(newCat);
-    saveToLocalStorage();
     logAction('إضافة صنف منتجات', `إضافة صنف جديد: ${name}`);
     await syncWithAppsScript('addProductCategory', newCat);
   }
@@ -3440,7 +3434,6 @@ window.deleteBrand = async function(brandId) {
   
   if (await customConfirm(`هل أنت متأكد من حذف ماركة "${brand.name}"؟`)) {
     db.brands = db.brands.filter(b => b.id !== brandId);
-    saveToLocalStorage();
     logAction('حذف ماركة', `حذف الماركة ${brand.name}`);
     renderProducts();
     populateDropdowns();
@@ -3458,7 +3451,6 @@ window.deleteProduct = async function(productId) {
   if (!p) return;
   if (await customConfirm(`هل أنت متأكد من حذف منتج "${p.name}" نهائياً؟`)) {
     db.products = db.products.filter(x => x.id !== productId);
-    saveToLocalStorage();
     logAction('حذف منتج', `حذف المنتج ${p.name} من السجلات`);
     renderProducts();
     populateDropdowns();
@@ -3487,7 +3479,6 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
     if (!p) return;
     p.name = name; p.categoryId = categoryId; p.brand = brand; p.unit = unit; p.minQty = minQty;
     p.costPrice = costPrice; p.sellingPrice = sellingPrice; p.defaultSupplierId = defaultSupplierId; p.notes = notes;
-    saveToLocalStorage();
     logAction('تعديل منتج', `تعديل بيانات المنتج ${name}`);
     await syncWithAppsScript('updateProduct', p);
   } else {
@@ -3496,7 +3487,6 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
       categoryId, brand, name, unit, minQty, costPrice, sellingPrice, defaultSupplierId, notes
     };
     db.products.push(newProduct);
-    saveToLocalStorage();
     logAction('إضافة منتج', `إضافة منتج جديد: ${name} (ماركة: ${brand})`);
     await syncWithAppsScript('addProduct', newProduct);
   }
@@ -3578,7 +3568,6 @@ document.getElementById('stock-in-form').addEventListener('submit', async (e) =>
   p.costPrice = unitCost;
   p.defaultSupplierId = supplierId;
 
-  saveToLocalStorage();
   logAction('توريد منتج', `توريد ${quantity} ${p.unit || 'قطعة'} من "${p.name}" من المورد ${supplier ? supplier.name : ''} (${method === 'credit' ? 'آجل' : 'كاش'})`);
 
   await syncWithAppsScript('stockInProduct', {
@@ -3655,7 +3644,6 @@ document.getElementById('stock-out-form').addEventListener('submit', async (e) =
     db.treasuryTransactions.unshift(treasuryTx);
   }
 
-  saveToLocalStorage();
   const reasonLabel = PRODUCT_MOVEMENT_REASON_LABELS[reason] || reason;
   logAction('صرف منتج', `صرف ${quantity} ${p.unit || 'قطعة'} من "${p.name}" (${reasonLabel})`);
 
@@ -3913,7 +3901,6 @@ window.updateCollectorForInstallment = async function(instId, collectorName) {
   const inst = db.installments.find(i => i.id === instId);
   if (inst) {
     inst.collectorName = collectorName;
-    saveToLocalStorage();
     logAction('تعديل محصل', `تعديل المحصل المسند للقسط رقم ${inst.installmentNum} لعقد ${inst.contractId.replace('con-', '')} إلى ${collectorName}`);
     renderCollections();
     await syncWithAppsScript('updateInstallment', inst);
@@ -4451,7 +4438,6 @@ window.deleteInvestor = async function(investorId) {
   if (!(await customConfirm(`هل أنت متأكد من حذف المستثمر "${inv.name}" نهائياً؟\n\nملاحظة: حركات رأس المال والسحب السابقة الخاصة به هتفضل موجودة في سجل الخزينة للأرشفة، لكن مش هتتحسب في توزيع الأرباح تاني بعد الحذف.`))) return;
 
   db.investors = db.investors.filter(i => i.id !== investorId);
-  saveToLocalStorage();
   logAction('حذف مستثمر', `حذف المستثمر ${inv.name} من سجل رأس المال`);
   await syncWithAppsScript('deleteInvestor', { id: investorId });
   renderInvestors();
@@ -4700,7 +4686,6 @@ window.freezeInvestorProfitSnapshot = async function() {
 
   db.investorSnapshots = db.investorSnapshots || [];
   db.investorSnapshots.unshift(snapshot);
-  saveToLocalStorage();
   logAction('تجميد أرباح', `تجميد صورة لصافي الربح بتاريخ اليوم: ${Math.round(stats.netProfit).toLocaleString()} ج.م`);
   await syncWithAppsScript('addInvestorSnapshot', { snapshot });
 
@@ -4752,7 +4737,6 @@ window.viewSnapshotsHistory = function() {
 window.deleteInvestorSnapshot = async function(snapshotId) {
   if (!(await customConfirm('هل أنت متأكد من حذف هذا السجل التاريخي؟ الإجراء ده لا يمكن التراجع عنه.'))) return;
   db.investorSnapshots = (db.investorSnapshots || []).filter(s => s.id !== snapshotId);
-  saveToLocalStorage();
   logAction('حذف تجميد أرباح', `حذف سجل تجميد أرباح تاريخي`);
   await syncWithAppsScript('deleteInvestorSnapshot', { id: snapshotId });
   viewSnapshotsHistory();
@@ -4796,7 +4780,6 @@ document.getElementById('add-investor-form').addEventListener('submit', async (e
 
   db.investors.push(newInvestor);
   db.treasuryTransactions.unshift(capitalTx);
-  saveToLocalStorage();
   logAction('إضافة مستثمر', `إضافة المستثمر ${name} برأس مال ${capitalAmount.toLocaleString()} ج.م`);
 
   await syncWithAppsScript('addInvestor', { investor: newInvestor, transaction: capitalTx });
@@ -4829,7 +4812,6 @@ document.getElementById('edit-investor-form').addEventListener('submit', async (
   inv.notes = notes;
   inv.fixedSharePercent = fixedSharePercent;
 
-  saveToLocalStorage();
   logAction('تعديل مستثمر', `تعديل بيانات المستثمر ${inv.name}`);
   await syncWithAppsScript('editInvestor', { investorId, name: inv.name, joinDate: inv.joinDate, notes: inv.notes, fixedSharePercent: inv.fixedSharePercent });
 
@@ -4859,7 +4841,6 @@ document.getElementById('add-capital-form').addEventListener('submit', async (e)
   };
 
   db.treasuryTransactions.unshift(capitalTx);
-  saveToLocalStorage();
   logAction('زيادة رأس مال', `زيادة رأس مال المستثمر ${inv.name} بمبلغ ${amount.toLocaleString()} ج.م`);
 
   await syncWithAppsScript('addInvestorCapital', { investorId, newCapitalAmount: inv.capitalAmount, transaction: capitalTx });
@@ -4902,7 +4883,6 @@ document.getElementById('withdraw-capital-form').addEventListener('submit', asyn
   };
 
   db.treasuryTransactions.unshift(withdrawTx);
-  saveToLocalStorage();
   logAction('سحب رأس مال', `سحب المستثمر ${inv.name} مبلغ ${amount.toLocaleString()} ج.م من رأس ماله`);
 
   await syncWithAppsScript('withdrawInvestorCapital', { investorId, newCapitalAmount: inv.capitalAmount, transaction: withdrawTx });
@@ -4944,7 +4924,6 @@ document.getElementById('withdraw-profit-form').addEventListener('submit', async
   };
 
   db.treasuryTransactions.unshift(withdrawTx);
-  saveToLocalStorage();
   logAction('سحب أرباح مستثمر', `سحب المستثمر ${inv.name} مبلغ ${amount.toLocaleString()} ج.م من نصيبه في الأرباح`);
 
   await syncWithAppsScript('withdrawInvestorProfit', { investorId, newTotalWithdrawn: inv.totalWithdrawn, transaction: withdrawTx });
@@ -5000,7 +4979,6 @@ window.approveCollectorCustody = async function(id) {
   };
   db.treasuryTransactions.unshift(collectionTx);
 
-  saveToLocalStorage();
   logAction('اعتماد عهدة', `اعتماد ${isFullyPaid ? '' : 'دفعة جزئية من '}عهدة المحصل ${custody.collectorName} بمبلغ ${custody.amount} ج.م للعميل ${custody.clientName}`);
   
   await syncWithAppsScript('approveCustody', { 
@@ -5021,7 +4999,6 @@ window.approveCollectorCustody = async function(id) {
 window.rejectCollectorCustody = async function(id) {
   if (await customConfirm('هل أنت متأكد من حذف وإلغاء معاملة التحصيل هذه من عهدة المحصل؟')) {
     db.collectorCustodies = db.collectorCustodies.filter(c => c.id !== id);
-    saveToLocalStorage();
     logAction('إلغاء عهدة معلقة', `إلغاء معاملة تحصيل عهدة برقم ${id}`);
     renderTreasury();
     await syncWithAppsScript('deleteCustody', { id });
@@ -5259,7 +5236,6 @@ window.saveUserEdits = async function() {
     u.role = document.getElementById('edit-user-role').value;
     u.area = document.getElementById('edit-user-area').value.trim();
 
-    saveToLocalStorage();
     logAction('تعديل مستخدم', `تعديل بيانات المستخدم ${u.name} (${u.role})`);
     // FIX: نحدّث مستند userRoles عشان لو اتغيّر الدور يتعكس فوراً على الصلاحيات
     if (u.authUid && window.FirebaseAuthService && window.FirebaseAuthService.ensureUserRoleDoc) {
@@ -5475,7 +5451,6 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
     };
     db.treasuryTransactions.push(treasuryAction);
 
-    saveToLocalStorage();
     logAction('تسجيل مصروف', `صرف مبلغ ${amount} ج.م لبند ${category}`);
     
     // المزامنة مع Firestore
@@ -5516,7 +5491,6 @@ window.deleteExpense = async function(id) {
     db.treasuryTransactions.push(reverseTreasuryAction);
     db.expenses = db.expenses.filter(e => e.id !== id);
     
-    saveToLocalStorage();
     logAction('حذف مصروف', `حذف مصروف بقيمة ${expense.amount} ج.م وإرجاع المبلغ للخزينة`);
     
     await syncWithAppsScript('deleteExpense', { id });
@@ -5597,7 +5571,6 @@ document.getElementById('edit-expense-form').addEventListener('submit', async (e
     expense.date = date;
     expense.description = description;
 
-    saveToLocalStorage();
     logAction('تعديل مصروف', `تعديل مصروف من ${oldAmount} ج.م إلى ${amount} ج.م (${category})`);
 
     await syncWithAppsScript('updateExpense', { expense });
@@ -5901,7 +5874,6 @@ document.getElementById('setting-company-logo-file').addEventListener('change', 
   reader.onload = function(e) {
     db.settings.companyLogo = e.target.result;
     document.getElementById('setting-company-logo-url').value = 'تم تحميل لوجو محلي كـ Base64';
-    saveToLocalStorage();
     applyCompanyBranding();
   };
   reader.readAsDataURL(file);
@@ -6352,7 +6324,6 @@ document.getElementById('collect-installment-form').addEventListener('submit', a
   };
 
   db.collectorCustodies.unshift(newCustody);
-  saveToLocalStorage();
   logAction('تحصيل محلي بالعهد', `قام المحصل ${collector} بتحصيل ${isPartial ? 'دفعة جزئية' : 'عهدة'} بقيمة ${enteredAmount} ج.م من العميل ${inst.clientName} (معلق بانتظار تأكيد الأدمن)`);
 
   showToast('جاري تسجيل عملية التحصيل...', 'info');
@@ -6391,7 +6362,6 @@ document.getElementById('cash-sale-form').addEventListener('submit', async (e) =
   };
   db.treasuryTransactions.unshift(cashSaleTx);
 
-  saveToLocalStorage();
   logAction('بيع كاش فوري', `بيع كاش للجهاز ${dev.brand} ${dev.name} بقيمة ${sellingPrice} ج.م للعميل ${clientName}`);
   
   await syncWithAppsScript('cashSale', { 
@@ -6654,7 +6624,6 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
     db.treasuryTransactions.unshift(downPaymentTx);
   }
 
-  saveToLocalStorage();
   logAction('إنشاء عقد', `تم إنشاء عقد بيع وتقسيط رقم ${contractId.replace('con-', '')} للعميل ${client.name}`);
   
   await syncWithAppsScript('addContract', { 
@@ -6696,7 +6665,6 @@ document.getElementById('add-brand-form').addEventListener('submit', async (e) =
   };
 
   db.brands.push(newBrand);
-  saveToLocalStorage();
   logAction('إضافة ماركة', `إضافة ماركة ${name} لتصنيف ${db.productCategories.find(c => c.id === categoryId)?.name}`);
   
   await syncWithAppsScript('addBrand', newBrand);
@@ -6770,7 +6738,6 @@ document.getElementById('add-user-form').addEventListener('submit', async (e) =>
     }
 
     db.users.push(newUser);
-    saveToLocalStorage();
     logAction('إضافة مستخدم', `إضافة المستخدم الجديد ${name} بصلاحية ${role}`);
     await syncWithAppsScript('addUser', newUser);
 
@@ -6778,7 +6745,7 @@ document.getElementById('add-user-form').addEventListener('submit', async (e) =>
     document.getElementById('add-user-form').reset();
     renderUsers();
     populateDropdowns();
-    showToast(`✅ تم إنشاء حساب ${name} بنجاح عبر Firebase Authentication`, 'success');
+    showToast(`✅ تم إنشاء حساب ${escapeHTML(name)} بنجاح عبر Firebase Authentication`, 'success');
   } catch (err) {
     console.error('Error creating user:', err);
     let msg = 'حدث خطأ أثناء إنشاء المستخدم.';
@@ -6907,7 +6874,6 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
     syncPromises.push(syncWithAppsScript('addSupplierTransaction', { transaction: supplierTx }));
   }
 
-  saveToLocalStorage();
   logAction('إضافة مخزون', `إضافة عدد ${quantity} قطعة من ${brand} ${name} بمجموع تكلفة ${totalCost} ج.م`);
 
   if (syncPromises.length > 0) {
@@ -7077,7 +7043,6 @@ document.getElementById('add-client-form').addEventListener('submit', async (e) 
     await syncWithAppsScript('addClient', newClient);
   }
 
-  saveToLocalStorage();
   closeModal('add-client-modal');
   document.getElementById('add-client-form').reset();
   renderClients();
@@ -7086,8 +7051,8 @@ document.getElementById('add-client-form').addEventListener('submit', async (e) 
 
 document.getElementById('expense-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const amount = parseFloat(document.getElementById('expense-amount').value);
-  const category = document.getElementById('expense-category').value;
+  const amount = parseFloat(document.getElementById('expense-out-amount').value);
+  const category = document.getElementById('expense-out-category').value;
   const notes = document.getElementById('expense-notes').value;
 
   const now = new Date();
@@ -7103,7 +7068,6 @@ document.getElementById('expense-form').addEventListener('submit', async (e) => 
   };
   db.treasuryTransactions.unshift(expenseTx);
 
-  saveToLocalStorage();
   logAction('صرف مصروف', `صرف مبلغ ${amount} ج.م كبند مصروفات (${category})`);
 
   await syncWithAppsScript('addExpense', { amount, category, notes, timestamp, transaction: expenseTx });
@@ -7132,7 +7096,6 @@ document.getElementById('deposit-form').addEventListener('submit', async (e) => 
   };
   db.treasuryTransactions.unshift(depositTx);
 
-  saveToLocalStorage();
   logAction('إيداع خزينة', `إيداع مبلغ ${amount} ج.م بالخزينة لـ: ${notes}`);
 
   await syncWithAppsScript('addDeposit', { amount, notes, timestamp, transaction: depositTx });
@@ -7147,7 +7110,6 @@ window.deleteClient = async function(id) {
   if (await customConfirm('هل أنت متأكد من حذف هذا العميل نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
     const client = db.clients.find(c => c.id === id);
     db.clients = db.clients.filter(c => c.id !== id);
-    saveToLocalStorage();
     if (client) logAction('حذف عميل', `حذف العميل ${client.name} من السجلات`);
     renderClients();
     populateDropdowns();
@@ -7182,7 +7144,6 @@ window.deleteTransaction = async function(id) {
     }
 
     db.treasuryTransactions = db.treasuryTransactions.filter(t => t.id !== id);
-    saveToLocalStorage();
     logAction('حذف حركة مالية', `حذف المعاملة المالية بقيمة ${tx.amount} ج.م وتصحيح التبعات المالية`);
     
     renderTreasury();
@@ -7219,7 +7180,6 @@ window.saveTransactionEdit = async function() {
   tx.amount = tx.amount < 0 ? -Math.abs(newAmt) : Math.abs(newAmt);
   tx.notes = newNotes;
 
-  saveToLocalStorage();
   logAction('تعديل حركة مالية', `تعديل حركة مالية رقم ${id} بقيمة جديدة ${tx.amount} ج.م`);
   closeModal('edit-transaction-modal');
   renderTreasury();
@@ -7240,7 +7200,6 @@ window.deleteUser = async function(id) {
     if (await customConfirm('هل أنت متأكد من حذف هذا المستخدم؟\n\nملاحظة أمنية: سيتم حذف ملف المستخدم من النظام فوراً وفقدانه صلاحية الوصول لبياناته، لكن حساب الدخول الخاص به في Firebase Authentication سيظل موجوداً تقنياً (Firebase لا يسمح بحذف حسابات أخرى من المتصفح لأسباب أمنية). لحذفه نهائياً توجه لـ Firebase Console > Authentication.')) {
       const user = db.users.find(u => u.id === id);
       db.users = db.users.filter(u => u.id !== id);
-      saveToLocalStorage();
       if (user) logAction('حذف مستخدم', `حذف المستخدم ${user.name}`);
       renderUsers();
       populateDropdowns();
@@ -7426,7 +7385,6 @@ window.saveContractEdit = async function() {
       });
     }
 
-    saveToLocalStorage();
     logAction('تعديل عقد', `تعديل بيانات العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}`);
 
     await syncWithAppsScript('updateContract', c);
@@ -7501,7 +7459,6 @@ window.deleteContract = async function(contractId) {
     db.installments = db.installments.filter(inst => inst.contractId !== contractId);
     db.contracts = db.contracts.filter(x => x.id !== contractId);
     
-    saveToLocalStorage();
     logAction('حذف عقد ذكي', `حذف العقد ${contractId} وتصحيح المخزن (إرجاع جهاز) والخزينة (رد مقدم وأقساط) وتنظيف العهد`);
     
     await syncWithAppsScript('deleteContract', { id: contractId, deviceId: c.deviceId });
@@ -7779,7 +7736,6 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
     if (checkbox) db.settings.staffPermissions[tabKey] = checkbox.checked;
   });
 
-  saveToLocalStorage();
   applyCompanyBranding();
   updateSyncStatusUI();
   updateUIForRole();
@@ -7807,7 +7763,6 @@ document.getElementById('btn-seed-data').addEventListener('click', async () => {
   if (await customConfirm('هل ترغب في إعادة تهيئة النظام؟ سيؤدي هذا لمسح جميع البيانات الحالية (يوزرات، عملاء، عقود، مخزون...) وإرجاع النظام لحالة فارغة تماماً. هذا الإجراء لا يمكن التراجع عنه.')) {
     db = defaultSeedData;
     generateSeededInstallments();
-    saveToLocalStorage();
     logAction('حقن بيانات', 'إعادة تهيئة النظام وحقن البيانات النموذجية للتجربة');
     alert('تم إعادة تهيئة قاعدة البيانات بنجاح!');
     location.reload();
@@ -7856,7 +7811,6 @@ document.getElementById('btn-clear-db').addEventListener('click', async () => {
 
     // الحفاظ على db.users و db.settings
 
-    saveToLocalStorage();
     alert('✅ تم مسح البيانات التشغيلية نهائياً من قاعدة البيانات السحابية (Firebase) مع الحفاظ الكامل على المستخدمين والإعدادات.\n\nيمكنك الآن البدء بإدخال بيانات جديدة نظيفة.');
     location.reload();
   }
@@ -7917,7 +7871,6 @@ window.migrateUsersToFirebaseAuth = async function() {
     }
   }
 
-  saveToLocalStorage();
   renderUsers();
   logAction('ترحيل أمني', `تم ترحيل ${successCount} من ${legacyUsers.length} مستخدم إلى Firebase Authentication الآمن`);
 
@@ -8364,7 +8317,6 @@ window.confirmReschedule = async function(contractId) {
   contract.monthlyInstallment = monthly;
   await syncWithAppsScript('updateContract', contract);
 
-  saveToLocalStorage();
   logAction('إعادة جدولة عقد', `إعادة جدولة العقد ${contractId} — ${unpaidInsts.length} قسط قديم استُبدل بـ ${newDuration} قسط جديد بإجمالي ${remainingBalance.toLocaleString()} ج.م`);
 
   document.getElementById('reschedule-modal').remove();
@@ -8581,11 +8533,21 @@ async function startFirebaseSubscription(uid, email) {
   }
 
   if (firebaseSubscriptionActive) return; // منع الاشتراك المزدوج في التحديثات الفورية
+
+  // أمان إضافي: لو لأي سبب كان فيه اشتراك سابق لسه شغال (مثلاً بعد خروج
+  // ودخول سريع) نقفله الأول قبل ما نفتح واحد جديد، عشان نضمن إن مفيش أكتر
+  // من 18 listener شغالين في نفس الوقت أبداً.
+  if (typeof firebaseUnsubscribeUpdates === 'function') {
+    firebaseUnsubscribeUpdates();
+    firebaseUnsubscribeUpdates = null;
+  }
+
   firebaseSubscriptionActive = true;
   console.log("Starting Firebase real-time subscription after real authentication...");
 
-  // الاشتراك في التحديثات الفورية (Real-time)
-  window.FirebaseService.subscribeToUpdates((colName, items) => {
+  // الاشتراك في التحديثات الفورية (Real-time) - نخزن دالة إلغاء الاشتراك
+  // الراجعة عشان نقدر نقفل كل الـ 18 listener صح وقت الخروج (handleUserLogout)
+  firebaseUnsubscribeUpdates = window.FirebaseService.subscribeToUpdates((colName, items) => {
     if (colName === 'settings') {
       if (items) {
         db.settings = { ...db.settings, ...items };
@@ -8607,7 +8569,6 @@ async function startFirebaseSubscription(uid, email) {
       db[colName] = items || [];
     }
 
-    saveToLocalStorage();
     renderAllTabs();
   });
 }
@@ -8621,9 +8582,16 @@ window.addEventListener('firebase-auth-changed', async (event) => {
     setLoginLoading(true, 'جاري تحميل بياناتك...');
     await startFirebaseSubscription(uid, email);
   } else {
-    // لا توجد جلسة دخول حقيقية (خروج أو أول زيارة) - أظهر شاشة الدخول
+    // لا توجد جلسة دخول حقيقية (خروج أو أول زيارة أو انتهاء الجلسة من تلقاء
+    // نفسها) - أظهر شاشة الدخول. نقفل أي listeners شغالة هنا أيضاً وليس فقط
+    // في handleUserLogout، عشان نغطي حالة انتهاء الجلسة تلقائياً (مش بس زرار
+    // الخروج اليدوي).
     firebaseSubscriptionActive = false;
     currentUser = null;
+    if (typeof firebaseUnsubscribeUpdates === 'function') {
+      firebaseUnsubscribeUpdates();
+      firebaseUnsubscribeUpdates = null;
+    }
     showLoginScreen();
   }
 });/**
