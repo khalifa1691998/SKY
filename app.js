@@ -1418,6 +1418,15 @@ window.resetDashboardDateFilter = function() {
 function renderDashboard() {
   const dashboardUsername = document.getElementById('dashboard-username');
   if (dashboardUsername) dashboardUsername.textContent = getCurrentUserName() || 'فريق SKY';
+
+  // FIX: التحية كانت ثابتة على "صباح الخير" طول الوقت. دلوقتي بتتغيّر حسب
+  // ساعة الجهاز الفعلية: صباح الخير من الفجر لحد قبل الظهر، وبعد كده مساء
+  // الخير لحد آخر اليوم.
+  const greetingEl = document.getElementById('dashboard-greeting');
+  if (greetingEl) {
+    const currentHour = new Date().getHours();
+    greetingEl.textContent = (currentHour >= 5 && currentHour < 12) ? 'صباح الخير' : 'مساء الخير';
+  }
   // فلتر الفترة (اختياري): لو الأدمن حدد "من - إلى" في أعلى الداشبورد،
   // بنفلتر بيه بس مؤشرات "النشاط" (مبيعات/تحصيلات/مصروفات/ربح) لأنها بس
   // اللي منطقي تتحسب لفترة معينة. الرصيد والمخزون والمستحقات "حالة حالية"
@@ -3674,6 +3683,16 @@ function renderContracts() {
     c.clientName.toLowerCase().includes(searchVal) || 
     c.id.includes(searchVal)
   );
+
+  // FIX: العقود كانت بتتعرض بترتيب عشوائي (زي ما بتيجي من Firebase، ومفيش
+  // ضمان إنها هترجع بترتيب معين). دلوقتي بنرتبها من الأحدث للأقدم: نستخدم
+  // createdAt (طابع زمني دقيق) لو موجود، ولو مش موجود (عقود قديمة اتعملت
+  // قبل إضافة الحقل ده) بنرجع لـ startDate كأقرب تقدير للأحدث.
+  filtered.sort((a, b) => {
+    const aTime = a.createdAt || (a.startDate ? new Date(a.startDate).getTime() : 0);
+    const bTime = b.createdAt || (b.startDate ? new Date(b.startDate).getTime() : 0);
+    return bTime - aTime;
+  });
 
   document.getElementById('total-contracts-count').textContent = db.contracts.length;
 
@@ -6575,6 +6594,7 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
 
   const contract = {
     id: contractId,
+    createdAt: Date.now(),
     clientId: clientId,
     clientName: client.name,
     clientPhone: client.phone,
