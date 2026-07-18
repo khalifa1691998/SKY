@@ -3898,7 +3898,6 @@ function renderCollections() {
                         <div class="inline-flex items-center gap-1">
                           <span class="text-emerald-600 font-bold text-[10px]"><i class="ph ph-check mr-0.5"></i> معتمد</span>
                           <button onclick="printInstallmentReceipt('${inst.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-[10px] transition-all"><i class="ph ph-printer"></i> إيصال</button>
-                          <button onclick="printInstallmentReceipt('${inst.id}', 'pdf')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded font-bold text-[10px] transition-all"><i class="ph ph-file-pdf"></i> PDF</button>
                         </div>
                       `}
                     </td>
@@ -5422,9 +5421,6 @@ function renderExpenses() {
         <div class="inline-flex gap-1">
           <button onclick="printExpenseReceipt('${e.id}')" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="طباعة سند صرف">
             <i class="ph ph-printer text-lg"></i>
-          </button>
-          <button onclick="printExpenseReceipt('${e.id}', 'pdf')" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="تحميل PDF">
-            <i class="ph ph-file-pdf text-lg"></i>
           </button>
           <button onclick="openEditExpenseModal('${e.id}')" class="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all admin-only" title="تعديل المصروف">
             <i class="ph ph-pencil-simple text-lg"></i>
