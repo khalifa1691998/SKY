@@ -1895,6 +1895,15 @@
               بيانات الضامن المتضامن
             </h4>
             
+            <div class="relative">
+              <label class="form-label text-emerald-700">🔍 دوّر لو الضامن عميل عندك بالفعل (اختياري)</label>
+              <input type="text" id="guarantor-client-search" class="form-input" placeholder="اكتب اسم العميل أو رقمه القومي أو هاتفه..." autocomplete="off">
+              <input type="hidden" id="guarantor-client-picked-id">
+              <div id="guarantor-client-results" class="hidden absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto"></div>
+              <div id="guarantor-client-risk-warning" class="hidden mt-2 p-2 rounded-lg text-xs font-semibold"></div>
+              <p class="text-[11px] text-slate-400 mt-1">اختياره بينسخلك بياناته في الحقول تحت، وتقدر تعدّل فيها بعد كده عادي. لو مش موجود، اكتب بياناته يدوي زي المعتاد.</p>
+            </div>
+
             <div>
               <label class="form-label">الاسم الرباعي للضامن</label>
               <input type="text" id="guarantor-fullname" required class="form-input" placeholder="أدخل الاسم رباعي للضامن">

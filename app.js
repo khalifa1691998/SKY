@@ -6964,6 +6964,8 @@ document.getElementById('add-device-form').addEventListener('submit', async (e) 
 window.openAddClientModal = function() {
   document.getElementById('client-edit-id').value = '';
   document.getElementById('add-client-form').reset();
+  document.getElementById('guarantor-client-results').classList.add('hidden');
+  document.getElementById('guarantor-client-risk-warning').classList.add('hidden');
   
   tempUploads = {
     clientCardImg: '',
@@ -6991,6 +6993,10 @@ window.editClient = function(clientId) {
   if (!c) return;
 
   document.getElementById('client-edit-id').value = c.id;
+  document.getElementById('guarantor-client-search').value = '';
+  document.getElementById('guarantor-client-picked-id').value = '';
+  document.getElementById('guarantor-client-results').classList.add('hidden');
+  document.getElementById('guarantor-client-risk-warning').classList.add('hidden');
   
   document.getElementById('client-fullname').value = c.name || '';
   document.getElementById('client-national-id').value = c.nationalId || '';
@@ -7738,6 +7744,46 @@ setupSearchableSelect({
   },
   renderLabel: (s) => formatSupplierOptionLabel(s),
   renderSubLabel: (s) => s.phone || ''
+});
+
+setupSearchableSelect({
+  searchInputId: 'guarantor-client-search',
+  hiddenInputId: 'guarantor-client-picked-id',
+  resultsId: 'guarantor-client-results',
+  getItems: (query) => {
+    const q = query.toLowerCase();
+    const currentClientId = document.getElementById('client-edit-id') ? document.getElementById('client-edit-id').value : '';
+    // بنستبعد العميل نفسه من نتائج البحث لو بيعدّل بياناته، عشان محدش يقدر
+    // يختار نفسه كضامن لنفسه بالغلط.
+    const pool = db.clients.filter(c => c.id !== currentClientId);
+    const list = !q ? pool : pool.filter(c =>
+      c.name.toLowerCase().includes(q) || (c.nationalId || '').includes(q) || (c.phone || '').includes(q)
+    );
+    return list.slice(0, 200);
+  },
+  renderLabel: (c) => c.name,
+  renderSubLabel: (c) => `الهوية: ${c.nationalId} — هاتف: ${c.phone}`,
+  onChange: (c) => {
+    // FEATURE: نسخ بيانات بس - مفيش أي ربط دائم بين الضامن والعميل المختار.
+    // لو غيّرت بيانات العميل ده بعدين، الضامن هنا مش هيتأثر خالص (نسخة مستقلة).
+    document.getElementById('guarantor-fullname').value = c.name;
+    document.getElementById('guarantor-national-id').value = c.nationalId || '';
+    document.getElementById('guarantor-phone').value = c.phone || '';
+
+    const warningEl = document.getElementById('guarantor-client-risk-warning');
+    const risk = getClientRiskInfo(c.id);
+    if (!risk || risk.level === 'none') {
+      warningEl.classList.add('hidden');
+    } else {
+      const colors = {
+        high: 'bg-rose-50 text-rose-700 border border-rose-200',
+        medium: 'bg-amber-50 text-amber-700 border border-amber-200'
+      };
+      warningEl.className = `mt-2 p-2 rounded-lg text-xs font-semibold ${colors[risk.level]}`;
+      warningEl.textContent = `⚠️ الشخص ده عميل عندك برضه وله سجل كعميل: ${risk.label}`;
+      warningEl.classList.remove('hidden');
+    }
+  }
 });
 
 function populateDropdowns() {
