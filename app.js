@@ -1451,7 +1451,11 @@ function renderDashboard() {
   const totalSales = directSales + contractSales;
   document.getElementById('kpi-total-sales').textContent = `${totalSales.toLocaleString()} ج.م`;
 
-  const activeCollections = filteredTx.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  // FIX: صافي الربح كان بيحسب بس تحصيلات الأقساط (collection) وبيتجاهل
+  // البيع الكاش (cash_sale) تمامًا، فكل عملية بيع جهاز كاش كانت بتظهر
+  // كأنها "خسارة صافية" في الداشبورد رغم إنها فعلاً مبلغ اتحصّل ورجع
+  // للشركة. دلوقتي بنحسب التحصيلات الفعلية = تحصيل أقساط + بيع كاش.
+  const activeCollections = filteredTx.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-active-collections').textContent = `${activeCollections.toLocaleString()} ج.م`;
 
   const totalExpenses = Math.abs(filteredTx.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
@@ -1731,9 +1735,9 @@ function renderNotificationsPanel(panel) {
   }
   if (n.overdue) {
     items.push(`
-      <div class="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 rounded-xl">
+      <div class="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 rounded-xl cursor-pointer" onclick="switchTab('collections'); toggleNotificationsPanel();">
         <p class="text-xs font-bold text-rose-700 dark:text-rose-400">أقساط متأخرة بالذمة</p>
-        <p class="text-sm text-rose-600 dark:text-rose-400 mt-0.5">عدد ${n.overdue.count} قسط، بإجمالي ${n.overdue.amount.toLocaleString()} ج.م</p>
+        <p class="text-sm text-rose-600 dark:text-rose-400 mt-0.5">عدد ${n.overdue.count} قسط، بإجمالي ${n.overdue.amount.toLocaleString()} ج.م — اضغط للعرض</p>
       </div>`);
   }
   if (n.dueToday) {
@@ -1752,7 +1756,10 @@ function renderNotificationsPanel(panel) {
       <div class="p-3 bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/50 rounded-xl">
         <p class="text-xs font-bold text-sky-700 dark:text-sky-400">أقساط هتستحق خلال ${n.dueSoon.daysAhead} أيام</p>
         <p class="text-sm text-sky-600 dark:text-sky-400 mt-0.5">عدد ${n.dueSoon.totalCount} قسط، بإجمالي ${n.dueSoon.totalDueAmount.toLocaleString()} ج.م</p>
-        <button onclick="sendUpcomingRemindersInBulk()" class="w-full mt-2 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold">إرسال تذكير استباقي</button>
+        <div class="flex gap-2 mt-2">
+          <button onclick="sendUpcomingRemindersInBulk()" class="flex-1 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold">إرسال تذكير استباقي</button>
+          <button onclick="switchTab('collections'); toggleNotificationsPanel();" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">عرض التفاصيل</button>
+        </div>
       </div>`);
   }
   if (n.lowStock) {
@@ -4993,7 +5000,7 @@ window.approveCollectorCustody = async function(id) {
   renderTreasury();
   renderCollections();
   
-  openWhatsappModal(inst.id, 'receipt');
+  openWhatsappModal(inst.id, 'receipt', custody.amount);
 };
 
 window.rejectCollectorCustody = async function(id) {
@@ -5030,7 +5037,9 @@ function renderReports() {
     const txDate = (tx.timestamp || '').split(' ')[0];
     return txDate >= fromDate && txDate <= toDate;
   });
-  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  // FIX: نفس مشكلة صافي الربح في الداشبورد - كان بيتجاهل البيع الكاش
+  // (cash_sale) تمامًا من "إجمالي التحصيل بالفترة" وبالتالي من "الصافي".
+  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
   // إجمالي المصروفات والمشتريات = حركات الخزينة (مشتريات/سدادات) + المصروفات التشغيلية المسجلة بالفترة
   const opsExpensesInRange = db.expenses
     .filter(e => e.date >= fromDate && e.date <= toDate)
@@ -5079,10 +5088,15 @@ function renderReports() {
     const contract = db.contracts.find(c => c.id === inst.contractId);
     const clientId = contract?.clientId || inst.clientName;
     if (!overdueByClient[clientId]) {
-      overdueByClient[clientId] = { name: inst.clientName, phone: inst.clientPhone, count: 0, totalDue: 0, maxDays: 0 };
+      overdueByClient[clientId] = { name: inst.clientName, phone: inst.clientPhone, collectorName: inst.collectorName || '—', count: 0, totalDue: 0, maxDays: 0 };
     }
     overdueByClient[clientId].count++;
     overdueByClient[clientId].totalDue += stats.totalDue;
+    // لو أقساط العميل المتأخرة موزّعة على أكتر من محصّل، نعرض اسم محصّل
+    // القسط الأكتر تأخيراً (الأولوية الأهم للمتابعة) بدل ما نسيب الخانة فاضية
+    if (stats.overdueDays >= overdueByClient[clientId].maxDays) {
+      overdueByClient[clientId].collectorName = inst.collectorName || '—';
+    }
     overdueByClient[clientId].maxDays = Math.max(overdueByClient[clientId].maxDays, stats.overdueDays);
   });
 
@@ -5100,6 +5114,7 @@ function renderReports() {
       row.innerHTML = `
         <td class="p-3 font-bold">${escapeHTML(c.name)}</td>
         <td class="p-3 font-mono">${escapeHTML(c.phone)}</td>
+        <td class="p-3">${escapeHTML(c.collectorName)}</td>
         <td class="p-3 font-mono">${c.count}</td>
         <td class="p-3 font-mono font-bold text-rose-600">${c.totalDue.toLocaleString()} ج.م</td>
         <td class="p-3 font-mono">${c.maxDays} يوم</td>
@@ -5146,7 +5161,7 @@ window.printReportsPage = function() {
     <h4 style="margin-top:20px; margin-bottom:8px; font-weight:700;">العملاء المتأخرون حالياً</h4>
     ${overdueEmptyVisible ? '<p style="font-size:0.85rem; color:#64748b;">لا يوجد عملاء متأخرون حالياً.</p>' : `
     <table class="print-doc-table">
-      <thead><tr><th>العميل</th><th>الهاتف</th><th>عدد الأقساط المتأخرة</th><th>إجمالي المستحق</th><th>أطول مدة تأخير</th></tr></thead>
+      <thead><tr><th>العميل</th><th>الهاتف</th><th>المحصّل</th><th>عدد الأقساط المتأخرة</th><th>إجمالي المستحق</th><th>أطول مدة تأخير</th></tr></thead>
       <tbody>${overdueRows}</tbody>
     </table>`}
 
@@ -6007,7 +6022,7 @@ function normalizeWhatsappPhone(raw) {
   return null;
 }
 
-window.openWhatsappModal = function(instId, templateType) {
+window.openWhatsappModal = function(instId, templateType, overrideAmount) {
   const inst = db.installments.find(i => i.id === instId);
   if (!inst) return;
 
@@ -6035,9 +6050,18 @@ window.openWhatsappModal = function(instId, templateType) {
   }
 
   const companyName = db.settings.companyName || 'شركة SKY';
+
+  // FIX: قيمة {{القسط}} في رسالة السداد لازم تعكس المبلغ اللي اتحصّل *فعلاً*
+  // في هذه المرة (لو تحصيل جزئي، مثلاً 400 من أصل قسط 800)، مش قيمة القسط
+  // الكاملة كل مرة. رسالتي التذكير والإنذار لسه بتوريك المبلغ الكامل
+  // المطلوب سداده (ده صح لهم، لأنهم بيطلبوا كل المتبقي).
+  const displayedInstallmentAmount = (templateType === 'receipt')
+    ? safeNum(overrideAmount != null ? overrideAmount : (inst.paidAmount || inst.amount))
+    : inst.amount;
+
   let resolvedMsg = templateText
     .replace(/{{الاسم}}/g, client.name)
-    .replace(/{{القسط}}/g, inst.amount.toLocaleString())
+    .replace(/{{القسط}}/g, displayedInstallmentAmount.toLocaleString())
     .replace(/{{التاريخ}}/g, inst.dueDate)
     .replace(/{{العقد}}/g, inst.contractId.replace('con-', ''))
     .replace(/{{الغرامة}}/g, statusInfo.fine.toLocaleString())
@@ -7286,6 +7310,13 @@ window.saveContractEdit = async function() {
       newDuration !== c.duration
     );
 
+    // FIX: تعديل تاريخ بداية العقد لوحده (من غير أي تغيير في السعر/الفائدة/
+    // المقدم/المدة) كان قبل كده بيتجاهَل تماماً، لأن financialChanged ماكانتش
+    // بتشمل التاريخ، فمكانتش بتشغّل إعادة توليد الأقساط أبداً. دلوقتي أي
+    // تغيير في التاريخ بيتحسب برضه كسبب لإعادة توليد الأقساط المتبقية.
+    const startDateChanged = newStartDate !== c.startDate;
+    const needsRegeneration = financialChanged || startDateChanged;
+
     if (financialChanged) {
       if (newDuration <= paidCount) {
         alert(`❌ لا يمكن ضبط مدة التقسيط على ${newDuration} شهر لأن العميل سدد بالفعل ${paidCount} قسط. اختر مدة أكبر من ${paidCount}.`);
@@ -7293,6 +7324,13 @@ window.saveContractEdit = async function() {
       }
       const remainingCountPreview = newDuration - paidCount;
       if (!(await customConfirm(`⚠️ تنبيه هام:\n\nتعديل القيم المالية للعقد سيؤدي إلى:\n• حذف الأقساط "غير المسددة" الحالية (${contractInsts.length - paidCount} قسط)\n• إعادة توليد ${remainingCountPreview} قسط جديد بالقيم المحدّثة\n• الأقساط المسددة فعلاً (${paidCount}) لن تتأثر إطلاقاً\n\nهل أنت متأكد من المتابعة؟`))) {
+        return;
+      }
+    } else if (startDateChanged) {
+      // تغيير التاريخ لوحده من غير أي تغيير مالي - برضه بيعيد توليد مواعيد
+      // الأقساط غير المسددة، فلازم نوضح ده للمستخدم قبل ما يكمل.
+      const remainingCountPreview = newDuration - paidCount;
+      if (!(await customConfirm(`⚠️ تنبيه:\n\nتعديل تاريخ بداية العقد سيؤدي إلى إعادة حساب مواعيد استحقاق الأقساط "غير المسددة" الحالية (${remainingCountPreview} قسط) بناءً على التاريخ الجديد.\n• الأقساط المسددة فعلاً (${paidCount}) لن تتأثر إطلاقاً\n\nهل أنت متأكد من المتابعة؟`))) {
         return;
       }
     }
@@ -7331,30 +7369,29 @@ window.saveContractEdit = async function() {
     if (collectorUser) c.collectorId = collectorUser.id;
 
     let newInstallments = [];
-    if (financialChanged) {
+    if (needsRegeneration) {
       c.remainingAmount = remainingAmount;
       c.monthlyInstallment = monthly;
 
       // نحذف الأقساط غير المسددة فقط، ونحتفظ بالمسددة كما هي دون أي تعديل
       db.installments = db.installments.filter(i => !(i.contractId === c.id && i.status !== 'paid'));
 
-      // نبدأ توليد الأقساط الجديدة من بعد آخر قسط مسدد (أو من تاريخ بدء العقد لو مفيش أقساط مسددة)
-      let baseDate;
-      if (paidInsts.length > 0) {
-        const lastPaidDue = paidInsts.reduce((latest, i) => {
-          const d = new Date(i.dueDate);
-          return d > latest ? d : latest;
-        }, new Date(paidInsts[0].dueDate));
-        baseDate = lastPaidDue;
-      } else {
-        baseDate = new Date(newStartDate);
-      }
+      // FIX: بنستخدم دايماً تاريخ البداية الجديد (newStartDate) كأساس لحساب
+      // تواريخ الأقساط المتبقية - بنفس المعادلة المستخدمة بالظبط عند إنشاء
+      // عقد جديد (dueDate = تاريخ البداية + (رقم القسط - 1) شهر)، عشان
+      // التعديل يتصرف تماماً زي إنشاء عقد جديد وأي تعديل في التاريخ ينعكس
+      // فوراً على شهر ويوم كل الأقساط المتبقية. الأقساط المسددة فعلاً مش
+      // بتتغير تواريخها إطلاقاً (بيانات تاريخية محفوظة زي ما هي).
+      // (قبل كده كان بيتجاهل التاريخ المُعدَّل تماماً لو فيه أقساط مسددة،
+      // ولو مفيش أقساط مسددة كان فيه فرق شهر كامل عن معادلة الإنشاء الأصلية)
+      const baseDate = new Date(newStartDate);
 
       for (let i = 1; i <= remainingCount; i++) {
+        const installmentNumber = paidCount + i;
         const dueDate = new Date(baseDate);
-        dueDate.setMonth(baseDate.getMonth() + i);
+        dueDate.setMonth(baseDate.getMonth() + (installmentNumber - 1));
         const inst = {
-          id: `${c.id}_${paidCount + i}`,
+          id: `${c.id}_${installmentNumber}`,
           contractId: c.id,
           clientId: c.clientId,
           clientName: c.clientName,
@@ -7362,7 +7399,7 @@ window.saveContractEdit = async function() {
           guarantorName: client ? client.guarantorName : '',
           guarantorPhone: client ? client.guarantorPhone : '',
           collectorName: c.collectorName,
-          installmentNum: paidCount + i,
+          installmentNum: installmentNumber,
           amount: monthly,
           dueDate: dueDate.toISOString().split('T')[0],
           status: 'pending',
@@ -7375,7 +7412,7 @@ window.saveContractEdit = async function() {
         newInstallments.push(inst);
       }
     } else {
-      // مفيش تغيير مالي: بس نحدّث بيانات العميل/المحصل المنسوخة على الأقساط الحالية
+      // مفيش تغيير مالي ولا في التاريخ: بس نحدّث بيانات العميل/المحصل المنسوخة على الأقساط الحالية
       db.installments.forEach(inst => {
         if (inst.contractId === c.id) {
           inst.collectorName = c.collectorName;
@@ -7388,7 +7425,7 @@ window.saveContractEdit = async function() {
     logAction('تعديل عقد', `تعديل بيانات العقد رقم ${contractId.replace('con-', '')} للعميل ${c.clientName}`);
 
     await syncWithAppsScript('updateContract', c);
-    if (financialChanged) {
+    if (needsRegeneration) {
       await syncWithAppsScript('regenerateInstallments', { contractId: c.id, installments: newInstallments });
     }
 
