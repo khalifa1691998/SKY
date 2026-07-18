@@ -3539,7 +3539,10 @@ window.openStockInModal = function(productId) {
   document.getElementById('stock-in-product-name').textContent = p.name;
   document.getElementById('stock-in-current-qty').textContent = `${computeProductQuantity(p.id).toLocaleString()} ${p.unit || 'قطعة'}`;
   populateDropdowns();
-  document.getElementById('stock-in-supplier').value = p.defaultSupplierId || '';
+  const defaultSupplier = p.defaultSupplierId ? db.suppliers.find(s => s.id === p.defaultSupplierId) : null;
+  document.getElementById('stock-in-supplier').value = defaultSupplier ? defaultSupplier.id : '';
+  document.getElementById('stock-in-supplier-search').value = defaultSupplier ? formatSupplierOptionLabel(defaultSupplier) : '';
+  document.getElementById('stock-in-supplier-results').classList.add('hidden');
   document.getElementById('stock-in-quantity').value = '';
   document.getElementById('stock-in-unit-cost').value = p.costPrice || 0;
   document.getElementById('stock-in-method').value = 'cash';
@@ -7626,6 +7629,117 @@ window.toggleSerialInput = function() {
   }
 };
 
+// ================= بحث قابل للاختيار (Searchable Select) =================
+// مكوّن عام قابل لإعادة الاستخدام: يستبدل أي قائمة <select> طويلة (عملاء/
+// أجهزة/موردين) بمربع بحث حي يفلتر النتائج وهي بتتكتب، بدل ما المستخدم
+// يسكرول في قائمة طويلة يدوّر فيها. القيمة النهائية بتتخزن في input مخفي
+// بنفس الـ id اللي كان للـ <select> القديم، فكل الكود التاني اللي بيقرا
+// .value منه (submit handlers، checkClientRiskWarning...) يفضل شغال زي ما
+// هو من غير أي تعديل تاني.
+function setupSearchableSelect({ searchInputId, hiddenInputId, resultsId, getItems, renderLabel, renderSubLabel, onChange }) {
+  const searchInput = document.getElementById(searchInputId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  const resultsEl = document.getElementById(resultsId);
+  if (!searchInput || !hiddenInput || !resultsEl) return;
+
+  function renderResults(query) {
+    const items = getItems(query);
+    if (items.length === 0) {
+      resultsEl.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">مفيش نتائج مطابقة</div>`;
+    } else {
+      resultsEl.innerHTML = items.slice(0, 50).map(item => `
+        <div class="searchable-select-item p-2.5 hover:bg-sky-50 cursor-pointer text-sm border-b border-slate-50 last:border-0" data-id="${escapeHTML(String(item.id))}">
+          <div class="font-semibold text-slate-800">${escapeHTML(renderLabel(item))}</div>
+          ${renderSubLabel ? `<div class="text-xs text-slate-400">${escapeHTML(renderSubLabel(item))}</div>` : ''}
+        </div>
+      `).join('');
+    }
+    resultsEl.classList.remove('hidden');
+
+    resultsEl.querySelectorAll('.searchable-select-item').forEach(el => {
+      // mousedown مش click عشان ينفذ قبل ما الـ blur يقفل القائمة
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const id = el.dataset.id;
+        const item = items.find(i => String(i.id) === String(id));
+        if (!item) return;
+        hiddenInput.value = item.id;
+        searchInput.value = renderLabel(item);
+        resultsEl.classList.add('hidden');
+        // بنطلق حدث 'change' حقيقي على الـ input المخفي، عشان أي كود تاني في
+        // البرنامج مرتبط بـ addEventListener('change', ...) على العنصر ده
+        // (زي تحديث سعر الجهاز المعروض عند اختيار جهاز) يفضل شغال زي ما هو
+        // من غير ما نضطر نكرر نفس المنطق هنا. تغيير .value برمجيًا لوحده
+        // مبيطلقش حدث change تلقائيًا في الجافاسكريبت العادي.
+        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+        if (onChange) onChange(item);
+      });
+    });
+  }
+
+  searchInput.addEventListener('input', () => {
+    // أي تعديل يدوي في مربع البحث بعد اختيار سابق يلغي الاختيار القديم لحد
+    // ما المستخدم يختار عنصر تاني من القائمة، عشان مايفضلش فيه ID قديم مخزن
+    // من غير ما يطابق النص الظاهر فعليًا في المربع.
+    hiddenInput.value = '';
+    renderResults(searchInput.value.trim());
+  });
+  searchInput.addEventListener('focus', () => renderResults(searchInput.value.trim()));
+  document.addEventListener('click', (e) => {
+    if (!searchInput.contains(e.target) && !resultsEl.contains(e.target)) {
+      resultsEl.classList.add('hidden');
+    }
+  });
+}
+
+// تجهيز الثلاثة أماكن اللي كانت قوائم <select> طويلة: عميل العقد، جهاز
+// العقد، ومورد التوريد. بيتنفذ مرة واحدة بس عند تحميل السكريبت (العناصر
+// موجودة في index.html من البداية).
+setupSearchableSelect({
+  searchInputId: 'contract-client-search',
+  hiddenInputId: 'contract-client-select',
+  resultsId: 'contract-client-results',
+  getItems: (query) => {
+    const q = query.toLowerCase();
+    const list = !q ? db.clients : db.clients.filter(c =>
+      c.name.toLowerCase().includes(q) || (c.nationalId || '').includes(q) || (c.phone || '').includes(q)
+    );
+    return list.slice(0, 200);
+  },
+  renderLabel: (c) => c.name,
+  renderSubLabel: (c) => `الهوية: ${c.nationalId} — هاتف: ${c.phone}`,
+  onChange: () => { if (typeof checkClientRiskWarning === 'function') checkClientRiskWarning(); }
+});
+
+setupSearchableSelect({
+  searchInputId: 'contract-device-search',
+  hiddenInputId: 'contract-device-select',
+  resultsId: 'contract-device-results',
+  getItems: (query) => {
+    const q = query.toLowerCase();
+    const available = db.inventory.filter(d => d.status === 'available');
+    const list = !q ? available : available.filter(d =>
+      d.name.toLowerCase().includes(q) || d.brand.toLowerCase().includes(q) || (d.serial || '').toLowerCase().includes(q)
+    );
+    return list.slice(0, 200);
+  },
+  renderLabel: (d) => `${d.brand} ${d.name} (SN: ${d.serial})`,
+  renderSubLabel: (d) => `سعر البيع: ${safeNum(d.sellingPrice).toLocaleString()} ج.م`
+});
+
+setupSearchableSelect({
+  searchInputId: 'stock-in-supplier-search',
+  hiddenInputId: 'stock-in-supplier',
+  resultsId: 'stock-in-supplier-results',
+  getItems: (query) => {
+    const q = query.toLowerCase();
+    const list = !q ? db.suppliers : db.suppliers.filter(s => s.name.toLowerCase().includes(q));
+    return list.slice(0, 200);
+  },
+  renderLabel: (s) => formatSupplierOptionLabel(s),
+  renderSubLabel: (s) => s.phone || ''
+});
+
 function populateDropdowns() {
   try {
     // تحديث قائمة التصنيفات في إضافة جهاز
@@ -7653,27 +7767,11 @@ function populateDropdowns() {
       });
     }
 
-    const clientSelect = document.getElementById('contract-client-select');
-    if (clientSelect) {
-      clientSelect.innerHTML = '<option value="">اختر العميل المشتري...</option>';
-      db.clients.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = `${c.name} (الهوية: ${c.nationalId})`;
-        clientSelect.appendChild(opt);
-      });
-    }
-
-    const deviceSelect = document.getElementById('contract-device-select');
-    if (deviceSelect) {
-      deviceSelect.innerHTML = '<option value="">اختر الجهاز من المتاح بالمخزن...</option>';
-      db.inventory.filter(d => d.status === 'available').forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.id;
-        opt.textContent = `${d.brand} ${d.name} (SN: ${d.serial}) - سعر: ${d.sellingPrice} ج.م`;
-        deviceSelect.appendChild(opt);
-      });
-    }
+    // ملحوظة: كان هنا كود بيملأ contract-client-select و contract-device-select
+    // كـ <select> عادي بكل العملاء/الأجهزة. اتشال لأنهم بقوا "بحث قابل
+    // للاختيار" (searchable picker) بيقرا من db.clients/db.inventory مباشرة
+    // وقت الكتابة بدل ما نبني قائمة ثابتة مسبقًا (راجع setupSearchableSelect
+    // و initContractPickers).
 
     // ملحوظة: قائمة "device-brand-select" (الماركة) و"device-model-select" (الموديل)
     // بتتحدث بشكل هرمي صحيح عن طريق updateBrandList() و updateDeviceModelList()
@@ -7728,10 +7826,9 @@ function populateDropdowns() {
       if ([...productCategorySelect.options].some(o => o.value === prevVal)) productCategorySelect.value = prevVal;
     }
 
-    // قوائم الموردين الخاصة بنموذج المنتج ونموذج التوريد
+    // قائمة المورد الافتراضي الخاصة بنموذج المنتج (لسه <select> عادي)
     [
-      { id: 'product-default-supplier', placeholder: 'بدون مورد افتراضي' },
-      { id: 'stock-in-supplier', placeholder: 'اختر المورد...' }
+      { id: 'product-default-supplier', placeholder: 'بدون مورد افتراضي' }
     ].forEach(({ id: selectId, placeholder }) => {
       const sel = document.getElementById(selectId);
       if (!sel) return;
