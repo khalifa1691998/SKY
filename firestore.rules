@@ -151,22 +151,15 @@ service cloud.firestore {
     match /auditLogs/{docId} {
       allow read: if isStaffOrAdmin();
 
-      // CURRENT (unchanged for now - see note below):
+      // FIX (C5): كانت أي حسابات موقّعة تقدر تكتب "user" بأي اسم تحبه (حتى
+      // اسم حد تاني)، فالسجل مكانش موثوق. دلوقتي بنجبر إن قيمة "user"
+      // تطابق بالظبط الاسم الحقيقي المخزّن على حساب المستخدم نفسه في
+      // userRoles/{uid} (اللي بيتحدّث تلقائياً مع كل تسجيل دخول عبر
+      // ensureUserRoleDoc في app.js)، مش أي قيمة تانية يبعتها المتصفح.
       allow create: if isSignedIn()
-                    && request.resource.data.user is string && request.resource.data.user.size() > 0 && request.resource.data.user.size() < 500
+                    && request.resource.data.user == get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.name
                     && request.resource.data.actionType is string && request.resource.data.actionType.size() > 0 && request.resource.data.actionType.size() < 500
                     && request.resource.data.details is string && request.resource.data.details.size() < 500;
-
-      // STAGED FIX FOR C5 (audit log forgery) - DO NOT ENABLE YET.
-      // Once app.js's ensureUserRoleDoc() is updated to also store the
-      // user's display `name` on userRoles/{uid} (a 2-line change), swap
-      // the block above for this one, which forces `user` to match the
-      // caller's own real name instead of trusting whatever the client sends:
-      //
-      // allow create: if isSignedIn()
-      //               && request.resource.data.user == get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.name
-      //               && request.resource.data.actionType is string && request.resource.data.actionType.size() > 0 && request.resource.data.actionType.size() < 500
-      //               && request.resource.data.details is string && request.resource.data.details.size() < 500;
 
       allow update, delete: if false;
     }

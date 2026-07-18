@@ -494,7 +494,7 @@ async function resolveCurrentUserFromAuth(uid, email) {
       // FIX: نضمن وجود مستند userRoles أولاً عشان تنجح عملية updateUser بعدين
       // (Rules بتحتاج مستند userRoles عشان تسمح للأدمن بالكتابة)
       if (window.FirebaseAuthService.ensureUserRoleDoc) {
-        window.FirebaseAuthService.ensureUserRoleDoc(uid, user.role).then(() => {
+        window.FirebaseAuthService.ensureUserRoleDoc(uid, user.role, user.name).then(() => {
           syncWithAppsScript('updateUser', { id: user.id, authUid: uid, role: user.role }).catch(err => {
             console.error('فشل حفظ authUid في Firestore:', err);
           });
@@ -753,7 +753,7 @@ window.exportExcelBackup = function() {
 
   // 1. ملخص عام
   const totalTreasury = db.treasuryTransactions.reduce((s, t) => s + t.amount, 0);
-  const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection').reduce((s, t) => s + t.amount, 0);
+  const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection' || t.type === 'product_sale').reduce((s, t) => s + t.amount, 0);
   const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'product_purchase' || t.type === 'supplier_payment').reduce((s, t) => s + t.amount, 0));
   const overdueInsts = db.installments.filter(i => i.status !== 'paid' && new Date(i.dueDate) < now).length;
   addSheet('ملخص عام', [{
@@ -1455,7 +1455,9 @@ function renderDashboard() {
   const totalTreasury = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-treasury-balance').textContent = `${totalTreasury.toLocaleString()} ج.م`;
   
-  const directSales = filteredTx.filter(tx => tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  // FIX: كانت بتحسب بس بيع الأجهزة كاش (cash_sale) وتتجاهل بيع الأصناف
+  // العامة كاش (product_sale) - نفس مشكلة صافي الربح بالظبط لكن في مكان تاني.
+  const directSales = filteredTx.filter(tx => tx.type === 'cash_sale' || tx.type === 'product_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
   const contractSales = filteredContracts.reduce((sum, c) => sum + safeNum(c.totalValue), 0);
   const totalSales = directSales + contractSales;
   document.getElementById('kpi-total-sales').textContent = `${totalSales.toLocaleString()} ج.م`;
@@ -1464,7 +1466,11 @@ function renderDashboard() {
   // البيع الكاش (cash_sale) تمامًا، فكل عملية بيع جهاز كاش كانت بتظهر
   // كأنها "خسارة صافية" في الداشبورد رغم إنها فعلاً مبلغ اتحصّل ورجع
   // للشركة. دلوقتي بنحسب التحصيلات الفعلية = تحصيل أقساط + بيع كاش.
-  const activeCollections = filteredTx.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  // FIX: صافي الربح كان بيحسب تحصيل الأقساط + بيع الأجهزة كاش بس، وكان
+  // لسه بيتجاهل بيع الأصناف/الإكسسوارات العامة كاش (product_sale) رغم إن
+  // شراءها (product_purchase) بيتحسب كمصروف - فبيع صنف عام كاش كان بيظهر
+  // كخسارة صافية رغم إنه فلوس فعلاً رجعت للشركة.
+  const activeCollections = filteredTx.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale' || tx.type === 'product_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-active-collections').textContent = `${activeCollections.toLocaleString()} ج.م`;
 
   const totalExpenses = Math.abs(filteredTx.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
@@ -5057,7 +5063,8 @@ function renderReports() {
   });
   // FIX: نفس مشكلة صافي الربح في الداشبورد - كان بيتجاهل البيع الكاش
   // (cash_sale) تمامًا من "إجمالي التحصيل بالفترة" وبالتالي من "الصافي".
-  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  // FIX: نفس مشكلة صافي الربح - كان بيتجاهل بيع الأصناف العامة كاش (product_sale).
+  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale' || tx.type === 'product_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
   // إجمالي المصروفات والمشتريات = حركات الخزينة (مشتريات/سدادات) + المصروفات التشغيلية المسجلة بالفترة
   const opsExpensesInRange = db.expenses
     .filter(e => e.date >= fromDate && e.date <= toDate)
@@ -5272,7 +5279,7 @@ window.saveUserEdits = async function() {
     logAction('تعديل مستخدم', `تعديل بيانات المستخدم ${u.name} (${u.role})`);
     // FIX: نحدّث مستند userRoles عشان لو اتغيّر الدور يتعكس فوراً على الصلاحيات
     if (u.authUid && window.FirebaseAuthService && window.FirebaseAuthService.ensureUserRoleDoc) {
-      await window.FirebaseAuthService.ensureUserRoleDoc(u.authUid, u.role);
+      await window.FirebaseAuthService.ensureUserRoleDoc(u.authUid, u.role, u.name);
     }
     await syncWithAppsScript('updateUser', {
       id: u.id,
@@ -6774,7 +6781,7 @@ document.getElementById('add-user-form').addEventListener('submit', async (e) =>
     // إن الـ Rules بتحتاج مستند userRoles للأدمن عشان تسمحله بالكتابة في users.
     // وده هو السبب الجذري للمشكلة اللي بتواجهها.
     if (window.FirebaseAuthService.ensureUserRoleDoc) {
-      await window.FirebaseAuthService.ensureUserRoleDoc(authResult.uid, role);
+      await window.FirebaseAuthService.ensureUserRoleDoc(authResult.uid, role, name);
     }
 
     db.users.push(newUser);
@@ -7906,7 +7913,7 @@ window.migrateUsersToFirebaseAuth = async function() {
 
         // FIX: ننشئ userRoles أولاً عشان تنجح عملية updateUser بعدين
         if (window.FirebaseAuthService.ensureUserRoleDoc) {
-          await window.FirebaseAuthService.ensureUserRoleDoc(result.uid, u.role);
+          await window.FirebaseAuthService.ensureUserRoleDoc(result.uid, u.role, u.name);
         }
         // تحديث Firestore: إضافة authUid، وحذف حقل password نهائياً بواسطة FieldValue.delete()
         // وبعت الدور "role" كمان عشان يتزامن مستند userRoles اللي قواعد الأمان بتعتمد عليه
@@ -8571,7 +8578,7 @@ async function startFirebaseSubscription(uid, email) {
       db.users.find(u => window.FirebaseAuthService.usernameToAuthEmail(u.username) === email);
     if (matchedUser && matchedUser.role) {
       try {
-        await window.FirebaseAuthService.ensureUserRoleDoc(uid, matchedUser.role);
+        await window.FirebaseAuthService.ensureUserRoleDoc(uid, matchedUser.role, matchedUser.name);
       } catch (e) {
         console.warn('تعذّر إنشاء userRoles في startFirebaseSubscription:', e);
       }

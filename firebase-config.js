@@ -106,11 +106,16 @@ function usernameToAuthEmail(username) {
       // للتحقق من صلاحية أي مستخدم قبل السماح له بأي عملية كتابة.
       // إذا لم يكن هذا المستند موجوداً، سيتم رفض كل عمليات الكتابة حتى للأدمن.
       // ============================================================
-      ensureUserRoleDoc: async function(uid, role) {
+      ensureUserRoleDoc: async function(uid, role, name) {
         if (!uid || !role) return;
         try {
           const roleRef = _fbDB.collection('userRoles').doc(uid);
-          await roleRef.set({ role: role }, { merge: true });
+          const payload = { role: role };
+          // FIX: بنخزن اسم المستخدم الحقيقي هنا كمان (لو اتبعت)، عشان قواعد
+          // الأمان تقدر تتحقق إن أي حد بيكتب Log في auditLogs بيكتب باسمه
+          // الحقيقي بس، مش أي اسم تاني يختاره من جهازه (منع تزوير السجل).
+          if (name) payload.name = name;
+          await roleRef.set(payload, { merge: true });
           console.log(`✅ تم إنشاء/تحديث مستند userRoles للـ UID: ${uid} بالدور: ${role}`);
         } catch (err) {
           console.error(`❌ فشل إنشاء مستند userRoles للـ UID: ${uid}`, err);
