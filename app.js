@@ -757,8 +757,11 @@ window.exportExcelBackup = function() {
   // = NaN). دلوقتي بنستخدم safeAmount() زي باقي الحسابات في البرنامج،
   // اللي بترجع 0 لأي قيمة تالفة بدل ما تبوّظ الإجمالي كله.
   const totalTreasury = db.treasuryTransactions.reduce((s, t) => s + safeAmount(t), 0);
-  const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection' || t.type === 'product_sale').reduce((s, t) => s + safeAmount(t), 0);
-  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'product_purchase' || t.type === 'supplier_payment').reduce((s, t) => s + safeAmount(t), 0));
+  // FIX: كانت بتتجاهل حركات استرداد الحذف (type 'in' لمصروف/شراء اتلغى،
+  // type 'out' لتحصيل اتلغى) - فحذف مصروف أو عقد كان يصحح رصيد الخزينة
+  // الكلي بس مش الأرقام دي في تقرير التصدير.
+  const totalSales = db.treasuryTransactions.filter(t => t.type === 'cash_sale' || t.type === 'collection' || t.type === 'product_sale' || t.type === 'out').reduce((s, t) => s + safeAmount(t), 0);
+  const totalExpenses = Math.abs(db.treasuryTransactions.filter(t => t.type === 'expense' || t.type === 'inventory_purchase' || t.type === 'product_purchase' || t.type === 'supplier_payment' || t.type === 'in').reduce((s, t) => s + safeAmount(t), 0));
   const overdueInsts = db.installments.filter(i => i.status !== 'paid' && new Date(i.dueDate) < now).length;
   addSheet('ملخص عام', [{
     'اسم الشركة': db.settings.companyName || 'شركة SKY',
@@ -1474,10 +1477,16 @@ function renderDashboard() {
   // لسه بيتجاهل بيع الأصناف/الإكسسوارات العامة كاش (product_sale) رغم إن
   // شراءها (product_purchase) بيتحسب كمصروف - فبيع صنف عام كاش كان بيظهر
   // كخسارة صافية رغم إنه فلوس فعلاً رجعت للشركة.
-  const activeCollections = filteredTx.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale' || tx.type === 'product_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  // FIX: أي عملية حذف (مصروف، عقد، جهاز من المخزون) بتنشئ حركة "استرداد"
+  // تصحح رصيد الخزينة (type: 'in' بيلغي أثر مصروف/شراء سابق، type: 'out'
+  // بيلغي أثر تحصيل/مقدم سابق) - بس الحركات دي كانت بتتجاهل تمامًا من
+  // حسابات "صافي الربح"/"إجمالي المبيعات"/"إجمالي المصروفات"، فالحذف كان
+  // بيصحح الرصيد الكلي بس من غير ما ينعكس على الأرقام دي. دلوقتي بقت
+  // متضمنة، فأي حذف بيتصحح في كل مكان مرة واحدة.
+  const activeCollections = filteredTx.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale' || tx.type === 'product_sale' || tx.type === 'out').reduce((sum, tx) => sum + safeAmount(tx), 0);
   document.getElementById('kpi-active-collections').textContent = `${activeCollections.toLocaleString()} ج.م`;
 
-  const totalExpenses = Math.abs(filteredTx.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
+  const totalExpenses = Math.abs(filteredTx.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment' || tx.type === 'in').reduce((sum, tx) => sum + safeAmount(tx), 0));
   document.getElementById('kpi-total-expenses').textContent = `${totalExpenses.toLocaleString()} ج.م`;
 
   // حساب صافي الربح الحقيقي = إجمالي التحصيلات - إجمالي المصروفات والمشتريات
@@ -2213,7 +2222,7 @@ function renderInventory() {
   const invValueEl = document.getElementById('inv-value-count');
   if (invValueEl) {
     if (isAdmin()) {
-      const totalValue = db.inventory.filter(d => d.status === 'available' || d.status === 'maintenance').reduce((s, d) => s + (d.costPrice || 0), 0);
+      const totalValue = db.inventory.filter(d => d.status === 'available' || d.status === 'maintenance').reduce((s, d) => s + safeNum(d.costPrice), 0);
       invValueEl.textContent = `${totalValue.toLocaleString()} ج.م`;
     } else {
       invValueEl.innerHTML = '<i class="ph ph-lock-key"></i>';
@@ -4103,7 +4112,7 @@ function getInvestorCapitalTimeline(investorId, investor) {
       const jd = parseDateSafe(investor.joinDate);
       if (jd) effectiveDate = jd;
     }
-    return { date: effectiveDate, amount: tx.amount };
+    return { date: effectiveDate, amount: safeNum(tx.amount) };
   }).filter(e => e.date);
 }
 
@@ -5068,12 +5077,22 @@ function renderReports() {
   // FIX: نفس مشكلة صافي الربح في الداشبورد - كان بيتجاهل البيع الكاش
   // (cash_sale) تمامًا من "إجمالي التحصيل بالفترة" وبالتالي من "الصافي".
   // FIX: نفس مشكلة صافي الربح - كان بيتجاهل بيع الأصناف العامة كاش (product_sale).
-  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale' || tx.type === 'product_sale').reduce((sum, tx) => sum + safeAmount(tx), 0);
+  // FIX: كمان كان بيتجاهل حركات استرداد التحصيلات (type: 'out') الناتجة عن
+  // حذف عقد/قسط مسدد - فحذف عقد كان يصحح الرصيد الكلي بس مش "التحصيل بالفترة".
+  const collectionsInRange = txInRange.filter(tx => tx.type === 'collection' || tx.type === 'cash_sale' || tx.type === 'product_sale' || tx.type === 'out').reduce((sum, tx) => sum + safeAmount(tx), 0);
   // إجمالي المصروفات والمشتريات = حركات الخزينة (مشتريات/سدادات) + المصروفات التشغيلية المسجلة بالفترة
   const opsExpensesInRange = db.expenses
     .filter(e => e.date >= fromDate && e.date <= toDate)
     .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-  const treasuryExpensesInRange = Math.abs(txInRange.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment').reduce((sum, tx) => sum + safeAmount(tx), 0));
+  // FIX: db.expenses فوق بيتحدّث ذاتيًا (المصروف بيتشال فعليًا منه لو
+  // اتحذف، والقيمة بتتعدل فعليًا لو اتعدلت) - فجمع حركات الخزينة بنوع
+  // 'expense' هنا كمان كان بيعدّ نفس المصروف مرتين (مرة من db.expenses
+  // ومرة من treasuryTransactions). استبعدناها هنا، وضفنا بس حركة استرداد
+  // مشتريات المخزون الكاش (مفيهاش مصدر تاني بيتحدّث ذاتيًا زي db.expenses).
+  const treasuryExpensesInRange = Math.abs(txInRange.filter(tx =>
+    tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment' ||
+    (tx.type === 'in' && tx.category === 'استرداد مشتريات مخزون')
+  ).reduce((sum, tx) => sum + safeAmount(tx), 0));
   
   const totalExpensesInRange = opsExpensesInRange + treasuryExpensesInRange;
   const netInRange = collectionsInRange - totalExpensesInRange;
