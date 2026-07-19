@@ -68,6 +68,16 @@ service cloud.firestore {
       allow update: if isStaffOrAdmin();
       allow delete: if isAdmin();
     }
+    // FEATURE: طلبات العملاء (منتجات مش متوفرة) - أي مستخدم موقّع يقدر يسجل
+    // طلب أو يحدّث حالته (لسه بيدور/لقاه/اتحول لعقد/اتلغى)، عشان التسجيل
+    // يبقى سريع وسهل لمين ما كان بيكلم العميل وقت الطلب.
+    match /customerRequests/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.productDescription is string && request.resource.data.productDescription.size() > 0 && request.resource.data.productDescription.size() < 1000;
+      allow update: if isSignedIn();
+      allow delete: if isStaffOrAdmin();
+    }
     match /contracts/{docId} {
       allow read: if isSignedIn();
       allow create, update: if isStaffOrAdmin();

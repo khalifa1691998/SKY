@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests'];
       const data = {};
 
       // مهم جداً: كل مجموعة (Collection) بتتحمّل بشكل مستقل تماماً عن الباقي.
@@ -58,7 +58,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests'];
     
     const activeListeners = [];
     
@@ -371,6 +371,17 @@ window.FirebaseService = {
           break;
         case 'deleteClientFollowUp':
           await db.collection("clientFollowUps").doc(payload.id).delete();
+          break;
+
+        // Customer Requests (طلبات العملاء)
+        case 'addCustomerRequest':
+          await db.collection("customerRequests").doc(payload.id).set(payload);
+          break;
+        case 'updateCustomerRequest':
+          await db.collection("customerRequests").doc(payload.id).update(payload);
+          break;
+        case 'deleteCustomerRequest':
+          await db.collection("customerRequests").doc(payload.id).delete();
           break;
         case 'addDeposit': {
           if (payload.transaction) {

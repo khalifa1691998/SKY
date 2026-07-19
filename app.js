@@ -17,6 +17,7 @@ let db = {
 
   clients: [],
   clientFollowUps: [], // سجل ملاحظات/متابعة العميل: { id, clientId, clientName, note, nextFollowUpDate, createdBy, timestamp }
+  customerRequests: [], // طلبات عملاء لمنتجات مش متوفرة: { id, clientId, clientName, clientPhone, productDescription, status, notes, createdBy, timestamp }
   inventory: [],
   brands: [], // ماركات تابعة لصنف معين: { id, name, categoryId } - تُستخدم في تبويب "الأصناف والمنتجات" وتبويب "المخزون" معاً (نظام موحد: صنف ← ماركة ← منتج/موديل)
   suppliers: [],
@@ -79,7 +80,7 @@ let db = {
 // التبويبات دي هي الوحيدة القابلة للتحكم فيها من شاشة الإعدادات لدور "موظف
 // إدخال بيانات" (STAFF). تبويبات users / settings / audit-log مقفولة دايماً
 // على المشرف (Admin) فقط ومش قابلة للمنح لأي دور تاني لأسباب أمنية.
-const STAFF_PERMISSION_TABS = ['clients', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'treasury', 'investors', 'expenses', 'today-reminders', 'reports'];
+const STAFF_PERMISSION_TABS = ['clients', 'customer-requests', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'treasury', 'investors', 'expenses', 'today-reminders', 'reports'];
 const ADMIN_ONLY_TABS = ['users', 'settings', 'audit-log'];
 
 function getDefaultStaffPermissions() {
@@ -130,6 +131,7 @@ const defaultSeedData = {
   productStockMovements: [],
   clients: [],
   clientFollowUps: [],
+  customerRequests: [],
   inventory: [],
   contracts: [],
   installments: [],
@@ -1153,6 +1155,7 @@ async function loadFromServer() {
         db.investorSnapshots = sortByTimestampDesc(fbData.investorSnapshots || []);
         db.expenses = fbData.expenses || [];
         db.clientFollowUps = fbData.clientFollowUps || [];
+        db.customerRequests = fbData.customerRequests || [];
         db.suppliers = fbData.suppliers || [];
         db.supplierTransactions = fbData.supplierTransactions || [];
         // تنظيف ذاتي: أي ماركة قديمة كانت متخزنة كنص خام (من نظام قديم قبل
@@ -1312,6 +1315,9 @@ function renderActiveTab(tabName) {
       break;
     case 'clients':
       renderClients();
+      break;
+    case 'customer-requests':
+      renderCustomerRequests();
       break;
     case 'client-balances':
       renderClientBalances();
@@ -1660,7 +1666,7 @@ function renderDashboard() {
 // بدل ما تكون متفرقة أو تظهر تلقائياً بشكل مزعج. الجرس نفسه بيتحدث في
 // كل مرة يتغير فيها أي جزء من البيانات (بعد renderDashboard).
 function getSystemNotifications() {
-  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null, backupDue: null };
+  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null, backupDue: null, openRequests: null };
 
   // 0. تذكير النسخة الاحتياطية: لو عدّى أكتر من 7 أيام من غير أي تصدير
   // (Excel أو JSON)، أو مفيش أي نسخة اتعملت من الأساس.
@@ -1705,6 +1711,10 @@ function getSystemNotifications() {
     notifications.pendingCustody = { count: pending.length, amount };
   }
 
+  // 5. طلبات عملاء لسه مفتوحة (لسه بيتم البحث أو تم إيجاده بس لسه محولش لبيع)
+  const openRequests = db.customerRequests.filter(r => r.status === 'pending' || r.status === 'found');
+  if (openRequests.length > 0) notifications.openRequests = { count: openRequests.length };
+
   return notifications;
 }
 
@@ -1713,9 +1723,9 @@ function updateNotificationBell() {
   const btn = document.getElementById('notif-bell-btn');
   if (!dot || !isAdmin()) return;
   const n = getSystemNotifications();
-  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue;
+  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue || n.openRequests;
   dot.classList.toggle('hidden', !hasAny);
-  const itemCount = [n.overdue, n.dueToday, n.dueSoon, n.lowStock, n.pendingCustody, n.backupDue].filter(Boolean).length;
+  const itemCount = [n.overdue, n.dueToday, n.dueSoon, n.lowStock, n.pendingCustody, n.backupDue, n.openRequests].filter(Boolean).length;
   if (btn) btn.setAttribute('aria-label', hasAny ? `لديك ${itemCount} تنبيهات تحتاج للمراجعة` : 'لا توجد تنبيهات جديدة');
 
   // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
@@ -1805,6 +1815,13 @@ function renderNotificationsPanel(panel) {
       <div class="p-3 bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/50 rounded-xl cursor-pointer" onclick="switchTab('treasury'); toggleNotificationsPanel();">
         <p class="text-xs font-bold text-sky-700 dark:text-sky-400">عهد محصلين محتاجة اعتماد</p>
         <p class="text-sm text-sky-600 dark:text-sky-400 mt-0.5">${n.pendingCustody.count} عهدة، بإجمالي ${n.pendingCustody.amount.toLocaleString()} ج.م — اضغط للمراجعة</p>
+      </div>`);
+  }
+  if (n.openRequests) {
+    items.push(`
+      <div class="p-3 bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/50 rounded-xl cursor-pointer" onclick="switchTab('customer-requests'); toggleNotificationsPanel();">
+        <p class="text-xs font-bold text-violet-700 dark:text-violet-400">طلبات عملاء لسه مفتوحة</p>
+        <p class="text-sm text-violet-600 dark:text-violet-400 mt-0.5">${n.openRequests.count} طلب مستني — اضغط للعرض</p>
       </div>`);
   }
 
@@ -7821,6 +7838,25 @@ setupSearchableSelect({
   }
 });
 
+setupSearchableSelect({
+  searchInputId: 'request-client-search',
+  hiddenInputId: 'request-client-picked-id',
+  resultsId: 'request-client-results',
+  getItems: (query) => {
+    const q = query.toLowerCase();
+    const list = !q ? db.clients : db.clients.filter(c =>
+      c.name.toLowerCase().includes(q) || (c.phone || '').includes(q)
+    );
+    return list.slice(0, 200);
+  },
+  renderLabel: (c) => c.name,
+  renderSubLabel: (c) => `هاتف: ${c.phone}`,
+  onChange: (c) => {
+    document.getElementById('request-client-name').value = c.name;
+    document.getElementById('request-client-phone').value = c.phone || '';
+  }
+});
+
 function populateDropdowns() {
   try {
     // تحديث قائمة التصنيفات في إضافة جهاز
@@ -8255,6 +8291,124 @@ window.deleteClientFollowUp = async function(id, clientId) {
   db.clientFollowUps = db.clientFollowUps.filter(n => n.id !== id);
   await syncWithAppsScript('deleteClientFollowUp', { id });
   renderClientFollowUpsList(clientId);
+};
+
+// ================= طلبات العملاء (Customer Requests) =================
+// تسجيل طلبات لمنتجات مش متوفرة حاليًا، عشان ما تنساش تدوّر عليها/تتابعها.
+window.openAddCustomerRequestModal = function() {
+  document.getElementById('request-client-search').value = '';
+  document.getElementById('request-client-picked-id').value = '';
+  document.getElementById('request-client-results').classList.add('hidden');
+  document.getElementById('request-client-name').value = '';
+  document.getElementById('request-client-phone').value = '';
+  document.getElementById('request-product-description').value = '';
+  document.getElementById('request-notes').value = '';
+  openModal('customer-request-modal');
+};
+
+window.saveCustomerRequest = async function() {
+  const clientName = document.getElementById('request-client-name').value.trim();
+  const productDescription = document.getElementById('request-product-description').value.trim();
+  if (!clientName || !productDescription) {
+    alert('من فضلك اكتب اسم الطالب والمنتج المطلوب على الأقل.');
+    return;
+  }
+
+  const entry = {
+    id: `req-${Date.now()}`,
+    clientId: document.getElementById('request-client-picked-id').value || '',
+    clientName: clientName,
+    clientPhone: document.getElementById('request-client-phone').value.trim(),
+    productDescription: productDescription,
+    notes: document.getElementById('request-notes').value.trim(),
+    status: 'pending',
+    createdBy: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.customerRequests.unshift(entry);
+  await syncWithAppsScript('addCustomerRequest', entry);
+
+  logAction('تسجيل طلب عميل', `طلب جديد من ${clientName}: ${productDescription}`);
+  closeModal('customer-request-modal');
+  renderCustomerRequests();
+  updateNotificationBell();
+  showToast('✅ تم تسجيل الطلب بنجاح', 'success');
+};
+
+const REQUEST_STATUS_LABELS = {
+  pending: { label: 'لسه بيتم البحث', badge: 'bg-amber-100 text-amber-700' },
+  found: { label: 'تم إيجاده', badge: 'bg-sky-100 text-sky-700' },
+  fulfilled: { label: 'تم التحويل لبيع', badge: 'bg-emerald-100 text-emerald-700' },
+  cancelled: { label: 'اعتذر العميل', badge: 'bg-slate-200 text-slate-600' }
+};
+
+function renderCustomerRequests() {
+  const searchEl = document.getElementById('request-search-input');
+  const statusEl = document.getElementById('request-filter-status');
+  const listEl = document.getElementById('customer-requests-list');
+  const emptyEl = document.getElementById('customer-requests-empty');
+  if (!listEl) return;
+
+  const searchVal = (searchEl ? searchEl.value : '').toLowerCase();
+  const statusFilter = statusEl ? statusEl.value : 'all';
+
+  const filtered = db.customerRequests.filter(r => {
+    const matchesSearch = r.clientName.toLowerCase().includes(searchVal) || r.productDescription.toLowerCase().includes(searchVal);
+    const matchesStatus = statusFilter === 'all' ? true : r.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  listEl.innerHTML = filtered.map(r => {
+    const st = REQUEST_STATUS_LABELS[r.status] || REQUEST_STATUS_LABELS.pending;
+    return `
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-2">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="font-bold text-slate-800">${escapeHTML(r.clientName)}</p>
+          ${r.clientPhone ? `<p class="text-xs text-slate-400 font-mono">${escapeHTML(r.clientPhone)}</p>` : ''}
+        </div>
+        <span class="badge ${st.badge} text-[10px]">${st.label}</span>
+      </div>
+      <p class="text-sm text-slate-700 bg-slate-50 rounded-lg p-2">${escapeHTML(r.productDescription)}</p>
+      ${r.notes ? `<p class="text-xs text-slate-400">${escapeHTML(r.notes)}</p>` : ''}
+      <p class="text-[11px] text-slate-400 font-mono">${escapeHTML(r.timestamp)} — ${escapeHTML(r.createdBy)}</p>
+      <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-50">
+        ${r.status !== 'found' ? `<button onclick="updateCustomerRequestStatus('${r.id}', 'found')" class="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-md text-[11px] font-semibold">تم إيجاده</button>` : ''}
+        ${r.status !== 'fulfilled' ? `<button onclick="updateCustomerRequestStatus('${r.id}', 'fulfilled')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-[11px] font-semibold">تحويل لبيع</button>` : ''}
+        ${r.status !== 'cancelled' ? `<button onclick="updateCustomerRequestStatus('${r.id}', 'cancelled')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[11px] font-semibold">اعتذر العميل</button>` : ''}
+        <button onclick="deleteCustomerRequest('${r.id}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-md text-[11px] font-semibold mr-auto"><i class="ph ph-trash"></i></button>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+window.updateCustomerRequestStatus = async function(id, newStatus) {
+  const req = db.customerRequests.find(r => r.id === id);
+  if (!req) return;
+  req.status = newStatus;
+  await syncWithAppsScript('updateCustomerRequest', { id, status: newStatus });
+  renderCustomerRequests();
+  updateNotificationBell();
+};
+
+window.deleteCustomerRequest = async function(id) {
+  if (currentUser && currentUser.role === 'COLLECTOR') {
+    alert('⛔ حذف الطلبات مخصص للمشرف/الموظف فقط.');
+    return;
+  }
+  if (!(await customConfirm('هل أنت متأكد من حذف الطلب ده؟'))) return;
+  db.customerRequests = db.customerRequests.filter(r => r.id !== id);
+  await syncWithAppsScript('deleteCustomerRequest', { id });
+  renderCustomerRequests();
+  updateNotificationBell();
 };
 
 window.viewClientDetails = function(clientId) {
