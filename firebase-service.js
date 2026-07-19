@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps'];
       const data = {};
 
       // مهم جداً: كل مجموعة (Collection) بتتحمّل بشكل مستقل تماماً عن الباقي.
@@ -58,7 +58,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps'];
     
     const activeListeners = [];
     
@@ -249,6 +249,40 @@ window.FirebaseService = {
           break;
         }
 
+        // FEATURE: سداد مبكر - نعلّم كل الأقساط المتبقية كمدفوعة دفعة واحدة،
+        // نسجل حركة تحصيل واحدة بقيمة المبلغ الفعلي المحصّل (بعد الخصم لو
+        // فيه)، ونحدّث حالة العقد.
+        case 'settleContractEarly': {
+          const seBatch = db.batch();
+          (payload.updatedInstallments || []).forEach(inst => {
+            seBatch.update(db.collection("installments").doc(inst.id), inst);
+          });
+          if (payload.transaction) {
+            seBatch.set(db.collection("treasuryTransactions").doc(payload.transaction.id), payload.transaction);
+          }
+          seBatch.update(db.collection("contracts").doc(payload.contractId), { status: 'settled_early' });
+          await seBatch.commit();
+          break;
+        }
+
+        // FEATURE: استرجاع الجهاز (تعثر العميل) - نحذف الأقساط المتبقية غير
+        // المسددة (مش هتتحصل خالص)، نرجّع الجهاز لحالة "متاح" في المخزون،
+        // ونحدّث حالة العقد لـ "متعثر". الأقساط المسددة فعلاً تفضل زي ما هي
+        // (سجل تاريخي لما اتحصّل قبل التعثر).
+        case 'repossessDevice': {
+          const rpBatch = db.batch();
+          const rpSnap = await db.collection("installments").where("contractId", "==", payload.contractId).get();
+          rpSnap.forEach(d => {
+            if (d.data().status !== 'paid') rpBatch.delete(d.ref);
+          });
+          if (payload.deviceId) {
+            rpBatch.update(db.collection("inventory").doc(payload.deviceId), { status: 'available', soldTo: '' });
+          }
+          rpBatch.update(db.collection("contracts").doc(payload.contractId), { status: 'defaulted' });
+          await rpBatch.commit();
+          break;
+        }
+
         case 'deleteContract': {
           await db.collection("contracts").doc(payload.id).delete();
           if (payload.deviceId) {
@@ -329,6 +363,14 @@ window.FirebaseService = {
           if (payload.transactionId) {
             await db.collection("treasuryTransactions").doc(payload.transactionId).delete();
           }
+          break;
+
+        // Client Follow-up Notes
+        case 'addClientFollowUp':
+          await db.collection("clientFollowUps").doc(payload.id).set(payload);
+          break;
+        case 'deleteClientFollowUp':
+          await db.collection("clientFollowUps").doc(payload.id).delete();
           break;
         case 'addDeposit': {
           if (payload.transaction) {

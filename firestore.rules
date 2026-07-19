@@ -57,6 +57,17 @@ service cloud.firestore {
       allow create, update: if isStaffOrAdmin();
       allow delete: if isAdmin();
     }
+    // FEATURE: سجل ملاحظات/متابعة العميل - أي مستخدم موقّع (بما فيهم
+    // المحصّل) يقدر يضيف ملاحظة متابعة، لأن المتابعة اليومية شغل المحصلين
+    // الأساسي. التعديل للمشرف/الموظف بس، والحذف للمشرف فقط.
+    match /clientFollowUps/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.clientId is string && request.resource.data.clientId.size() > 0
+                    && request.resource.data.note is string && request.resource.data.note.size() > 0 && request.resource.data.note.size() < 2000;
+      allow update: if isStaffOrAdmin();
+      allow delete: if isAdmin();
+    }
     match /contracts/{docId} {
       allow read: if isSignedIn();
       allow create, update: if isStaffOrAdmin();

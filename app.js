@@ -16,6 +16,7 @@ let firebaseUnsubscribeUpdates = null;
 let db = {
 
   clients: [],
+  clientFollowUps: [], // سجل ملاحظات/متابعة العميل: { id, clientId, clientName, note, nextFollowUpDate, createdBy, timestamp }
   inventory: [],
   brands: [], // ماركات تابعة لصنف معين: { id, name, categoryId } - تُستخدم في تبويب "الأصناف والمنتجات" وتبويب "المخزون" معاً (نظام موحد: صنف ← ماركة ← منتج/موديل)
   suppliers: [],
@@ -128,6 +129,7 @@ const defaultSeedData = {
   products: [],
   productStockMovements: [],
   clients: [],
+  clientFollowUps: [],
   inventory: [],
   contracts: [],
   installments: [],
@@ -728,7 +730,7 @@ window.exportExcelBackup = function() {
 
   const statusLabels = {
     available: 'متاح', sold_installment: 'مباع بالتقسيط', sold_cash: 'مباع كاش', maintenance: 'تحت الصيانة',
-    active: 'ساري', completed: 'مكتمل', cancelled: 'ملغي',
+    active: 'ساري', completed: 'مكتمل', cancelled: 'ملغي', settled_early: 'مسدد مبكراً', defaulted: 'متعثر (تم الاسترجاع)',
     pending: 'قيد الانتظار', paid: 'مدفوع', approved: 'معتمد', rejected: 'مرفوض'
   };
   const typeLabels = {
@@ -1150,6 +1152,7 @@ async function loadFromServer() {
         db.investors = fbData.investors || [];
         db.investorSnapshots = sortByTimestampDesc(fbData.investorSnapshots || []);
         db.expenses = fbData.expenses || [];
+        db.clientFollowUps = fbData.clientFollowUps || [];
         db.suppliers = fbData.suppliers || [];
         db.supplierTransactions = fbData.supplierTransactions || [];
         // تنظيف ذاتي: أي ماركة قديمة كانت متخزنة كنص خام (من نظام قديم قبل
@@ -1963,6 +1966,7 @@ function renderClients() {
       <td class="p-4 text-center">
         <div class="inline-flex gap-1.5">
           <button onclick="viewClientDetails('${c.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-all">الملف الكامل</button>
+          <button onclick="openClientFollowUpModal('${c.id}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-chat-text"></i> متابعة</button>
           <button onclick="printClientStatement('${c.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-printer"></i> كشف حساب</button>
           <button onclick="editClient('${c.id}')" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-note-pencil"></i> تعديل</button>
           <button onclick="deleteClient('${c.id}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded-md text-xs transition-all"><i class="ph ph-trash"></i></button>
@@ -3728,12 +3732,24 @@ function renderContracts() {
     const contractInsts = db.installments.filter(inst => inst.contractId === c.id);
     const paidVal = contractInsts.filter(inst => inst.status === 'paid').reduce((sum, inst) => sum + safeNum(inst.amount), 0);
     const totalInstsAmount = contractInsts.reduce((sum, inst) => sum + safeNum(inst.amount), 0);
-    
+    const unpaidCount = contractInsts.filter(inst => inst.status !== 'paid').length;
+
+    // FEATURE: بادچ يوضح حالات العقد الخاصة (سداد مبكر / تعثر)، مش موجودة
+    // قبل كده خالص في الجدول ده.
+    let statusBadgeHtml = '';
+    if (c.status === 'settled_early') {
+      statusBadgeHtml = `<span class="badge bg-teal-100 text-teal-700 mr-1 text-[10px] align-middle">✅ مسدد مبكراً</span>`;
+    } else if (c.status === 'defaulted') {
+      statusBadgeHtml = `<span class="badge bg-rose-100 text-rose-700 mr-1 text-[10px] align-middle">⚠️ متعثر (تم الاسترجاع)</span>`;
+    }
+
+    const isSettleable = unpaidCount > 0 && c.status !== 'settled_early' && c.status !== 'defaulted';
+
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors text-xs sm:text-sm';
     tr.innerHTML = `
       <td class="p-4 font-bold text-slate-700 font-mono">${escapeHTML(c.id.replace('con-', ''))}</td>
-      <td class="p-4 font-bold text-slate-800">${escapeHTML(c.clientName)}</td>
+      <td class="p-4 font-bold text-slate-800">${escapeHTML(c.clientName)} ${statusBadgeHtml}</td>
       <td class="p-4 font-mono text-slate-500">${escapeHTML(c.clientPhone)}</td>
       <td class="p-4 font-semibold text-slate-600">${escapeHTML(c.collectorName) || 'غير مسند'}</td>
       <td class="p-4 text-slate-600">${escapeHTML(c.deviceInfo)}</td>
@@ -3749,9 +3765,11 @@ function renderContracts() {
         </div>
       </td>
       <td class="p-4 text-center">
-         <div class="inline-flex gap-1.5">
+         <div class="inline-flex gap-1.5 flex-wrap justify-center">
            <button onclick="viewContractDetails('${c.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-all">التفاصيل</button>
            <button onclick="editContract('${c.id}')" class="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-pencil-simple"></i></button>
+           ${isSettleable ? `<button onclick="openEarlySettlementModal('${c.id}')" title="سداد مبكر" class="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-hand-coins"></i></button>` : ''}
+           ${isSettleable ? `<button onclick="openRepossessModal('${c.id}')" title="استرجاع الجهاز (تعثر)" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-arrow-u-down-left"></i></button>` : ''}
            <button onclick="deleteContract('${c.id}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-trash"></i></button>
          </div>
       </td>
@@ -3858,6 +3876,7 @@ function renderCollections() {
           <div class="bg-slate-100 text-slate-700 py-1.5 px-2.5 rounded-lg font-mono">
             الأقساط المنجزة: ${paidCount} / ${totalInsts}
           </div>
+          <button onclick="event.stopPropagation(); openClientFollowUpModal('${clientGroup.clientId}')" class="bg-amber-50 hover:bg-amber-100 text-amber-700 py-1.5 px-2.5 rounded-lg font-semibold flex items-center gap-1"><i class="ph ph-chat-text"></i> متابعة</button>
           <i class="ph ${isExpanded ? 'ph-caret-up' : 'ph-caret-down'} text-slate-400 text-sm ml-2"></i>
         </div>
       </div>
@@ -7057,6 +7076,22 @@ document.getElementById('add-client-form').addEventListener('submit', async (e) 
   const guarantorJob = document.getElementById('guarantor-job').value;
   const guarantorAddress = document.getElementById('guarantor-address').value;
 
+  // FEATURE: تحذير لو رقم قومي أو هاتف مطابق لعميل موجود بالفعل (بس عند
+  // الإضافة، مش وقت التعديل - عشان تعديل بيانات عميل موجود ميتحسبش تكرار
+  // لنفسه). تحذير بس، مش منع، عشان الحالات المشروعة (زي أخوين بنفس الرقم
+  // القومي بالغلط في التسجيل القديم) تفضل ممكنة لو الأدمن قرر يكمل.
+  if (!editId) {
+    const duplicateById = nationalId ? db.clients.find(c => c.nationalId === nationalId) : null;
+    const duplicateByPhone = phone ? db.clients.find(c => c.phone === phone) : null;
+    if (duplicateById || duplicateByPhone) {
+      const messages = [];
+      if (duplicateById) messages.push(`نفس الرقم القومي مسجّل مسبقاً للعميل: "${duplicateById.name}"`);
+      if (duplicateByPhone && duplicateByPhone.id !== (duplicateById && duplicateById.id)) messages.push(`نفس رقم الهاتف مسجّل مسبقاً للعميل: "${duplicateByPhone.name}"`);
+      const proceed = await customConfirm(`⚠️ تنبيه تكرار بيانات:\n\n${messages.join('\n')}\n\nهل أنت متأكد إنك عايز تسجّل عميل جديد بنفس البيانات دي؟`, 'تنبيه: بيانات مكررة');
+      if (!proceed) return;
+    }
+  }
+
   let nationalIdImg = tempUploads.clientCardImg;
   let contractImg = tempUploads.clientContractImg;
   let guarantorCardImg = tempUploads.guarantorCardImg;
@@ -8137,6 +8172,91 @@ window.exportTransactionsCSV = function() {
 };
 
 // ================= CLIENT DETAILS VIEWER =================
+// ================= متابعة العميل (Follow-up Notes) =================
+// سجل ملاحظات بسيط لكل عميل: تاريخ، الموظف/المحصل اللي كتبها، نص الملاحظة،
+// وتاريخ متابعة قادم اختياري. الهدف تسهيل المتابعة اليومية (خصوصاً للمحصلين)
+// من غير ما حد ينسى آخر مكالمة قال فيها إيه.
+window.openClientFollowUpModal = function(clientId) {
+  const client = db.clients.find(c => c.id === clientId);
+  if (!client) return;
+  document.getElementById('followup-client-id').value = clientId;
+  document.getElementById('followup-client-name').textContent = client.name;
+  document.getElementById('followup-new-note').value = '';
+  document.getElementById('followup-next-date').value = '';
+  renderClientFollowUpsList(clientId);
+  openModal('client-followup-modal');
+};
+
+function renderClientFollowUpsList(clientId) {
+  const listEl = document.getElementById('followup-notes-list');
+  const emptyEl = document.getElementById('followup-notes-empty');
+  const notes = db.clientFollowUps
+    .filter(n => n.clientId === clientId)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (notes.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  listEl.innerHTML = notes.map(n => `
+    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs font-bold text-slate-600">${escapeHTML(n.createdBy)}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] text-slate-400 font-mono">${escapeHTML(n.timestamp)}</span>
+          ${isAdmin() ? `<button onclick="deleteClientFollowUp('${n.id}', '${clientId}')" class="text-rose-400 hover:text-rose-600"><i class="ph ph-trash text-xs"></i></button>` : ''}
+        </div>
+      </div>
+      <p class="text-sm text-slate-700 whitespace-pre-wrap">${escapeHTML(n.note)}</p>
+      ${n.nextFollowUpDate ? `<p class="text-xs font-semibold text-amber-600 mt-1.5"><i class="ph ph-calendar-check"></i> متابعة قادمة يوم: ${escapeHTML(n.nextFollowUpDate)}</p>` : ''}
+    </div>
+  `).join('');
+}
+
+window.addClientFollowUp = async function() {
+  const clientId = document.getElementById('followup-client-id').value;
+  const client = db.clients.find(c => c.id === clientId);
+  if (!client) return;
+
+  const note = document.getElementById('followup-new-note').value.trim();
+  if (!note) {
+    alert('من فضلك اكتب نص الملاحظة أولاً.');
+    return;
+  }
+  const nextFollowUpDate = document.getElementById('followup-next-date').value || '';
+
+  const entry = {
+    id: `fu-${Date.now()}`,
+    clientId: clientId,
+    clientName: client.name,
+    note: note,
+    nextFollowUpDate: nextFollowUpDate,
+    createdBy: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.clientFollowUps.unshift(entry);
+  await syncWithAppsScript('addClientFollowUp', entry);
+
+  document.getElementById('followup-new-note').value = '';
+  document.getElementById('followup-next-date').value = '';
+  renderClientFollowUpsList(clientId);
+  showToast('✅ تم حفظ ملاحظة المتابعة', 'success');
+};
+
+window.deleteClientFollowUp = async function(id, clientId) {
+  if (!isAdmin()) {
+    alert('⛔ حذف ملاحظات المتابعة مخصص للمشرف (ADMIN) فقط.');
+    return;
+  }
+  if (!(await customConfirm('هل أنت متأكد من حذف ملاحظة المتابعة دي؟'))) return;
+  db.clientFollowUps = db.clientFollowUps.filter(n => n.id !== id);
+  await syncWithAppsScript('deleteClientFollowUp', { id });
+  renderClientFollowUpsList(clientId);
+};
+
 window.viewClientDetails = function(clientId) {
   const client = db.clients.find(c => c.id === clientId);
   if (!client) return;
@@ -8549,6 +8669,182 @@ window.confirmReschedule = async function(contractId) {
   renderContracts();
   renderCollections();
   showToast('✅ تم إعادة جدولة الأقساط بنجاح', 'success');
+};
+
+// ================= سداد مبكر (Early Settlement) =================
+window.openEarlySettlementModal = function(contractId) {
+  if (!isAdmin()) {
+    alert('⛔ السداد المبكر مخصص للمشرف (ADMIN) فقط.');
+    return;
+  }
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+
+  const unpaidInsts = db.installments.filter(i => i.contractId === contractId && i.status !== 'paid');
+  if (unpaidInsts.length === 0) {
+    alert('العقد ده مسدد بالكامل بالفعل، مفيش حاجة للسداد المبكر.');
+    return;
+  }
+
+  const remainingBalance = unpaidInsts.reduce((sum, i) => sum + Math.max(0, safeNum(i.amount) - safeNum(i.paidAmount)), 0);
+
+  const modal = document.createElement('div');
+  modal.id = 'early-settlement-modal';
+  modal.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">سداد مبكر — إغلاق العقد</h4>
+        <button onclick="document.getElementById('early-settlement-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
+      </div>
+      <div class="p-3 bg-slate-50 rounded-lg text-sm mb-4 space-y-1">
+        <p>العميل: <strong>${escapeHTML(contract.clientName)}</strong></p>
+        <p>عدد الأقساط المتبقية: <strong>${unpaidInsts.length}</strong></p>
+        <p>إجمالي المتبقي بدون خصم: <strong class="text-teal-600">${remainingBalance.toLocaleString()} ج.م</strong></p>
+      </div>
+      <div>
+        <label class="form-label">خصم على السداد المبكر (اختياري، ج.م)</label>
+        <input type="number" id="early-settlement-discount" min="0" max="${remainingBalance}" step="0.01" value="0" class="form-input" oninput="updateEarlySettlementPreview(${remainingBalance})">
+      </div>
+      <div class="p-3 bg-teal-50 border border-teal-100 rounded-lg text-sm mt-3">
+        <p>المبلغ النهائي المطلوب تحصيله الآن: <strong id="early-settlement-final" class="text-teal-700 text-base">${remainingBalance.toLocaleString()} ج.م</strong></p>
+      </div>
+      <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700 my-3 flex items-start gap-2">
+        <i class="ph ph-warning mt-0.5"></i>
+        <span>هيتم تعليم كل الأقساط المتبقية كمدفوعة بالكامل، وتسجيل المبلغ النهائي كتحصيل واحد في الخزينة، وإغلاق العقد كـ"مسدد مبكراً". الأقساط اللي اتسددت خلاص مش هتتأثر.</span>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="document.getElementById('early-settlement-modal').remove()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+        <button onclick="confirmEarlySettlement('${contractId}', ${remainingBalance})" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد السداد المبكر</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+};
+
+window.updateEarlySettlementPreview = function(remainingBalance) {
+  const discount = safeNum(document.getElementById('early-settlement-discount').value);
+  const final = Math.max(0, remainingBalance - discount);
+  document.getElementById('early-settlement-final').textContent = `${final.toLocaleString()} ج.م`;
+};
+
+window.confirmEarlySettlement = async function(contractId, remainingBalance) {
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+
+  const discount = Math.max(0, safeNum(document.getElementById('early-settlement-discount').value));
+  const finalAmount = Math.max(0, remainingBalance - discount);
+
+  if (!(await customConfirm(`هيتم تحصيل ${finalAmount.toLocaleString()} ج.م وإغلاق العقد نهائياً. متأكد؟`))) return;
+
+  const unpaidInsts = db.installments.filter(i => i.contractId === contractId && i.status !== 'paid');
+  const today = new Date().toISOString().split('T')[0];
+  const settlementId = `settle-${Date.now()}`;
+
+  const updatedInstallments = unpaidInsts.map(i => {
+    i.status = 'paid';
+    i.paidAmount = i.amount;
+    i.paidDate = today;
+    i.receiptId = settlementId;
+    i.notes = `تم السداد ضمن تسوية مبكرة للعقد بتاريخ ${today}${discount > 0 ? ` (خصم ${discount.toLocaleString()} ج.م على إجمالي العقد)` : ''}`;
+    return i;
+  });
+
+  const transaction = {
+    id: settlementId,
+    type: 'collection',
+    amount: finalAmount,
+    category: 'سداد مبكر',
+    method: 'cash',
+    details: `سداد مبكر لإغلاق عقد ${contract.clientName} (${contractId.replace('con-', '')})${discount > 0 ? ` — بعد خصم ${discount.toLocaleString()} ج.م` : ''}`,
+    user: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.treasuryTransactions.unshift(transaction);
+  contract.status = 'settled_early';
+
+  await syncWithAppsScript('settleContractEarly', { contractId, updatedInstallments, transaction });
+
+  logAction('سداد مبكر', `إغلاق عقد ${contract.clientName} مبكراً — تحصيل ${finalAmount.toLocaleString()} ج.م${discount > 0 ? ` (خصم ${discount.toLocaleString()} ج.م)` : ''}، وتعليم ${unpaidInsts.length} قسط كمدفوع`);
+
+  document.getElementById('early-settlement-modal').remove();
+  renderContracts();
+  renderCollections();
+  renderTreasury();
+  renderDashboard();
+  showToast('✅ تم السداد المبكر وإغلاق العقد بنجاح', 'success');
+};
+
+// ================= استرجاع الجهاز (تعثر العميل) =================
+window.openRepossessModal = function(contractId) {
+  if (!isAdmin()) {
+    alert('⛔ استرجاع الجهاز مخصص للمشرف (ADMIN) فقط.');
+    return;
+  }
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+
+  const unpaidInsts = db.installments.filter(i => i.contractId === contractId && i.status !== 'paid');
+  const paidInsts = db.installments.filter(i => i.contractId === contractId && i.status === 'paid');
+  const paidSoFar = paidInsts.reduce((sum, i) => sum + safeNum(i.paidAmount || i.amount), 0);
+
+  const modal = document.createElement('div');
+  modal.id = 'repossess-modal';
+  modal.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">استرجاع الجهاز — تعثر العميل</h4>
+        <button onclick="document.getElementById('repossess-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
+      </div>
+      <div class="p-3 bg-slate-50 rounded-lg text-sm mb-4 space-y-1">
+        <p>العميل: <strong>${escapeHTML(contract.clientName)}</strong></p>
+        <p>الجهاز: <strong>${escapeHTML(contract.deviceInfo)}</strong></p>
+        <p>تم تحصيله فعلاً: <strong class="text-teal-600">${paidSoFar.toLocaleString()} ج.م</strong> (${paidInsts.length} قسط) — لن يُرد للعميل</p>
+        <p>الأقساط المتبقية اللي هتتلغى: <strong class="text-rose-600">${unpaidInsts.length} قسط</strong></p>
+      </div>
+      <div class="p-3 bg-rose-50 border border-rose-100 rounded-lg text-xs text-rose-700 mb-4 flex items-start gap-2">
+        <i class="ph ph-warning mt-0.5"></i>
+        <span>هيتم: (١) إلغاء كل الأقساط المتبقية غير المسددة نهائياً، (٢) إرجاع الجهاز لحالة "متاح" في المخزون عشان تقدر تبيعه تاني، (٣) إغلاق العقد كـ"متعثر". الأقساط اللي اتحصّلت قبل كده مش بترجع للعميل (مش استرداد/إلغاء بيع).</span>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="document.getElementById('repossess-modal').remove()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+        <button onclick="confirmRepossessDevice('${contractId}')" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد الاسترجاع</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+};
+
+window.confirmRepossessDevice = async function(contractId) {
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+
+  const unpaidInsts = db.installments.filter(i => i.contractId === contractId && i.status !== 'paid');
+
+  if (!(await customConfirm(`هيتم إلغاء ${unpaidInsts.length} قسط نهائياً وإرجاع الجهاز للمخزون. الإجراء ده لا يمكن التراجع عنه. متأكد؟`, 'تأكيد نهائي'))) return;
+
+  const oldIds = unpaidInsts.map(i => i.id);
+  db.installments = db.installments.filter(i => !oldIds.includes(i.id));
+
+  const dev = db.inventory.find(d => d.id === contract.deviceId);
+  if (dev) {
+    dev.status = 'available';
+    dev.soldTo = '';
+    addDeviceHistory(dev, 'استرجاع (تعثر عميل)', `تم استرجاع القطعة من ${contract.clientName} بسبب التعثر في السداد، وإلغاء ${unpaidInsts.length} قسط متبقي.`);
+  }
+  contract.status = 'defaulted';
+
+  await syncWithAppsScript('repossessDevice', { contractId, deviceId: contract.deviceId });
+
+  logAction('استرجاع جهاز - تعثر', `تعثر العميل ${contract.clientName} في عقد ${contractId.replace('con-', '')} — إلغاء ${unpaidInsts.length} قسط واسترجاع الجهاز للمخزون`);
+
+  document.getElementById('repossess-modal').remove();
+  renderContracts();
+  renderCollections();
+  renderInventory();
+  renderDashboard();
+  showToast('✅ تم استرجاع الجهاز وإغلاق العقد', 'success');
 };
 
 window.switchTab = function(tabName) {
