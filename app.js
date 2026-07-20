@@ -5513,6 +5513,8 @@ window.resetExpenseFilters = function() {
 
 document.getElementById('add-expense-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn && submitBtn.disabled) return;
   const category = document.getElementById('expense-category').value;
   const amount = parseFloat(document.getElementById('expense-amount').value);
   const date = document.getElementById('expense-date').value;
@@ -5523,6 +5525,7 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
     return;
   }
 
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'جاري الحفظ...'; }
   try {
     const expenseId = `exp-${Date.now()}`;
     const newExpense = {
@@ -5563,6 +5566,8 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
   } catch (err) {
     console.error('Error adding expense:', err);
     alert('❌ فشل تسجيل المصروف. يرجى المحاولة مرة أخرى.');
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'تسجيل المصروف'; }
   }
 });
 
@@ -5621,6 +5626,8 @@ window.openEditExpenseModal = function(id) {
 
 document.getElementById('edit-expense-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn && submitBtn.disabled) return;
   const id = document.getElementById('edit-expense-id').value;
   const category = document.getElementById('edit-expense-category').value;
   const amount = parseFloat(document.getElementById('edit-expense-amount').value);
@@ -5635,6 +5642,7 @@ document.getElementById('edit-expense-form').addEventListener('submit', async (e
   const expense = db.expenses.find(x => x.id === id);
   if (!expense) return;
 
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'جاري الحفظ...'; }
   try {
     const oldAmount = parseFloat(expense.amount);
 
@@ -5684,6 +5692,8 @@ document.getElementById('edit-expense-form').addEventListener('submit', async (e
   } catch (err) {
     console.error('Error editing expense:', err);
     alert('❌ فشل تعديل المصروف. يرجى المحاولة مرة أخرى.');
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'حفظ التعديل'; }
   }
 });
 
@@ -6397,6 +6407,8 @@ window.collectInstallmentBtn = async function(instId) {
 
 document.getElementById('collect-installment-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn && submitBtn.disabled) return;
   const instId = document.getElementById('collect-installment-id').value;
   const inst = db.installments.find(i => i.id === instId);
   if (!inst) return;
@@ -6413,6 +6425,8 @@ document.getElementById('collect-installment-form').addEventListener('submit', a
     return;
   }
 
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'جاري التسجيل...'; }
+  try {
   const collector = inst.collectorName || 'Khalifa (ADMIN)';
   const receiptId = `REC-${Date.now().toString().slice(-6)}`;
   const now = new Date();
@@ -6441,6 +6455,9 @@ document.getElementById('collect-installment-form').addEventListener('submit', a
   renderCollections();
   renderTreasury();
   showToast(`✅ تم تسجيل ${isPartial ? 'الدفعة الجزئية' : 'التحصيل'} بانتظار تأكيد الخزينة.`, 'success');
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'تسجيل التحصيل'; }
+  }
 });
 
 document.getElementById('cash-sale-form').addEventListener('submit', async (e) => {
@@ -6618,7 +6635,14 @@ function updateContractCalculation() {
 
 document.getElementById('add-contract-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
+  // FIX: حماية من الضغط المزدوج بالغلط (بيحصل كتير على الموبايل أو لما
+  // النت يكون بطيء) - كان ممكن يعمل عقدين لنفس العميل بدل عقد واحد.
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn && submitBtn.disabled) return;
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'جاري الحفظ...'; }
+  try {
+
   const clientId = document.getElementById('contract-client-select').value;
   const deviceId = document.getElementById('contract-device-select').value;
   const duration = parseInt(document.getElementById('contract-duration').value);
@@ -6753,6 +6777,9 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
   renderCollections();
   renderTreasury();
   renderDashboard();
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'اعتماد العقد والبيع'; }
+  }
 });
 
 document.getElementById('add-brand-form').addEventListener('submit', async (e) => {
@@ -7182,10 +7209,14 @@ document.getElementById('add-client-form').addEventListener('submit', async (e) 
 
 document.getElementById('expense-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn && submitBtn.disabled) return;
   const amount = parseFloat(document.getElementById('expense-out-amount').value);
   const category = document.getElementById('expense-out-category').value;
   const notes = document.getElementById('expense-notes').value;
 
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'جاري الصرف...'; }
+  try {
   const now = new Date();
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -7207,6 +7238,9 @@ document.getElementById('expense-form').addEventListener('submit', async (e) => 
   document.getElementById('expense-form').reset();
   renderTreasury();
   renderDashboard();
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'تأكيد وصرف المبلغ'; }
+  }
 });
 
 document.getElementById('deposit-form').addEventListener('submit', async (e) => {
