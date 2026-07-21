@@ -18,6 +18,7 @@ let db = {
   clients: [],
   clientFollowUps: [], // سجل ملاحظات/متابعة العميل: { id, clientId, clientName, note, nextFollowUpDate, createdBy, timestamp }
   customerRequests: [], // طلبات عملاء لمنتجات مش متوفرة: { id, clientId, clientName, clientPhone, productDescription, status, notes, createdBy, timestamp }
+  recurringExpenses: [], // مصروفات شهرية ثابتة: { id, category, amount, active, lastAppliedMonth (YYYY-MM), createdBy, timestamp }
   inventory: [],
   brands: [], // ماركات تابعة لصنف معين: { id, name, categoryId } - تُستخدم في تبويب "الأصناف والمنتجات" وتبويب "المخزون" معاً (نظام موحد: صنف ← ماركة ← منتج/موديل)
   suppliers: [],
@@ -132,6 +133,7 @@ const defaultSeedData = {
   clients: [],
   clientFollowUps: [],
   customerRequests: [],
+  recurringExpenses: [],
   inventory: [],
   contracts: [],
   installments: [],
@@ -1156,6 +1158,7 @@ async function loadFromServer() {
         db.expenses = fbData.expenses || [];
         db.clientFollowUps = fbData.clientFollowUps || [];
         db.customerRequests = fbData.customerRequests || [];
+        db.recurringExpenses = fbData.recurringExpenses || [];
         db.suppliers = fbData.suppliers || [];
         db.supplierTransactions = fbData.supplierTransactions || [];
         // تنظيف ذاتي: أي ماركة قديمة كانت متخزنة كنص خام (من نظام قديم قبل
@@ -1666,7 +1669,7 @@ function renderDashboard() {
 // بدل ما تكون متفرقة أو تظهر تلقائياً بشكل مزعج. الجرس نفسه بيتحدث في
 // كل مرة يتغير فيها أي جزء من البيانات (بعد renderDashboard).
 function getSystemNotifications() {
-  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null, backupDue: null, openRequests: null };
+  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null, backupDue: null, openRequests: null, pendingRecurringExpenses: null };
 
   // 0. تذكير النسخة الاحتياطية: لو عدّى أكتر من 7 أيام من غير أي تصدير
   // (Excel أو JSON)، أو مفيش أي نسخة اتعملت من الأساس.
@@ -1715,6 +1718,10 @@ function getSystemNotifications() {
   const openRequests = db.customerRequests.filter(r => r.status === 'pending' || r.status === 'found');
   if (openRequests.length > 0) notifications.openRequests = { count: openRequests.length };
 
+  // 6. مصروفات شهرية ثابتة لسه محتاجة تسجيل لشهر ده
+  const pendingRecurring = db.recurringExpenses.filter(r => r.active !== false && r.lastAppliedMonth !== currentMonthKey());
+  if (pendingRecurring.length > 0) notifications.pendingRecurringExpenses = { count: pendingRecurring.length };
+
   return notifications;
 }
 
@@ -1723,9 +1730,9 @@ function updateNotificationBell() {
   const btn = document.getElementById('notif-bell-btn');
   if (!dot || !isAdmin()) return;
   const n = getSystemNotifications();
-  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue || n.openRequests;
+  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue || n.openRequests || n.pendingRecurringExpenses;
   dot.classList.toggle('hidden', !hasAny);
-  const itemCount = [n.overdue, n.dueToday, n.dueSoon, n.lowStock, n.pendingCustody, n.backupDue, n.openRequests].filter(Boolean).length;
+  const itemCount = [n.overdue, n.dueToday, n.dueSoon, n.lowStock, n.pendingCustody, n.backupDue, n.openRequests, n.pendingRecurringExpenses].filter(Boolean).length;
   if (btn) btn.setAttribute('aria-label', hasAny ? `لديك ${itemCount} تنبيهات تحتاج للمراجعة` : 'لا توجد تنبيهات جديدة');
 
   // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
@@ -1822,6 +1829,13 @@ function renderNotificationsPanel(panel) {
       <div class="p-3 bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/50 rounded-xl cursor-pointer" onclick="switchTab('customer-requests'); toggleNotificationsPanel();">
         <p class="text-xs font-bold text-violet-700 dark:text-violet-400">طلبات عملاء لسه مفتوحة</p>
         <p class="text-sm text-violet-600 dark:text-violet-400 mt-0.5">${n.openRequests.count} طلب مستني — اضغط للعرض</p>
+      </div>`);
+  }
+  if (n.pendingRecurringExpenses) {
+    items.push(`
+      <div class="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 rounded-xl cursor-pointer" onclick="switchTab('expenses'); toggleNotificationsPanel(); setTimeout(() => openRecurringExpensesModal(), 200);">
+        <p class="text-xs font-bold text-amber-700 dark:text-amber-400">مصروفات شهرية ثابتة لسه محتاجة تسجيل</p>
+        <p class="text-sm text-amber-600 dark:text-amber-400 mt-0.5">${n.pendingRecurringExpenses.count} مصروف مستني لشهر ${currentMonthKey()} — اضغط للتسجيل</p>
       </div>`);
   }
 
@@ -3784,6 +3798,7 @@ function renderContracts() {
       <td class="p-4 text-center">
          <div class="inline-flex gap-1.5 flex-wrap justify-center">
            <button onclick="viewContractDetails('${c.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-all">التفاصيل</button>
+           <button onclick="printFormalContract('${c.id}')" title="طباعة العقد الرسمي" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-file-text"></i></button>
            <button onclick="editContract('${c.id}')" class="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-pencil-simple"></i></button>
            ${isSettleable ? `<button onclick="openEarlySettlementModal('${c.id}')" title="سداد مبكر" class="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-hand-coins"></i></button>` : ''}
            ${isSettleable ? `<button onclick="openRepossessModal('${c.id}')" title="استرجاع الجهاز (تعثر)" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-arrow-u-down-left"></i></button>` : ''}
@@ -5423,6 +5438,7 @@ function renderExpenses() {
   const tbody = document.getElementById('expenses-table-body');
   const emptyState = document.getElementById('expenses-empty-state');
   if (!tbody) return;
+  checkPendingRecurringExpenses();
 
   const categoryFilter = document.getElementById('expense-filter-category').value;
   const monthFilter = document.getElementById('expense-filter-month').value;
@@ -8445,6 +8461,292 @@ window.deleteCustomerRequest = async function(id) {
   updateNotificationBell();
 };
 
+// ================= المصروفات الشهرية الثابتة (Recurring Expenses) =================
+// قوالب لمصروفات بتتكرر كل شهر (إيجار، رواتب...) - بدل ما تتكتب من الصفر كل
+// مرة، تتسجل مرة واحدة وبعدين تتفعّل كل شهر بضغطة واحدة.
+function currentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function checkPendingRecurringExpenses() {
+  const banner = document.getElementById('recurring-expenses-pending-banner');
+  if (!banner) return;
+  const thisMonth = currentMonthKey();
+  const pending = db.recurringExpenses.filter(r => r.active !== false && r.lastAppliedMonth !== thisMonth);
+  if (pending.length === 0) {
+    banner.classList.add('hidden');
+    return;
+  }
+  document.getElementById('recurring-expenses-pending-text').textContent = `عندك ${pending.length} مصروف شهري ثابت لسه محتاج تسجيل لشهر ${thisMonth}`;
+  banner.classList.remove('hidden');
+}
+
+window.openRecurringExpensesModal = function() {
+  renderRecurringExpensesList();
+  openModal('recurring-expenses-modal');
+};
+
+function renderRecurringExpensesList() {
+  const listEl = document.getElementById('recurring-expenses-templates-list');
+  const emptyEl = document.getElementById('recurring-expenses-templates-empty');
+  if (!listEl) return;
+  const thisMonth = currentMonthKey();
+
+  if (db.recurringExpenses.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  listEl.innerHTML = db.recurringExpenses.map(r => {
+    const appliedThisMonth = r.lastAppliedMonth === thisMonth;
+    return `
+    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-2">
+      <div>
+        <p class="font-bold text-sm text-slate-800">${escapeHTML(r.category)}</p>
+        <p class="text-xs text-slate-500 font-mono">${safeNum(r.amount).toLocaleString()} ج.م شهريًا</p>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        ${appliedThisMonth
+          ? `<span class="badge bg-emerald-100 text-emerald-700 text-[10px]">✅ اتسجل لشهر ${thisMonth}</span>`
+          : `<button onclick="applyRecurringExpenseNow('${r.id}')" class="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-[11px] font-semibold">تسجيله دلوقتي</button>`
+        }
+        <button onclick="deleteRecurringExpenseTemplate('${r.id}')" class="text-rose-400 hover:text-rose-600"><i class="ph ph-trash text-sm"></i></button>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+window.addRecurringExpenseTemplate = async function() {
+  const category = document.getElementById('recurring-expense-category').value.trim();
+  const amount = parseFloat(document.getElementById('recurring-expense-amount').value);
+  if (!category || isNaN(amount) || amount <= 0) {
+    alert('من فضلك اكتب نوع المصروف وقيمة صحيحة أكبر من صفر.');
+    return;
+  }
+  const entry = {
+    id: `rexp-${Date.now()}`,
+    category,
+    amount,
+    active: true,
+    lastAppliedMonth: '',
+    createdBy: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.recurringExpenses.push(entry);
+  await syncWithAppsScript('addRecurringExpense', entry);
+
+  document.getElementById('recurring-expense-category').value = '';
+  document.getElementById('recurring-expense-amount').value = '';
+  renderRecurringExpensesList();
+  checkPendingRecurringExpenses();
+  showToast('✅ تم إضافة المصروف الشهري الثابت', 'success');
+};
+
+window.deleteRecurringExpenseTemplate = async function(id) {
+  if (!isAdmin()) {
+    alert('⛔ حذف المصروفات الثابتة مخصص للمشرف (ADMIN) فقط.');
+    return;
+  }
+  if (!(await customConfirm('هل أنت متأكد من حذف هذا المصروف الشهري الثابت؟ (مش هيمسح المصروفات اللي اتسجلت بيه قبل كده)'))) return;
+  db.recurringExpenses = db.recurringExpenses.filter(r => r.id !== id);
+  await syncWithAppsScript('deleteRecurringExpense', { id });
+  renderRecurringExpensesList();
+  checkPendingRecurringExpenses();
+};
+
+// بتعمل بالظبط نفس حركة "إضافة مصروف" العادية (تسجيل في db.expenses + حركة
+// خزينة)، وبعدين تحدّث القالب إنه اتسجل لشهر ده عشان مايتكررش تسجيله غلط.
+window.applyRecurringExpenseNow = async function(templateId) {
+  const template = db.recurringExpenses.find(r => r.id === templateId);
+  if (!template) return;
+
+  const thisMonth = currentMonthKey();
+  const today = new Date().toISOString().split('T')[0];
+
+  const newExpense = {
+    id: `exp-${Date.now()}`,
+    category: template.category,
+    amount: template.amount,
+    date: today,
+    description: `مصروف شهري ثابت (${template.category}) - تسجيل تلقائي لشهر ${thisMonth}`,
+    paidBy: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.expenses.push(newExpense);
+
+  const treasuryAction = {
+    id: `tr-${Date.now()}`,
+    type: 'expense',
+    amount: -template.amount,
+    category: 'مصروفات تشغيلية',
+    method: 'cash',
+    details: `مصروف شهري ثابت: ${template.category} (${thisMonth})`,
+    user: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.treasuryTransactions.push(treasuryAction);
+
+  template.lastAppliedMonth = thisMonth;
+
+  logAction('تسجيل مصروف شهري ثابت', `تسجيل ${template.category} بقيمة ${template.amount} ج.م لشهر ${thisMonth}`);
+  await syncWithAppsScript('addExpense', { expense: newExpense, transaction: treasuryAction });
+  await syncWithAppsScript('updateRecurringExpense', { id: templateId, lastAppliedMonth: thisMonth });
+
+  renderRecurringExpensesList();
+  checkPendingRecurringExpenses();
+  renderExpenses();
+  renderTreasury();
+  renderDashboard();
+  showToast(`✅ تم تسجيل مصروف ${template.category} لشهر ${thisMonth}`, 'success');
+};
+
+// ================= استيراد عملاء بالجملة من إكسيل (Bulk Client Import) =================
+let parsedImportClients = [];
+
+function findColumnValue(row, possibleKeys) {
+  const rowKeys = Object.keys(row);
+  for (const wanted of possibleKeys) {
+    const match = rowKeys.find(k => k.trim().includes(wanted));
+    if (match && row[match] !== undefined && row[match] !== null) return String(row[match]).trim();
+  }
+  return '';
+}
+
+window.handleClientImportFile = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+
+      if (rows.length === 0) {
+        alert('⚠️ الملف فاضي أو مش قادر أقرا صفوف منه.');
+        return;
+      }
+
+      // FEATURE: مطابقة مرنة لأسماء الأعمدة العربية الشائعة، بدل ما نفرض
+      // شكل واحد بالظبط لأسماء الأعمدة في ملف الإكسل.
+      parsedImportClients = rows.map(row => {
+        const name = findColumnValue(row, ['اسم', 'name', 'Name']);
+        const nationalId = findColumnValue(row, ['قومي', 'nationalId', 'National']);
+        const phone = findColumnValue(row, ['هاتف', 'موبايل', 'phone', 'Phone']);
+        const address = findColumnValue(row, ['عنوان', 'address', 'Address']);
+
+        let status = 'جاهز للاستيراد';
+        let isDuplicate = false;
+        if (!name) {
+          status = '❌ بدون اسم - هيتجاهل';
+        } else if (nationalId && db.clients.some(c => c.nationalId === nationalId)) {
+          status = '⚠️ رقم قومي مكرر - هيتجاهل';
+          isDuplicate = true;
+        } else if (phone && db.clients.some(c => c.phone === phone)) {
+          status = '⚠️ هاتف مكرر - هيتجاهل';
+          isDuplicate = true;
+        }
+
+        return { name, nationalId, phone, address, status, skip: !name || isDuplicate };
+      });
+
+      renderClientImportPreview();
+      openModal('client-import-preview-modal');
+    } catch (err) {
+      console.error('Error parsing import file:', err);
+      alert('❌ تعذر قراءة الملف. تأكد إنه ملف إكسيل أو CSV سليم.');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+function renderClientImportPreview() {
+  const willImport = parsedImportClients.filter(r => !r.skip);
+  const willSkip = parsedImportClients.filter(r => r.skip);
+
+  document.getElementById('client-import-summary').innerHTML = `
+    <div class="p-3 bg-slate-50 rounded-xl"><p class="text-lg font-black text-slate-700">${parsedImportClients.length}</p><p class="text-[11px] text-slate-400">إجمالي الصفوف</p></div>
+    <div class="p-3 bg-emerald-50 rounded-xl"><p class="text-lg font-black text-emerald-600">${willImport.length}</p><p class="text-[11px] text-slate-400">هيتم استيرادهم</p></div>
+    <div class="p-3 bg-amber-50 rounded-xl"><p class="text-lg font-black text-amber-600">${willSkip.length}</p><p class="text-[11px] text-slate-400">هيتم تجاهلهم</p></div>
+  `;
+
+  document.getElementById('client-import-preview-body').innerHTML = parsedImportClients.slice(0, 10).map(r => `
+    <tr class="border-t border-slate-50">
+      <td class="p-2">${escapeHTML(r.name || '—')}</td>
+      <td class="p-2 font-mono">${escapeHTML(r.nationalId || '—')}</td>
+      <td class="p-2 font-mono">${escapeHTML(r.phone || '—')}</td>
+      <td class="p-2 ${r.skip ? 'text-rose-500' : 'text-emerald-600'}">${escapeHTML(r.status)}</td>
+    </tr>
+  `).join('');
+
+  const confirmBtn = document.getElementById('client-import-confirm-btn');
+  if (willImport.length === 0) {
+    confirmBtn.disabled = true;
+    confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    confirmBtn.disabled = false;
+    confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+window.confirmClientImport = async function() {
+  const confirmBtn = document.getElementById('client-import-confirm-btn');
+  if (confirmBtn.disabled) return;
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'جاري الاستيراد...';
+
+  try {
+    const toImport = parsedImportClients.filter(r => !r.skip).map(r => ({
+      id: `cli-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+      name: r.name,
+      nationalId: r.nationalId,
+      phone: r.phone,
+      address: r.address,
+      locationUrl: '',
+      nationalIdImg: '',
+      contractImg: '',
+      guarantorName: '',
+      guarantorNationalId: '',
+      guarantorPhone: '',
+      guarantorRelation: '',
+      guarantorJob: '',
+      guarantorAddress: '',
+      guarantorCardImg: '',
+      guarantorContractImg: ''
+    }));
+
+    toImport.forEach(c => db.clients.push(c));
+
+    // FIX: Firestore batch limit 500 عملية - بنقسّم لدفعات آمنة لو الملف كبير
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < toImport.length; i += CHUNK_SIZE) {
+      const chunk = toImport.slice(i, i + CHUNK_SIZE);
+      await syncWithAppsScript('bulkImportClients', { clients: chunk });
+    }
+
+    logAction('استيراد عملاء بالجملة', `استيراد ${toImport.length} عميل من ملف إكسيل`);
+    closeModal('client-import-preview-modal');
+    parsedImportClients = [];
+    renderClients();
+    populateDropdowns();
+    showToast(`✅ تم استيراد ${toImport.length} عميل بنجاح`, 'success');
+  } catch (err) {
+    console.error('Error importing clients:', err);
+    alert('❌ حدث خطأ أثناء الاستيراد. حاول مرة أخرى.');
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'تأكيد الاستيراد';
+  }
+};
+
 window.viewClientDetails = function(clientId) {
   const client = db.clients.find(c => c.id === clientId);
   if (!client) return;
@@ -8536,6 +8838,23 @@ window.viewClientDetails = function(clientId) {
         <div>
           <h5 class="font-bold text-slate-700 border-b border-slate-100 pb-1 mb-2">العقود المفتوحة</h5>
           ${contractsHtml}
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between border-b border-slate-100 pb-1 mb-2">
+            <h5 class="font-bold text-amber-700">سجل المتابعة</h5>
+            <button onclick="document.getElementById('client-profile-modal').remove(); openClientFollowUpModal('${client.id}');" class="text-[11px] px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md font-semibold flex items-center gap-1"><i class="ph ph-plus"></i> إضافة متابعة</button>
+          </div>
+          ${(() => {
+            const notes = db.clientFollowUps.filter(n => n.clientId === client.id).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            if (notes.length === 0) return `<p class="text-xs text-slate-400">لا توجد أي متابعات مسجّلة لهذا العميل بعد.</p>`;
+            return notes.slice(0, 5).map(n => `
+              <div class="p-2.5 bg-amber-50/50 rounded-lg border border-amber-100 mb-1.5">
+                <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>${escapeHTML(n.createdBy)}</span><span class="font-mono">${escapeHTML(n.timestamp)}</span></div>
+                <p class="text-xs text-slate-700">${escapeHTML(n.note)}</p>
+              </div>
+            `).join('') + (notes.length > 5 ? `<p class="text-[10px] text-slate-400 mt-1">+ ${notes.length - 5} متابعة أقدم — اضغط "إضافة متابعة" لعرض السجل الكامل.</p>` : '');
+          })()}
         </div>
       </div>
       <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
@@ -8643,6 +8962,113 @@ window.printClientStatement = function(clientId) {
 
   printHTML(html);
   logAction('طباعة كشف حساب', `طباعة كشف حساب شامل للعميل ${client.name}`);
+};
+
+// ================= عقد بيع بالتقسيط الرسمي (Formal Sale Contract) =================
+window.printFormalContract = function(contractId) {
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+  const client = db.clients.find(c => c.id === contract.clientId);
+  if (!client) return;
+
+  const companyName = db.settings.companyName || 'شركة SKY';
+  const contractInsts = db.installments
+    .filter(i => i.contractId === contract.id)
+    .sort((a, b) => (a.installmentNum || 0) - (b.installmentNum || 0));
+
+  const fineDescription = contract.fineType === 'percent'
+    ? `نسبة ${contract.fineValue}% شهرياً من قيمة القسط عن كل شهر تأخير كامل`
+    : `مبلغ ${contract.fineValue} ج.م عن كل يوم تأخير`;
+
+  const instRows = contractInsts.map(inst => `
+    <tr>
+      <td>قسط ${inst.installmentNum}</td>
+      <td>${escapeHTML(inst.dueDate)}</td>
+      <td>${inst.amount.toLocaleString()} ج.م</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>رقم العقد:</strong> ${escapeHTML(contract.id.replace('con-', ''))}</div>
+        <div><strong>تاريخ التحرير:</strong> ${escapeHTML(contract.startDate)}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">عقد بيع بالتقسيط</div>
+
+    <p style="font-size:0.85rem; line-height:1.8; color:#334155;">
+      تم الاتفاق بتاريخ <strong>${escapeHTML(contract.startDate)}</strong> بين كل من:
+    </p>
+
+    <div style="margin-top:6px; padding:10px 12px; background:#f8fafc; border-radius:8px;">
+      <strong style="font-size:0.85rem;">الطرف الأول (البائع):</strong> ${escapeHTML(companyName)}
+    </div>
+
+    <div style="margin-top:10px; padding:10px 12px; background:#f8fafc; border-radius:8px;">
+      <strong style="font-size:0.85rem;">الطرف الثاني (المشتري):</strong>
+      <div class="print-doc-row"><span>الاسم</span><strong>${escapeHTML(client.name)}</strong></div>
+      <div class="print-doc-row"><span>الرقم القومي</span><strong>${escapeHTML(client.nationalId) || '—'}</strong></div>
+      <div class="print-doc-row"><span>الهاتف</span><strong>${escapeHTML(client.phone)}</strong></div>
+      <div class="print-doc-row"><span>العنوان</span><strong>${escapeHTML(client.address) || '—'}</strong></div>
+    </div>
+
+    <div style="margin-top:10px; padding:10px 12px; background:#f8fafc; border-radius:8px;">
+      <strong style="font-size:0.85rem;">الطرف الثالث (الضامن):</strong>
+      <div class="print-doc-row"><span>الاسم</span><strong>${escapeHTML(client.guarantorName) || '—'}</strong></div>
+      <div class="print-doc-row"><span>الرقم القومي</span><strong>${escapeHTML(client.guarantorNationalId) || '—'}</strong></div>
+      <div class="print-doc-row"><span>الهاتف</span><strong>${escapeHTML(client.guarantorPhone) || '—'}</strong></div>
+      <div class="print-doc-row"><span>صلة القرابة</span><strong>${escapeHTML(client.guarantorRelation) || '—'}</strong></div>
+    </div>
+
+    <p style="font-size:0.8rem; color:#64748b; margin-top:10px;">تم الاتفاق على البنود التالية:</p>
+
+    <div style="margin-top:6px;">
+      <div class="print-doc-row"><span>١- محل التعاقد (الجهاز)</span><strong>${escapeHTML(contract.deviceInfo)}</strong></div>
+      <div class="print-doc-row"><span>٢- السعر الكاش للجهاز</span><strong>${contract.cashPrice.toLocaleString()} ج.م</strong></div>
+      <div class="print-doc-row"><span>٣- الدفعة المقدمة</span><strong>${safeNum(contract.downPayment).toLocaleString()} ج.م</strong></div>
+      <div class="print-doc-row"><span>٤- قيمة الزيادة/الفائدة على التقسيط</span><strong>${safeNum(contract.interestAmount).toLocaleString()} ج.م</strong></div>
+      <div class="print-doc-row"><span>٥- إجمالي قيمة العقد</span><strong>${contract.totalValue.toLocaleString()} ج.م</strong></div>
+      <div class="print-doc-row"><span>٦- مدة التقسيط</span><strong>${contract.duration} شهر</strong></div>
+      <div class="print-doc-row"><span>٧- قيمة القسط الشهري</span><strong>${contract.monthlyInstallment.toLocaleString()} ج.م</strong></div>
+      <div class="print-doc-row"><span>٨- غرامة التأخير في حالة عدم السداد بالموعد</span><strong>${escapeHTML(fineDescription)}</strong></div>
+    </div>
+
+    <p style="font-size:0.78rem; line-height:1.9; color:#334155; margin-top:14px; border-top:1px solid #e2e8f0; padding-top:10px;">
+      <strong>٩- شروط عامة:</strong><br>
+      أ) تظل ملكية الجهاز المذكور أعلاه للطرف الأول (البائع) ولا تنتقل ملكيته للطرف الثاني (المشتري) إلا بعد سداد كامل قيمة العقد المذكورة أعلاه.<br>
+      ب) في حالة تأخر الطرف الثاني عن سداد أي قسط في موعده، يحق للطرف الأول تطبيق غرامة التأخير المذكورة في البند الثامن.<br>
+      ج) في حالة توقف الطرف الثاني عن السداد لمدة تزيد عن الحد المتعارف عليه بين الطرفين، يحق للطرف الأول استرجاع الجهاز المذكور دون رد قيمة الأقساط المسددة سابقاً، ودون إخلال بحق الطرف الأول في المطالبة بأي مستحقات أخرى.<br>
+      د) يلتزم الطرف الثالث (الضامن) بالتضامن مع الطرف الثاني في سداد كامل قيمة العقد في حالة تعثر الطرف الثاني عن السداد.<br>
+      هـ) يقر الطرفان الثاني والثالث بالاطلاع على جميع بنود هذا العقد والموافقة عليها والالتزام بها.
+    </p>
+
+    <p style="font-size:0.7rem; color:#94a3b8; margin-top:8px;">
+      * هذا العقد نموذج عام لتوثيق عملية البيع بالتقسيط، ويُنصح بمراجعته من محامٍ مختص قبل الاعتماد النهائي عليه في التعاملات الرسمية، للتأكد من توافقه مع القوانين المعمول بها.
+    </p>
+
+    <table class="print-doc-table" style="margin-top:12px;">
+      <thead><tr><th>رقم القسط</th><th>تاريخ الاستحقاق</th><th>القيمة</th></tr></thead>
+      <tbody>${instRows}</tbody>
+    </table>
+
+    <div class="print-doc-signatures" style="margin-top:20px;">
+      <div>توقيع الطرف الأول (البائع): ______________</div>
+      <div>توقيع الطرف الثاني (المشتري): ______________</div>
+    </div>
+    <div class="print-doc-signatures" style="margin-top:10px;">
+      <div>توقيع الطرف الثالث (الضامن): ______________</div>
+      <div></div>
+    </div>
+    <div class="print-doc-footer">تم إصدار هذا العقد إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')}</div>
+  `;
+
+  printHTML(html);
+  logAction('طباعة عقد رسمي', `طباعة عقد البيع الرسمي رقم ${contractId.replace('con-', '')} للعميل ${client.name}`);
 };
 
 window.openBase64InPreviewModal = function(title, base64) {

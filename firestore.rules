@@ -78,6 +78,13 @@ service cloud.firestore {
       allow update: if isSignedIn();
       allow delete: if isStaffOrAdmin();
     }
+    // FEATURE: قوالب المصروفات الشهرية الثابتة - نفس مستوى صلاحية المصروفات
+    // العادية بالظبط، لأنها فعليًا نفس نوع البيانات المالية.
+    match /recurringExpenses/{docId} {
+      allow read: if canView('expenses');
+      allow create, update: if canView('expenses');
+      allow delete: if isAdmin();
+    }
     match /contracts/{docId} {
       allow read: if isSignedIn();
       allow create, update: if isStaffOrAdmin();

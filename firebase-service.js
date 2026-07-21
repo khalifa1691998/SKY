@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses'];
       const data = {};
 
       // مهم جداً: كل مجموعة (Collection) بتتحمّل بشكل مستقل تماماً عن الباقي.
@@ -58,7 +58,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses'];
     
     const activeListeners = [];
     
@@ -383,6 +383,27 @@ window.FirebaseService = {
         case 'deleteCustomerRequest':
           await db.collection("customerRequests").doc(payload.id).delete();
           break;
+
+        // Recurring Monthly Expense Templates
+        case 'addRecurringExpense':
+          await db.collection("recurringExpenses").doc(payload.id).set(payload);
+          break;
+        case 'updateRecurringExpense':
+          await db.collection("recurringExpenses").doc(payload.id).update(payload);
+          break;
+        case 'deleteRecurringExpense':
+          await db.collection("recurringExpenses").doc(payload.id).delete();
+          break;
+
+        // Bulk Client Import (استيراد عملاء بالجملة من إكسيل)
+        case 'bulkImportClients': {
+          const biBatch = db.batch();
+          (payload.clients || []).forEach(client => {
+            biBatch.set(db.collection("clients").doc(client.id), client);
+          });
+          await biBatch.commit();
+          break;
+        }
         case 'addDeposit': {
           if (payload.transaction) {
             await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);
