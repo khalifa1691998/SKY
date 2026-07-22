@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses', 'pendingWithdrawals'];
       const data = {};
 
       // مهم جداً: كل مجموعة (Collection) بتتحمّل بشكل مستقل تماماً عن الباقي.
@@ -58,7 +58,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses', 'pendingWithdrawals'];
     
     const activeListeners = [];
     
@@ -283,6 +283,27 @@ window.FirebaseService = {
           break;
         }
 
+        // FEATURE: ترقية العقد (استبدال جهاز طوعي) - إغلاق العقد القديم
+        // وإرجاع جهازه للمخزون، وفتح عقد جديد كامل بأقساطه دفعة واحدة.
+        case 'upgradeContract': {
+          const ugBatch = db.batch();
+          const ugSnap = await db.collection("installments").where("contractId", "==", payload.oldContractId).get();
+          ugSnap.forEach(d => {
+            if (d.data().status !== 'paid') ugBatch.delete(d.ref);
+          });
+          if (payload.oldDeviceId) {
+            ugBatch.update(db.collection("inventory").doc(payload.oldDeviceId), { status: 'available', soldTo: '' });
+          }
+          ugBatch.update(db.collection("contracts").doc(payload.oldContractId), { status: 'upgraded' });
+          ugBatch.set(db.collection("contracts").doc(payload.newContract.id), payload.newContract);
+          ugBatch.update(db.collection("inventory").doc(payload.newContract.deviceId), { status: 'sold_installment', soldTo: payload.newContract.clientName });
+          (payload.newInstallments || []).forEach(inst => {
+            ugBatch.set(db.collection("installments").doc(inst.id), inst);
+          });
+          await ugBatch.commit();
+          break;
+        }
+
         case 'deleteContract': {
           await db.collection("contracts").doc(payload.id).delete();
           if (payload.deviceId) {
@@ -404,6 +425,14 @@ window.FirebaseService = {
           await biBatch.commit();
           break;
         }
+
+        // Large Withdrawal Approval Queue (موافقة السحوبات الكبيرة)
+        case 'addPendingWithdrawal':
+          await db.collection("pendingWithdrawals").doc(payload.id).set(payload);
+          break;
+        case 'updatePendingWithdrawal':
+          await db.collection("pendingWithdrawals").doc(payload.id).update(payload);
+          break;
         case 'addDeposit': {
           if (payload.transaction) {
             await db.collection("treasuryTransactions").doc(payload.transaction.id).set(payload.transaction);

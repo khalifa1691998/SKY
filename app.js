@@ -19,6 +19,7 @@ let db = {
   clientFollowUps: [], // سجل ملاحظات/متابعة العميل: { id, clientId, clientName, note, nextFollowUpDate, createdBy, timestamp }
   customerRequests: [], // طلبات عملاء لمنتجات مش متوفرة: { id, clientId, clientName, clientPhone, productDescription, status, notes, createdBy, timestamp }
   recurringExpenses: [], // مصروفات شهرية ثابتة: { id, category, amount, active, lastAppliedMonth (YYYY-MM), createdBy, timestamp }
+  pendingWithdrawals: [], // طلبات سحب كبيرة محتاجة موافقة أدمن تاني: { id, type, investorId, investorName, amount, notes, requestedBy, requestedByUserId, status, timestamp }
   inventory: [],
   brands: [], // ماركات تابعة لصنف معين: { id, name, categoryId } - تُستخدم في تبويب "الأصناف والمنتجات" وتبويب "المخزون" معاً (نظام موحد: صنف ← ماركة ← منتج/موديل)
   suppliers: [],
@@ -134,6 +135,7 @@ const defaultSeedData = {
   clientFollowUps: [],
   customerRequests: [],
   recurringExpenses: [],
+  pendingWithdrawals: [],
   inventory: [],
   contracts: [],
   installments: [],
@@ -734,7 +736,7 @@ window.exportExcelBackup = function() {
 
   const statusLabels = {
     available: 'متاح', sold_installment: 'مباع بالتقسيط', sold_cash: 'مباع كاش', maintenance: 'تحت الصيانة',
-    active: 'ساري', completed: 'مكتمل', cancelled: 'ملغي', settled_early: 'مسدد مبكراً', defaulted: 'متعثر (تم الاسترجاع)',
+    active: 'ساري', completed: 'مكتمل', cancelled: 'ملغي', settled_early: 'مسدد مبكراً', defaulted: 'متعثر (تم الاسترجاع)', upgraded: 'تم ترقيته لجهاز جديد',
     pending: 'قيد الانتظار', paid: 'مدفوع', approved: 'معتمد', rejected: 'مرفوض'
   };
   const typeLabels = {
@@ -1159,6 +1161,7 @@ async function loadFromServer() {
         db.clientFollowUps = fbData.clientFollowUps || [];
         db.customerRequests = fbData.customerRequests || [];
         db.recurringExpenses = fbData.recurringExpenses || [];
+        db.pendingWithdrawals = fbData.pendingWithdrawals || [];
         db.suppliers = fbData.suppliers || [];
         db.supplierTransactions = fbData.supplierTransactions || [];
         // تنظيف ذاتي: أي ماركة قديمة كانت متخزنة كنص خام (من نظام قديم قبل
@@ -1669,7 +1672,7 @@ function renderDashboard() {
 // بدل ما تكون متفرقة أو تظهر تلقائياً بشكل مزعج. الجرس نفسه بيتحدث في
 // كل مرة يتغير فيها أي جزء من البيانات (بعد renderDashboard).
 function getSystemNotifications() {
-  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null, backupDue: null, openRequests: null, pendingRecurringExpenses: null };
+  const notifications = { overdue: null, dueToday: null, dueSoon: null, lowStock: null, pendingCustody: null, backupDue: null, openRequests: null, pendingRecurringExpenses: null, pendingWithdrawalApprovals: null };
 
   // 0. تذكير النسخة الاحتياطية: لو عدّى أكتر من 7 أيام من غير أي تصدير
   // (Excel أو JSON)، أو مفيش أي نسخة اتعملت من الأساس.
@@ -1722,6 +1725,10 @@ function getSystemNotifications() {
   const pendingRecurring = db.recurringExpenses.filter(r => r.active !== false && r.lastAppliedMonth !== currentMonthKey());
   if (pendingRecurring.length > 0) notifications.pendingRecurringExpenses = { count: pendingRecurring.length };
 
+  // 7. طلبات سحب كبيرة معلّقة تحتاج موافقة أدمن تاني
+  const pendingWd = db.pendingWithdrawals.filter(w => w.status === 'pending');
+  if (pendingWd.length > 0) notifications.pendingWithdrawalApprovals = { count: pendingWd.length };
+
   return notifications;
 }
 
@@ -1730,9 +1737,9 @@ function updateNotificationBell() {
   const btn = document.getElementById('notif-bell-btn');
   if (!dot || !isAdmin()) return;
   const n = getSystemNotifications();
-  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue || n.openRequests || n.pendingRecurringExpenses;
+  const hasAny = n.overdue || n.dueToday || n.dueSoon || n.lowStock || n.pendingCustody || n.backupDue || n.openRequests || n.pendingRecurringExpenses || n.pendingWithdrawalApprovals;
   dot.classList.toggle('hidden', !hasAny);
-  const itemCount = [n.overdue, n.dueToday, n.dueSoon, n.lowStock, n.pendingCustody, n.backupDue, n.openRequests, n.pendingRecurringExpenses].filter(Boolean).length;
+  const itemCount = [n.overdue, n.dueToday, n.dueSoon, n.lowStock, n.pendingCustody, n.backupDue, n.openRequests, n.pendingRecurringExpenses, n.pendingWithdrawalApprovals].filter(Boolean).length;
   if (btn) btn.setAttribute('aria-label', hasAny ? `لديك ${itemCount} تنبيهات تحتاج للمراجعة` : 'لا توجد تنبيهات جديدة');
 
   // لو الجرس مفتوح وقت التحديث، نحدّث محتواه فوراً بدل ما يفضل قديم
@@ -1836,6 +1843,13 @@ function renderNotificationsPanel(panel) {
       <div class="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 rounded-xl cursor-pointer" onclick="switchTab('expenses'); toggleNotificationsPanel(); setTimeout(() => openRecurringExpensesModal(), 200);">
         <p class="text-xs font-bold text-amber-700 dark:text-amber-400">مصروفات شهرية ثابتة لسه محتاجة تسجيل</p>
         <p class="text-sm text-amber-600 dark:text-amber-400 mt-0.5">${n.pendingRecurringExpenses.count} مصروف مستني لشهر ${currentMonthKey()} — اضغط للتسجيل</p>
+      </div>`);
+  }
+  if (n.pendingWithdrawalApprovals) {
+    items.push(`
+      <div class="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 rounded-xl cursor-pointer" onclick="switchTab('investors'); toggleNotificationsPanel();">
+        <p class="text-xs font-bold text-rose-700 dark:text-rose-400">طلبات سحب معلّقة تحتاج موافقة أدمن تاني</p>
+        <p class="text-sm text-rose-600 dark:text-rose-400 mt-0.5">${n.pendingWithdrawalApprovals.count} طلب مستني — اضغط للمراجعة</p>
       </div>`);
   }
 
@@ -3772,9 +3786,11 @@ function renderContracts() {
       statusBadgeHtml = `<span class="badge bg-teal-100 text-teal-700 mr-1 text-[10px] align-middle">✅ مسدد مبكراً</span>`;
     } else if (c.status === 'defaulted') {
       statusBadgeHtml = `<span class="badge bg-rose-100 text-rose-700 mr-1 text-[10px] align-middle">⚠️ متعثر (تم الاسترجاع)</span>`;
+    } else if (c.status === 'upgraded') {
+      statusBadgeHtml = `<span class="badge bg-violet-100 text-violet-700 mr-1 text-[10px] align-middle">⬆️ تم ترقيته لجهاز جديد</span>`;
     }
 
-    const isSettleable = unpaidCount > 0 && c.status !== 'settled_early' && c.status !== 'defaulted';
+    const isSettleable = unpaidCount > 0 && c.status !== 'settled_early' && c.status !== 'defaulted' && c.status !== 'upgraded';
 
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors text-xs sm:text-sm';
@@ -3802,6 +3818,7 @@ function renderContracts() {
            <button onclick="editContract('${c.id}')" class="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-pencil-simple"></i></button>
            ${isSettleable ? `<button onclick="openEarlySettlementModal('${c.id}')" title="سداد مبكر" class="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-hand-coins"></i></button>` : ''}
            ${isSettleable ? `<button onclick="openRepossessModal('${c.id}')" title="استرجاع الجهاز (تعثر)" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-arrow-u-down-left"></i></button>` : ''}
+           ${isSettleable ? `<button onclick="openUpgradeContractModal('${c.id}')" title="ترقية الجهاز" class="px-2 py-1 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-arrow-fat-line-up"></i></button>` : ''}
            <button onclick="deleteContract('${c.id}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-md text-xs font-semibold flex items-center gap-1"><i class="ph ph-trash"></i></button>
          </div>
       </td>
@@ -4336,9 +4353,101 @@ function getInvestorLedgerTransactions(investorId, investorName) {
 
 let investorsCapitalChartInstance = null;
 
+// ================= موافقة السحوبات الكبيرة (Withdrawal Approval Queue) =================
+function renderPendingWithdrawals() {
+  const panel = document.getElementById('pending-withdrawals-panel');
+  const listEl = document.getElementById('pending-withdrawals-list');
+  if (!panel || !listEl) return;
+
+  const pending = db.pendingWithdrawals.filter(w => w.status === 'pending');
+  if (pending.length === 0 || !isAdmin()) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+
+  listEl.innerHTML = pending.map(w => {
+    // FEATURE: منع الشخص اللي طلب السحب من موافقة نفسه - لازم أدمن تاني.
+    const isSameAdmin = currentUser && w.requestedByUserId === currentUser.id;
+    const typeLabel = w.type === 'capital_withdrawal' ? 'سحب رأس مال' : 'سحب أرباح';
+    return `
+    <div class="p-3 bg-white rounded-xl border border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div class="text-sm">
+        <p class="font-bold text-slate-800">${typeLabel} — ${escapeHTML(w.investorName)}</p>
+        <p class="text-xs text-slate-500">${safeNum(w.amount).toLocaleString()} ج.م — طلبها ${escapeHTML(w.requestedBy)} بتاريخ ${escapeHTML(w.timestamp)}</p>
+        ${w.notes ? `<p class="text-xs text-slate-400">${escapeHTML(w.notes)}</p>` : ''}
+      </div>
+      <div class="flex gap-1.5 shrink-0">
+        ${isSameAdmin
+          ? `<span class="text-[11px] text-amber-600 font-semibold px-2 py-1">⛔ لازم أدمن تاني يوافق</span>`
+          : `<button onclick="approvePendingWithdrawal('${w.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold">موافقة</button>
+             <button onclick="rejectPendingWithdrawal('${w.id}')" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold">رفض</button>`
+        }
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+window.approvePendingWithdrawal = async function(id) {
+  const w = db.pendingWithdrawals.find(x => x.id === id);
+  if (!w || w.status !== 'pending') return;
+  if (currentUser && w.requestedByUserId === currentUser.id) {
+    alert('⛔ لازم أدمن تاني (غير اللي طلب السحب) يوافق على الطلب ده.');
+    return;
+  }
+  if (!(await customConfirm(`تأكيد الموافقة على سحب ${safeNum(w.amount).toLocaleString()} ج.م للمستثمر ${w.investorName}؟`))) return;
+
+  const inv = db.investors.find(i => i.id === w.investorId);
+  if (!inv) { alert('المستثمر ده مش موجود - ممكن يكون اتحذف.'); return; }
+
+  const txId = `tx-wd-${Date.now()}`;
+  if (w.type === 'capital_withdrawal') {
+    inv.capitalAmount = Math.max(0, (inv.capitalAmount || 0) - w.amount);
+    const withdrawTx = { id: txId, timestamp: nowTimestamp(), type: 'capital_withdrawal', amount: -w.amount, investorId: w.investorId, notes: `سحب رأس مال معتمد (بموافقة إضافية) للمستثمر ${w.investorName}${w.notes ? ': ' + w.notes : ''}` };
+    db.treasuryTransactions.unshift(withdrawTx);
+    await syncWithAppsScript('withdrawInvestorCapital', { investorId: w.investorId, newCapitalAmount: inv.capitalAmount, transaction: withdrawTx });
+  } else {
+    inv.totalWithdrawn = (inv.totalWithdrawn || 0) + w.amount;
+    const withdrawTx = { id: txId, timestamp: nowTimestamp(), type: 'profit_withdrawal', amount: -w.amount, investorId: w.investorId, notes: `سحب أرباح معتمد (بموافقة إضافية) للمستثمر ${w.investorName}${w.notes ? ': ' + w.notes : ''}` };
+    db.treasuryTransactions.unshift(withdrawTx);
+    await syncWithAppsScript('withdrawInvestorProfit', { investorId: w.investorId, newTotalWithdrawn: inv.totalWithdrawn, transaction: withdrawTx });
+  }
+
+  w.status = 'approved';
+  w.approvedBy = currentUser.name;
+  await syncWithAppsScript('updatePendingWithdrawal', { id: w.id, status: 'approved', approvedBy: currentUser.name });
+
+  logAction('اعتماد سحب معلّق', `اعتماد ${w.type === 'capital_withdrawal' ? 'سحب رأس مال' : 'سحب أرباح'} ${w.amount.toLocaleString()} ج.م للمستثمر ${w.investorName}`);
+  renderInvestors();
+  renderTreasury();
+  renderDashboard();
+  updateNotificationBell();
+  showToast('✅ تم اعتماد السحب وتنفيذه', 'success');
+};
+
+window.rejectPendingWithdrawal = async function(id) {
+  const w = db.pendingWithdrawals.find(x => x.id === id);
+  if (!w || w.status !== 'pending') return;
+  if (currentUser && w.requestedByUserId === currentUser.id) {
+    alert('⛔ لازم أدمن تاني (غير اللي طلب السحب) يرفض الطلب ده.');
+    return;
+  }
+  if (!(await customConfirm('هل أنت متأكد من رفض طلب السحب ده؟'))) return;
+
+  w.status = 'rejected';
+  await syncWithAppsScript('updatePendingWithdrawal', { id: w.id, status: 'rejected', rejectedBy: currentUser.name });
+
+  logAction('رفض سحب معلّق', `رفض ${w.type === 'capital_withdrawal' ? 'سحب رأس مال' : 'سحب أرباح'} ${w.amount.toLocaleString()} ج.م للمستثمر ${w.investorName}`);
+  renderPendingWithdrawals();
+  updateNotificationBell();
+  showToast('تم رفض طلب السحب', 'success');
+};
+
 function renderInvestors() {
   const tbody = document.getElementById('investors-table-body');
   if (!tbody) return;
+  renderPendingWithdrawals();
 
   const stats = computeInvestorFinancials();
   const admin = isAdmin();
@@ -4964,6 +5073,31 @@ document.getElementById('withdraw-capital-form').addEventListener('submit', asyn
     showToast(`❌ المبلغ المطلوب سحبه (${amount.toLocaleString()} ج.م) أكبر من رأس مال المستثمر الحالي (${currentCapital.toLocaleString()} ج.م).`, 'error');
     return;
   }
+
+  // FEATURE: لو المبلغ أكبر من حد الموافقة الإضافية، بيتحول لطلب معلّق
+  // محتاج موافقة أدمن تاني، بدل ما ينفّذ فورًا.
+  const withdrawalThreshold = safeNum(db.settings.withdrawalApprovalThreshold);
+  if (withdrawalThreshold > 0 && amount > withdrawalThreshold) {
+    const pendingEntry = {
+      id: `pwd-${Date.now()}`,
+      type: 'capital_withdrawal',
+      investorId, investorName: inv.name,
+      amount, notes,
+      requestedBy: currentUser ? currentUser.name : 'مجهول',
+      requestedByUserId: currentUser ? currentUser.id : '',
+      status: 'pending',
+      timestamp: nowTimestamp()
+    };
+    db.pendingWithdrawals.unshift(pendingEntry);
+    await syncWithAppsScript('addPendingWithdrawal', pendingEntry);
+    logAction('طلب سحب معلّق', `طلب سحب رأس مال ${amount.toLocaleString()} ج.م للمستثمر ${inv.name} - محتاج موافقة أدمن تاني`);
+    closeModal('withdraw-capital-modal');
+    document.getElementById('withdraw-capital-form').reset();
+    updateNotificationBell();
+    showToast(`⏳ المبلغ أكبر من حد الموافقة (${withdrawalThreshold.toLocaleString()} ج.م) - تم إرسال طلب السحب لموافقة أدمن تاني`, 'success');
+    return;
+  }
+
   if (amount === currentCapital) {
     if (!(await customConfirm(`المبلغ اللي هتسحبه هيصفّر رأس مال هذا المستثمر بالكامل. لو عايز تخرجه نهائياً من سجل المستثمرين استخدم "حذف" بدلاً من كده. تحب تكمل السحب برضه؟`))) return;
   }
@@ -5007,6 +5141,30 @@ document.getElementById('withdraw-profit-form').addEventListener('submit', async
     if (!(await customConfirm(`المبلغ اللي داخله (${amount.toLocaleString()} ج.م) أكبر من نصيب المستثمر المتبقي من الأرباح (${Math.round(invStats.remainingDue).toLocaleString()} ج.م).\n\nتحب تكمل وتسجل السحب برضه؟`))) {
       return;
     }
+  }
+
+  // FEATURE: نفس بوابة الموافقة الإضافية للسحوبات الكبيرة، بنفس المنطق
+  // المستخدم في سحب رأس المال.
+  const profitWithdrawalThreshold = safeNum(db.settings.withdrawalApprovalThreshold);
+  if (profitWithdrawalThreshold > 0 && amount > profitWithdrawalThreshold) {
+    const pendingEntry = {
+      id: `pwd-${Date.now()}`,
+      type: 'profit_withdrawal',
+      investorId, investorName: inv.name,
+      amount, notes,
+      requestedBy: currentUser ? currentUser.name : 'مجهول',
+      requestedByUserId: currentUser ? currentUser.id : '',
+      status: 'pending',
+      timestamp: nowTimestamp()
+    };
+    db.pendingWithdrawals.unshift(pendingEntry);
+    await syncWithAppsScript('addPendingWithdrawal', pendingEntry);
+    logAction('طلب سحب معلّق', `طلب سحب أرباح ${amount.toLocaleString()} ج.م للمستثمر ${inv.name} - محتاج موافقة أدمن تاني`);
+    closeModal('withdraw-investor-profit-modal');
+    document.getElementById('withdraw-profit-form').reset();
+    updateNotificationBell();
+    showToast(`⏳ المبلغ أكبر من حد الموافقة (${profitWithdrawalThreshold.toLocaleString()} ج.م) - تم إرسال طلب السحب لموافقة أدمن تاني`, 'success');
+    return;
   }
 
   inv.totalWithdrawn = (inv.totalWithdrawn || 0) + amount;
@@ -5839,6 +5997,7 @@ function renderSettings() {
   document.getElementById('setting-company-logo-url').value = db.settings.companyLogo || '';
   
   document.getElementById('setting-offline-mode').checked = db.settings.offlineMode;
+  document.getElementById('setting-withdrawal-threshold').value = db.settings.withdrawalApprovalThreshold || 0;
 
   const t = db.settings.templates || defaultSeedData.settings.templates;
   document.getElementById('template-reminder').value = t.reminder;
@@ -8057,6 +8216,7 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
   const logoFileInput = document.getElementById('setting-company-logo-file');
 
   db.settings.offlineMode = offline;
+  db.settings.withdrawalApprovalThreshold = Math.max(0, parseFloat(document.getElementById('setting-withdrawal-threshold').value) || 0);
   if (companyName) db.settings.companyName = companyName;
 
   // مهم جداً: لو المستخدم رفع صورة لوجو محلية (ملف)، بيتم تخزين الـ base64 فوراً في
@@ -8392,12 +8552,43 @@ const REQUEST_STATUS_LABELS = {
   cancelled: { label: 'اعتذر العميل', badge: 'bg-slate-200 text-slate-600' }
 };
 
+// FEATURE: تحليل بسيط لأكتر المنتجات المطلوبة من "طلبات العملاء" - بيحوّل
+// بيانات كنا بس بنسجلها لإشارة شراء فعلية. بيتجاهل الطلبات اللي "اعتذر
+// العميل" فيها لأنها مش مؤشر طلب حقيقي مستمر.
+function renderMostRequestedDevices() {
+  const panel = document.getElementById('most-requested-devices-panel');
+  const listEl = document.getElementById('most-requested-devices-list');
+  if (!panel || !listEl) return;
+
+  const counts = {};
+  db.customerRequests.filter(r => r.status !== 'cancelled').forEach(r => {
+    const key = r.productDescription.trim().toLowerCase();
+    if (!counts[key]) counts[key] = { label: r.productDescription.trim(), count: 0 };
+    counts[key].count++;
+  });
+
+  const sorted = Object.values(counts).filter(c => c.count >= 2).sort((a, b) => b.count - a.count).slice(0, 8);
+
+  if (sorted.length === 0) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+  listEl.innerHTML = sorted.map(c => `
+    <span class="px-3 py-1.5 bg-teal-50 text-teal-700 rounded-full text-xs font-semibold flex items-center gap-1.5">
+      ${escapeHTML(c.label)}
+      <span class="bg-teal-600 text-white rounded-full px-1.5 text-[10px] font-black">${c.count}</span>
+    </span>
+  `).join('');
+}
+
 function renderCustomerRequests() {
   const searchEl = document.getElementById('request-search-input');
   const statusEl = document.getElementById('request-filter-status');
   const listEl = document.getElementById('customer-requests-list');
   const emptyEl = document.getElementById('customer-requests-empty');
   if (!listEl) return;
+  renderMostRequestedDevices();
 
   const searchVal = (searchEl ? searchEl.value : '').toLowerCase();
   const statusFilter = statusEl ? statusEl.value : 'all';
@@ -9459,6 +9650,218 @@ window.confirmRepossessDevice = async function(contractId) {
   renderInventory();
   renderDashboard();
   showToast('✅ تم استرجاع الجهاز وإغلاق العقد', 'success');
+};
+
+// ================= ترقية العقد (استبدال جهاز طوعي) =================
+// مختلفة عن الاسترجاع: العميل عايز يستبدل جهازه بجهاز أحدث طوعًا وهو
+// لسه بيسدد كويس، مش متعثر. المتبقي على العقد القديم بيترحّل كـ"دين إضافي"
+// على العقد الجديد بدل ما يتحصّل بشكل منفصل.
+window.openUpgradeContractModal = function(contractId) {
+  if (!isAdmin()) {
+    alert('⛔ ترقية العقد مخصصة للمشرف (ADMIN) فقط.');
+    return;
+  }
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+
+  const unpaidInsts = db.installments.filter(i => i.contractId === contractId && i.status !== 'paid');
+  const remainingBalance = unpaidInsts.reduce((sum, i) => sum + Math.max(0, safeNum(i.amount) - safeNum(i.paidAmount)), 0);
+
+  const modal = document.createElement('div');
+  modal.id = 'upgrade-contract-modal';
+  modal.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h4 class="font-bold text-slate-800 text-lg">ترقية الجهاز (استبدال طوعي)</h4>
+        <button onclick="document.getElementById('upgrade-contract-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
+      </div>
+      <div class="p-3 bg-slate-50 rounded-lg text-sm mb-4 space-y-1">
+        <p>العميل: <strong>${escapeHTML(contract.clientName)}</strong></p>
+        <p>الجهاز الحالي: <strong>${escapeHTML(contract.deviceInfo)}</strong></p>
+        <p>المتبقي على العقد الحالي: <strong class="text-amber-600">${remainingBalance.toLocaleString()} ج.م</strong> — هيترحّل على العقد الجديد</p>
+      </div>
+
+      <div class="relative mb-3">
+        <label class="form-label">الجهاز الجديد</label>
+        <input type="text" id="upgrade-device-search" class="form-input" placeholder="اكتب اسم الجهاز أو السيريال..." autocomplete="off">
+        <input type="hidden" id="upgrade-device-picked-id">
+        <div id="upgrade-device-results" class="hidden absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"></div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="form-label">خصم استرداد الجهاز القديم (اختياري)</label>
+          <input type="number" id="upgrade-tradein-credit" min="0" step="0.01" value="0" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">مدة التقسيط الجديدة (شهور)</label>
+          <input type="number" id="upgrade-new-duration" min="1" max="60" value="${contract.duration}" class="form-input">
+        </div>
+      </div>
+
+      <div id="upgrade-preview-box" class="p-3 bg-teal-50 border border-teal-100 rounded-lg text-sm mb-3 hidden">
+        <p>إجمالي الممول على العقد الجديد: <strong id="upgrade-preview-total" class="text-teal-700"></strong></p>
+        <p>القسط الشهري الجديد التقريبي: <strong id="upgrade-preview-monthly" class="text-teal-700"></strong></p>
+      </div>
+
+      <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700 mb-4 flex items-start gap-2">
+        <i class="ph ph-warning mt-0.5"></i>
+        <span>هيتم إغلاق العقد الحالي (الأقساط المسددة تفضل زي ما هي)، وإرجاع الجهاز القديم للمخزون، وفتح عقد جديد بالمتبقي + سعر الجهاز الجديد ناقص أي خصم استرداد.</span>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button onclick="document.getElementById('upgrade-contract-modal').remove()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
+        <button onclick="confirmUpgradeContract('${contractId}', ${remainingBalance})" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-md">تأكيد الترقية</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  setupSearchableSelect({
+    searchInputId: 'upgrade-device-search',
+    hiddenInputId: 'upgrade-device-picked-id',
+    resultsId: 'upgrade-device-results',
+    getItems: (query) => {
+      const q = query.toLowerCase();
+      const available = db.inventory.filter(d => d.status === 'available' && d.id !== contract.deviceId);
+      const list = !q ? available : available.filter(d =>
+        d.name.toLowerCase().includes(q) || d.brand.toLowerCase().includes(q) || (d.serial || '').toLowerCase().includes(q)
+      );
+      return list.slice(0, 200);
+    },
+    renderLabel: (d) => `${d.brand} ${d.name} (SN: ${d.serial})`,
+    renderSubLabel: (d) => `سعر البيع: ${safeNum(d.sellingPrice).toLocaleString()} ج.م`,
+    onChange: (d) => updateUpgradePreview(remainingBalance, d.sellingPrice)
+  });
+
+  document.getElementById('upgrade-tradein-credit').addEventListener('input', () => {
+    const devId = document.getElementById('upgrade-device-picked-id').value;
+    const dev = db.inventory.find(d => d.id === devId);
+    if (dev) updateUpgradePreview(remainingBalance, dev.sellingPrice);
+  });
+  document.getElementById('upgrade-new-duration').addEventListener('input', () => {
+    const devId = document.getElementById('upgrade-device-picked-id').value;
+    const dev = db.inventory.find(d => d.id === devId);
+    if (dev) updateUpgradePreview(remainingBalance, dev.sellingPrice);
+  });
+};
+
+function updateUpgradePreview(remainingBalance, newDevicePrice) {
+  const tradeInCredit = safeNum(document.getElementById('upgrade-tradein-credit').value);
+  const duration = Math.max(1, parseInt(document.getElementById('upgrade-new-duration').value) || 1);
+  const total = Math.max(0, remainingBalance + safeNum(newDevicePrice) - tradeInCredit);
+  const monthly = total / duration;
+
+  document.getElementById('upgrade-preview-total').textContent = `${total.toLocaleString()} ج.م`;
+  document.getElementById('upgrade-preview-monthly').textContent = `${monthly.toFixed(2).toLocaleString()} ج.م`;
+  document.getElementById('upgrade-preview-box').classList.remove('hidden');
+}
+
+window.confirmUpgradeContract = async function(oldContractId, remainingBalance) {
+  const oldContract = db.contracts.find(c => c.id === oldContractId);
+  const client = db.clients.find(c => c.id === oldContract.clientId);
+  const newDeviceId = document.getElementById('upgrade-device-picked-id').value;
+  const newDevice = db.inventory.find(d => d.id === newDeviceId);
+  const tradeInCredit = safeNum(document.getElementById('upgrade-tradein-credit').value);
+  const newDuration = Math.max(1, parseInt(document.getElementById('upgrade-new-duration').value) || 1);
+
+  if (!newDevice) {
+    alert('من فضلك اختر الجهاز الجديد أولاً.');
+    return;
+  }
+  const totalToFinance = Math.max(0, remainingBalance + safeNum(newDevice.sellingPrice) - tradeInCredit);
+  const monthly = parseFloat((totalToFinance / newDuration).toFixed(2));
+
+  if (!(await customConfirm(`هيتم إغلاق العقد الحالي وفتح عقد جديد بإجمالي ${totalToFinance.toLocaleString()} ج.م على ${newDuration} قسط (${monthly.toLocaleString()} ج.م شهريًا). متأكد؟`))) return;
+
+  // 1. إغلاق العقد القديم: إلغاء الأقساط المتبقية وإرجاع الجهاز القديم للمخزون
+  const oldUnpaidInsts = db.installments.filter(i => i.contractId === oldContractId && i.status !== 'paid');
+  const oldIds = oldUnpaidInsts.map(i => i.id);
+  db.installments = db.installments.filter(i => !oldIds.includes(i.id));
+
+  const oldDevice = db.inventory.find(d => d.id === oldContract.deviceId);
+  if (oldDevice) {
+    oldDevice.status = 'available';
+    oldDevice.soldTo = '';
+    addDeviceHistory(oldDevice, 'ترقية العميل لجهاز جديد', `تم استرجاع القطعة من ${oldContract.clientName} ضمن عملية ترقية طوعية لجهاز جديد.`);
+  }
+  oldContract.status = 'upgraded';
+
+  // 2. فتح عقد جديد بنفس منطق إنشاء عقد عادي
+  const newContractId = `con-${Math.floor(100000 + Math.random() * 900000)}`;
+  newDevice.status = 'sold_installment';
+  newDevice.soldTo = client.name;
+
+  const newContract = {
+    id: newContractId,
+    createdAt: Date.now(),
+    clientId: oldContract.clientId,
+    clientName: client.name,
+    clientPhone: client.phone,
+    deviceId: newDevice.id,
+    deviceInfo: `${newDevice.brand} ${newDevice.name}`,
+    cashPrice: newDevice.sellingPrice,
+    interestType: 'none',
+    interestValue: 0,
+    interestAmount: 0,
+    totalValue: totalToFinance,
+    downPayment: 0,
+    remainingAmount: totalToFinance,
+    monthlyInstallment: monthly,
+    duration: newDuration,
+    graceDays: oldContract.graceDays || 3,
+    fineType: oldContract.fineType || 'percent',
+    fineValue: oldContract.fineValue || 5,
+    collectorId: oldContract.collectorId,
+    collectorName: oldContract.collectorName,
+    startDate: new Date().toISOString().split('T')[0],
+    status: 'active',
+    upgradedFromContractId: oldContractId
+  };
+  db.contracts.unshift(newContract);
+
+  const newInstallments = [];
+  const startBase = new Date(newContract.startDate);
+  for (let i = 1; i <= newDuration; i++) {
+    const dueDate = new Date(startBase);
+    dueDate.setMonth(startBase.getMonth() + (i - 1));
+    const isLast = i === newDuration;
+    const inst = {
+      id: `${newContractId}_${i}`,
+      contractId: newContractId,
+      clientId: client.id,
+      clientName: client.name,
+      clientPhone: client.phone,
+      guarantorName: client.guarantorName || '',
+      guarantorPhone: client.guarantorPhone || '',
+      collectorName: newContract.collectorName,
+      installmentNum: i,
+      amount: isLast ? parseFloat((totalToFinance - monthly * (newDuration - 1)).toFixed(2)) : monthly,
+      dueDate: dueDate.toISOString().split('T')[0],
+      status: 'pending',
+      paidAmount: 0,
+      paidDate: '',
+      receiptId: '',
+      delayFines: 0
+    };
+    db.installments.push(inst);
+    newInstallments.push(inst);
+  }
+
+  await syncWithAppsScript('upgradeContract', {
+    oldContractId, oldDeviceId: oldContract.deviceId,
+    newContract, newInstallments
+  });
+
+  logAction('ترقية عقد', `ترقية ${oldContract.clientName} من ${oldContract.deviceInfo} إلى ${newDevice.brand} ${newDevice.name} — عقد جديد بإجمالي ${totalToFinance.toLocaleString()} ج.م`);
+
+  document.getElementById('upgrade-contract-modal').remove();
+  renderContracts();
+  renderInventory();
+  renderCollections();
+  renderDashboard();
+  showToast('✅ تم ترقية العقد بنجاح وفتح عقد جديد', 'success');
 };
 
 window.switchTab = function(tabName) {

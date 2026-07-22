@@ -85,6 +85,12 @@ service cloud.firestore {
       allow create, update: if canView('expenses');
       allow delete: if isAdmin();
     }
+    // FEATURE: طلبات موافقة السحوبات الكبيرة - أدمن بس (طبيعة الميزة نفسها
+    // إنها رقابة على قرارات الأدمن، فمنطقي تبقى مقصورة على الأدمن).
+    match /pendingWithdrawals/{docId} {
+      allow read, create, update: if isAdmin();
+      allow delete: if false;
+    }
     match /contracts/{docId} {
       allow read: if isSignedIn();
       allow create, update: if isStaffOrAdmin();
