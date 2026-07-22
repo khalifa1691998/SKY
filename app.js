@@ -756,6 +756,9 @@ window.exportExcelBackup = function() {
   const addSheet = (name, rows) => {
     const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
     ws['!cols'] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(12, k.length + 4) }));
+    // تثبيت صف العناوين لما تفتح أي ورقة، عشان تفضل العناوين ظاهرة وانت
+    // بتنزل لتحت في صفوف كتير.
+    ws['!sheetViews'] = [{ rightToLeft: true, state: 'frozen', ySplit: 1 }];
     XLSX.utils.book_append_sheet(wb, ws, name);
   };
 
@@ -781,7 +784,9 @@ window.exportExcelBackup = function() {
     'عدد الأجهزة بالمخزون': db.inventory.length,
     'عدد العقود': db.contracts.length,
     'عدد الأقساط المتأخرة': overdueInsts,
-    'عدد المستخدمين': db.users.length
+    'عدد المستخدمين': db.users.length,
+    'طلبات عملاء مفتوحة': db.customerRequests.filter(r => r.status === 'pending' || r.status === 'found').length,
+    'طلبات سحب معلّقة': db.pendingWithdrawals.filter(w => w.status === 'pending').length
   }]);
 
   // 2. العملاء والضامنين
@@ -789,6 +794,19 @@ window.exportExcelBackup = function() {
     'الاسم': c.name, 'الرقم القومي': c.nationalId, 'الهاتف': c.phone, 'العنوان': c.address,
     'اسم الضامن': c.guarantorName, 'رقم قومي الضامن': c.guarantorNationalId, 'هاتف الضامن': c.guarantorPhone,
     'صلة القرابة': c.guarantorRelation, 'وظيفة الضامن': c.guarantorJob, 'عنوان الضامن': c.guarantorAddress
+  })));
+
+  // 2ب. سجل متابعة العملاء
+  addSheet('سجل متابعة العملاء', sortByTimestampDesc([...db.clientFollowUps]).map(n => ({
+    'العميل': n.clientName, 'الملاحظة': n.note, 'تاريخ المتابعة القادمة': n.nextFollowUpDate || '',
+    'بواسطة': n.createdBy, 'التاريخ والوقت': n.timestamp
+  })));
+
+  // 2ج. طلبات العملاء (منتجات غير متوفرة)
+  const requestStatusLabels = { pending: 'لسه بيتم البحث', found: 'تم إيجاده', fulfilled: 'تم التحويل لبيع', cancelled: 'اعتذر العميل' };
+  addSheet('طلبات العملاء', sortByTimestampDesc([...db.customerRequests]).map(r => ({
+    'اسم الطالب': r.clientName, 'الهاتف': r.clientPhone || '', 'المنتج المطلوب': r.productDescription,
+    'الحالة': L(requestStatusLabels, r.status), 'ملاحظات': r.notes || '', 'بواسطة': r.createdBy, 'التاريخ': r.timestamp
   })));
 
   // 3. المخزون والأجهزة
@@ -827,10 +845,26 @@ window.exportExcelBackup = function() {
     'التاريخ والوقت': t.timestamp, 'النوع': L(typeLabels, t.type), 'البيان': t.notes, 'المبلغ': t.amount
   })));
 
+  // 7ب. المصروفات
+  addSheet('المصروفات', sortByTimestampDesc([...db.expenses]).map(e => ({
+    'الفئة': e.category, 'المبلغ': e.amount, 'التاريخ': e.date, 'الوصف': e.description || '', 'بواسطة': e.paidBy || ''
+  })));
+
+  // 7ج. المصروفات الشهرية الثابتة
+  addSheet('المصروفات الشهرية الثابتة', db.recurringExpenses.map(r => ({
+    'الفئة': r.category, 'القيمة الشهرية': r.amount, 'مفعّل؟': r.active !== false ? 'نعم' : 'لا',
+    'آخر شهر اتسجل فيه': r.lastAppliedMonth || 'لسه محصلش', 'بواسطة': r.createdBy, 'تاريخ الإنشاء': r.timestamp
+  })));
+
   // 8. المستخدمين (بدون كلمة المرور لأسباب أمنية)
   addSheet('المستخدمين', db.users.map(u => ({
     'الاسم': u.name, 'اسم المستخدم': u.username, 'الصلاحية': L(roleLabels, u.role),
     'الهاتف': u.phone, 'المنطقة': u.area || ''
+  })));
+
+  // 8ب. تصنيفات المنتجات
+  addSheet('تصنيفات المنتجات', db.productCategories.map(cat => ({
+    'اسم التصنيف': cat.name, 'ملاحظات': cat.notes || ''
   })));
 
   // 9. الماركات والموردين
@@ -904,6 +938,21 @@ window.exportExcelBackup = function() {
     'نسبة ثابتة؟': (inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null && inv.fixedSharePercent !== '') ? 'نعم' : 'لا',
     'نسبة الملكية %': Number(inv.sharePercent.toFixed(2)), 'نصيبه من الربح': Math.round(inv.profitShare),
     'المسحوب فعلياً': inv.withdrawn, 'المتبقي له': Math.round(inv.remainingDue), 'ملاحظات': inv.notes || ''
+  })));
+
+  // 11ب. تجميدات أرباح المستثمرين
+  addSheet('تجميدات أرباح المستثمرين', sortByTimestampDesc([...db.investorSnapshots]).map(s => ({
+    'التاريخ': s.timestamp, 'صافي الربح المجمّد': Math.round(s.netProfit),
+    'إجمالي رأس المال وقتها': Math.round(s.totalCapital), 'إجمالي المسحوب وقتها': Math.round(s.totalWithdrawn),
+    'عدد المستثمرين وقتها': (s.perInvestor || []).length
+  })));
+
+  // 11ج. طلبات السحب المعلّقة (موافقة أدمن تاني)
+  const withdrawalTypeLabels = { capital_withdrawal: 'سحب رأس مال', profit_withdrawal: 'سحب أرباح' };
+  const withdrawalStatusLabels = { pending: 'معلّق - محتاج موافقة', approved: 'تمت الموافقة والتنفيذ', rejected: 'مرفوض' };
+  addSheet('طلبات السحب المعلّقة', sortByTimestampDesc([...db.pendingWithdrawals]).map(w => ({
+    'المستثمر': w.investorName, 'نوع السحب': L(withdrawalTypeLabels, w.type), 'المبلغ': w.amount,
+    'الحالة': L(withdrawalStatusLabels, w.status), 'طلبه': w.requestedBy, 'التاريخ': w.timestamp, 'ملاحظات': w.notes || ''
   })));
 
   XLSX.writeFile(wb, `SKY_ERP_Excel_${dateStr}.xlsx`);
