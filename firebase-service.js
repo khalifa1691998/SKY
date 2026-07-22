@@ -294,7 +294,7 @@ window.FirebaseService = {
           if (payload.oldDeviceId) {
             ugBatch.update(db.collection("inventory").doc(payload.oldDeviceId), { status: 'available', soldTo: '' });
           }
-          ugBatch.update(db.collection("contracts").doc(payload.oldContractId), { status: 'upgraded' });
+          ugBatch.update(db.collection("contracts").doc(payload.oldContractId), { status: 'upgraded', upgradedToContractId: payload.newContractId });
           ugBatch.set(db.collection("contracts").doc(payload.newContract.id), payload.newContract);
           ugBatch.update(db.collection("inventory").doc(payload.newContract.deviceId), { status: 'sold_installment', soldTo: payload.newContract.clientName });
           (payload.newInstallments || []).forEach(inst => {

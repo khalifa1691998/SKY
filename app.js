@@ -9307,6 +9307,18 @@ window.viewContractDetails = function(contractId) {
         <h4 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-file-text text-teal-600"></i> تفاصيل وجدولة أقساط العقد رقم: ${escapeHTML(contract.id.replace('con-', ''))}</h4>
         <button onclick="document.getElementById('contract-detail-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
       </div>
+      ${contract.upgradedFromContractId ? `
+        <div class="mb-3 p-2.5 bg-violet-50 border border-violet-100 rounded-lg text-xs text-violet-700 flex items-center gap-2">
+          <i class="ph ph-arrow-fat-line-up"></i>
+          <span>هذا العقد ناتج عن ترقية العقد رقم ${escapeHTML(contract.upgradedFromContractId.replace('con-', ''))}</span>
+        </div>
+      ` : ''}
+      ${contract.upgradedToContractId ? `
+        <div class="mb-3 p-2.5 bg-violet-50 border border-violet-100 rounded-lg text-xs text-violet-700 flex items-center gap-2">
+          <i class="ph ph-arrow-fat-line-up"></i>
+          <span>تم ترقية هذا العقد إلى العقد رقم ${escapeHTML(contract.upgradedToContractId.replace('con-', ''))}</span>
+        </div>
+      ` : ''}
       <div class="flex-1 overflow-y-auto space-y-4">
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl text-xs">
           <p><strong>العميل المشتري:</strong> ${escapeHTML(contract.clientName)}</p>
@@ -9786,10 +9798,11 @@ window.confirmUpgradeContract = async function(oldContractId, remainingBalance) 
     oldDevice.soldTo = '';
     addDeviceHistory(oldDevice, 'ترقية العميل لجهاز جديد', `تم استرجاع القطعة من ${oldContract.clientName} ضمن عملية ترقية طوعية لجهاز جديد.`);
   }
-  oldContract.status = 'upgraded';
 
   // 2. فتح عقد جديد بنفس منطق إنشاء عقد عادي
   const newContractId = `con-${Math.floor(100000 + Math.random() * 900000)}`;
+  oldContract.status = 'upgraded';
+  oldContract.upgradedToContractId = newContractId; // FIX: ربط رجوعي عشان تقدر تتبع العقد الجديد من القديم كمان
   newDevice.status = 'sold_installment';
   newDevice.soldTo = client.name;
 
@@ -9850,7 +9863,7 @@ window.confirmUpgradeContract = async function(oldContractId, remainingBalance) 
   }
 
   await syncWithAppsScript('upgradeContract', {
-    oldContractId, oldDeviceId: oldContract.deviceId,
+    oldContractId, oldDeviceId: oldContract.deviceId, newContractId,
     newContract, newInstallments
   });
 
