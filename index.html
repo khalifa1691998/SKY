@@ -229,6 +229,10 @@
         <i class="ph ph-hand-coins text-base md:text-lg w-5 shrink-0"></i>
         <span>التحصيلات</span>
       </a>
+      <a href="#" data-tab="collection-followups" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
+        <i class="ph ph-phone-call text-base md:text-lg w-5 shrink-0"></i>
+        <span>متابعة التحصيل</span>
+      </a>
       <a href="#" data-tab="treasury" class="flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-skyDark-800 dark:hover:text-white font-medium transition-all duration-200">
         <i class="ph ph-lock-key text-base md:text-lg w-5 shrink-0"></i>
         <span>الخزينة</span>
@@ -1051,6 +1055,42 @@
         </div>
       </section>
 
+      <!-- ================= TAB: COLLECTION FOLLOW-UPS ================= -->
+      <section id="tab-collection-followups" class="space-y-6 hidden">
+        <div>
+          <h3 class="text-xl font-bold text-slate-800">متابعة التحصيل</h3>
+          <p class="text-sm text-slate-500">كل ملاحظات المتابعة اللي فيها سبب تأخير مسجّل، في مكان واحد لمتابعة الحالات المتأخرة بسهولة.</p>
+        </div>
+
+        <div id="delay-reason-breakdown" class="hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="ph ph-chart-pie text-rose-600"></i> أكتر أسباب التأخير تكرارًا</h4>
+          <div id="delay-reason-breakdown-list" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <input type="text" id="cf-search-input" onkeyup="renderCollectionFollowUps()" placeholder="ابحث باسم العميل..." class="form-input">
+          <select id="cf-filter-reason" onchange="renderCollectionFollowUps()" class="form-input">
+            <option value="all">كل أسباب التأخير</option>
+            <option value="مشكلة مالية">مشكلة مالية</option>
+            <option value="نسيان">نسيان</option>
+            <option value="سفر">سفر</option>
+            <option value="رفض السداد">رفض السداد</option>
+            <option value="مشكلة في الجهاز">مشكلة في الجهاز</option>
+            <option value="بيتواصل مع الضامن">بيتواصل مع الضامن</option>
+            <option value="سبب آخر">سبب آخر</option>
+          </select>
+          <select id="cf-filter-collector" onchange="renderCollectionFollowUps()" class="form-input">
+            <option value="all">كل المحصلين</option>
+          </select>
+        </div>
+
+        <div id="collection-followups-list" class="space-y-2"></div>
+        <div id="collection-followups-empty" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center text-slate-400 hidden">
+          <i class="ph ph-phone-call text-4xl mb-3"></i>
+          <p>مفيش أي متابعات فيها سبب تأخير مسجّل حاليًا.</p>
+        </div>
+      </section>
+
       <!-- ================= TAB: TREASURY ================= -->
       <section id="tab-treasury" class="space-y-6 hidden">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -1738,6 +1778,10 @@
                 <label class="flex items-center gap-2">
                   <input type="checkbox" id="perm-collections" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
                   <span>التحصيلات</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="perm-collection-followups" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>متابعة التحصيل</span>
                 </label>
                 <label class="flex items-center gap-2">
                   <input type="checkbox" id="perm-treasury" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
@@ -2795,6 +2839,19 @@ Samsung, A05, SN-1002, 4000, 4800, تاجر الجملة, الفرع الرئي�
       <input type="hidden" id="followup-client-id">
 
       <div class="space-y-3 mb-4">
+        <div>
+          <label class="form-label">سبب التأخير (اختياري - لو المتابعة دي بخصوص تأخر في السداد)</label>
+          <select id="followup-delay-reason" class="form-input">
+            <option value="">— بدون سبب محدد —</option>
+            <option value="مشكلة مالية">مشكلة مالية</option>
+            <option value="نسيان">نسيان</option>
+            <option value="سفر">سفر</option>
+            <option value="رفض السداد">رفض السداد</option>
+            <option value="مشكلة في الجهاز">مشكلة في الجهاز</option>
+            <option value="بيتواصل مع الضامن">بيتواصل مع الضامن</option>
+            <option value="سبب آخر">سبب آخر</option>
+          </select>
+        </div>
         <textarea id="followup-new-note" rows="2" class="form-input" placeholder="اكتب ملاحظة المتابعة (مثلاً: اتصلت بيه، قال هيدفع الأسبوع الجاي)..."></textarea>
         <div>
           <label class="form-label">تاريخ المتابعة القادمة (اختياري)</label>

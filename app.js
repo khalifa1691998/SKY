@@ -84,7 +84,7 @@ let db = {
 // التبويبات دي هي الوحيدة القابلة للتحكم فيها من شاشة الإعدادات لدور "موظف
 // إدخال بيانات" (STAFF). تبويبات users / settings / audit-log مقفولة دايماً
 // على المشرف (Admin) فقط ومش قابلة للمنح لأي دور تاني لأسباب أمنية.
-const STAFF_PERMISSION_TABS = ['clients', 'customer-requests', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'treasury', 'investors', 'expenses', 'today-reminders', 'reports'];
+const STAFF_PERMISSION_TABS = ['clients', 'customer-requests', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'collection-followups', 'treasury', 'investors', 'expenses', 'today-reminders', 'reports'];
 const ADMIN_ONLY_TABS = ['users', 'settings', 'audit-log'];
 
 function getDefaultStaffPermissions() {
@@ -819,7 +819,7 @@ window.exportExcelBackup = function() {
 
   // 2ب. سجل متابعة العملاء
   addSheet('سجل متابعة العملاء', sortByTimestampDesc([...db.clientFollowUps]).map(n => ({
-    'العميل': n.clientName, 'الملاحظة': n.note, 'تاريخ المتابعة القادمة': n.nextFollowUpDate || '',
+    'العميل': n.clientName, 'سبب التأخير': n.delayReason || '', 'الملاحظة': n.note, 'تاريخ المتابعة القادمة': n.nextFollowUpDate || '',
     'بواسطة': n.createdBy, 'التاريخ والوقت': n.timestamp
   })));
 
@@ -1426,6 +1426,9 @@ function renderActiveTab(tabName) {
       break;
     case 'collections':
       renderCollections();
+      break;
+    case 'collection-followups':
+      renderCollectionFollowUps();
       break;
     case 'treasury':
       renderTreasury();
@@ -8569,9 +8572,86 @@ window.openClientFollowUpModal = function(clientId) {
   document.getElementById('followup-client-name').textContent = client.name;
   document.getElementById('followup-new-note').value = '';
   document.getElementById('followup-next-date').value = '';
+  document.getElementById('followup-delay-reason').value = '';
   renderClientFollowUpsList(clientId);
   openModal('client-followup-modal');
 };
+
+// ================= متابعة التحصيل (Collection Follow-ups smart view) =================
+// عرض ذكي لنفس بيانات "سجل متابعة العميل" الموجودة أصلاً، فلترة على بس
+// الملاحظات اللي فيها سبب تأخير مسجّل - مفيش تكرار في تخزين البيانات،
+// بس شاشة مخصصة تجمّعهم في مكان واحد لمتابعة حالات التأخير بسهولة.
+function renderCollectionFollowUps() {
+  const listEl = document.getElementById('collection-followups-list');
+  const emptyEl = document.getElementById('collection-followups-empty');
+  if (!listEl) return;
+
+  const delayNotes = db.clientFollowUps.filter(n => n.delayReason);
+
+  // تحديث قائمة المحصلين (كتّاب الملاحظات) في الفلتر
+  const collectorSelect = document.getElementById('cf-filter-collector');
+  if (collectorSelect && collectorSelect.dataset.populated !== 'true') {
+    const uniqueCollectors = [...new Set(delayNotes.map(n => n.createdBy))];
+    uniqueCollectors.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      collectorSelect.appendChild(opt);
+    });
+    collectorSelect.dataset.populated = 'true';
+  }
+
+  // البونص: أكتر أسباب التأخير تكرارًا
+  const breakdownPanel = document.getElementById('delay-reason-breakdown');
+  const breakdownList = document.getElementById('delay-reason-breakdown-list');
+  if (delayNotes.length > 0) {
+    const counts = {};
+    delayNotes.forEach(n => { counts[n.delayReason] = (counts[n.delayReason] || 0) + 1; });
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    breakdownList.innerHTML = sorted.map(([reason, count]) => `
+      <span class="px-3 py-1.5 bg-rose-50 text-rose-700 rounded-full text-xs font-semibold flex items-center gap-1.5">
+        ${escapeHTML(reason)}
+        <span class="bg-rose-600 text-white rounded-full px-1.5 text-[10px] font-black">${count}</span>
+      </span>
+    `).join('');
+    breakdownPanel.classList.remove('hidden');
+  } else {
+    breakdownPanel.classList.add('hidden');
+  }
+
+  const searchVal = (document.getElementById('cf-search-input').value || '').toLowerCase();
+  const reasonFilter = document.getElementById('cf-filter-reason').value;
+  const collectorFilter = document.getElementById('cf-filter-collector').value;
+
+  const filtered = delayNotes.filter(n => {
+    const matchesSearch = n.clientName.toLowerCase().includes(searchVal);
+    const matchesReason = reasonFilter === 'all' ? true : n.delayReason === reasonFilter;
+    const matchesCollector = collectorFilter === 'all' ? true : n.createdBy === collectorFilter;
+    return matchesSearch && matchesReason && matchesCollector;
+  }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  listEl.innerHTML = filtered.map(n => `
+    <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-start justify-between gap-3">
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-bold text-slate-800 text-sm">${escapeHTML(n.clientName)}</span>
+          <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">⏱️ ${escapeHTML(n.delayReason)}</span>
+        </div>
+        <p class="text-sm text-slate-600">${escapeHTML(n.note)}</p>
+        ${n.nextFollowUpDate ? `<p class="text-xs font-semibold text-amber-600 mt-1"><i class="ph ph-calendar-check"></i> متابعة قادمة يوم: ${escapeHTML(n.nextFollowUpDate)}</p>` : ''}
+        <p class="text-[11px] text-slate-400 mt-1">${escapeHTML(n.createdBy)} — ${escapeHTML(n.timestamp)}</p>
+      </div>
+      <button onclick="openClientFollowUpModal('${n.clientId}')" class="shrink-0 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold">فتح ملف العميل</button>
+    </div>
+  `).join('');
+}
 
 function renderClientFollowUpsList(clientId) {
   const listEl = document.getElementById('followup-notes-list');
@@ -8596,6 +8676,7 @@ function renderClientFollowUpsList(clientId) {
           ${isAdmin() ? `<button onclick="deleteClientFollowUp('${n.id}', '${clientId}')" class="text-rose-400 hover:text-rose-600"><i class="ph ph-trash text-xs"></i></button>` : ''}
         </div>
       </div>
+      ${n.delayReason ? `<span class="inline-block mb-1.5 px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">⏱️ ${escapeHTML(n.delayReason)}</span>` : ''}
       <p class="text-sm text-slate-700 whitespace-pre-wrap">${escapeHTML(n.note)}</p>
       ${n.nextFollowUpDate ? `<p class="text-xs font-semibold text-amber-600 mt-1.5"><i class="ph ph-calendar-check"></i> متابعة قادمة يوم: ${escapeHTML(n.nextFollowUpDate)}</p>` : ''}
     </div>
@@ -8614,12 +8695,14 @@ window.addClientFollowUp = async function() {
     return;
   }
   const nextFollowUpDate = document.getElementById('followup-next-date').value || '';
+  const delayReason = document.getElementById('followup-delay-reason').value || '';
 
   const entry = {
     id: `fu-${Date.now()}`,
     clientId: clientId,
     clientName: client.name,
     note: note,
+    delayReason: delayReason,
     nextFollowUpDate: nextFollowUpDate,
     createdBy: currentUser ? currentUser.name : 'مجهول',
     timestamp: nowTimestamp()
@@ -8629,7 +8712,9 @@ window.addClientFollowUp = async function() {
 
   document.getElementById('followup-new-note').value = '';
   document.getElementById('followup-next-date').value = '';
+  document.getElementById('followup-delay-reason').value = '';
   renderClientFollowUpsList(clientId);
+  if (typeof renderCollectionFollowUps === 'function') renderCollectionFollowUps();
   showToast('✅ تم حفظ ملاحظة المتابعة', 'success');
   });
 };
