@@ -565,6 +565,10 @@
               <i class="ph ph-file-arrow-up"></i>
               <span>استيراد من إكسيل</span>
             </button>
+            <button onclick="openBlacklistModal()" class="px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-shield-warning"></i>
+              <span>القائمة السوداء</span>
+            </button>
             <button onclick="openAddClientModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-600/20 transition-all duration-200 flex items-center gap-2">
               <i class="ph ph-user-plus"></i>
               <span>إضافة عميل جديد</span>
@@ -1049,9 +1053,15 @@
 
       <!-- ================= TAB: TREASURY ================= -->
       <section id="tab-treasury" class="space-y-6 hidden">
-        <div>
-          <h3 class="text-xl font-bold text-slate-800">الخزينة والحسابات</h3>
-          <p class="text-sm text-slate-500">مراقبة السيولة النقدية، المصروفات، وتأكيد عهد المحصلين في شركة SKY.</p>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">الخزينة والحسابات</h3>
+            <p class="text-sm text-slate-500">مراقبة السيولة النقدية، المصروفات، وتأكيد عهد المحصلين في شركة SKY.</p>
+          </div>
+          <button onclick="openCashReconciliationModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold text-sm shadow-lg transition-all duration-200 flex items-center gap-2 shrink-0">
+            <i class="ph ph-scales"></i>
+            <span>تسوية الخزينة اليومية</span>
+          </button>
         </div>
 
         <!-- Balances Grid -->
@@ -2645,6 +2655,70 @@ Samsung, A05, SN-1002, 4000, 4800, تاجر الجملة, الفرع الرئي�
   </div>
 
   <!-- MODAL: DEVICE ACTIONS / DETAILS -->
+  <div id="cash-reconciliation-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i class="ph ph-scales text-slate-700"></i>
+          <span>تسوية الخزينة اليومية</span>
+        </h3>
+        <button type="button" onclick="closeModal('cash-reconciliation-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-3 bg-slate-50 rounded-lg text-sm mb-4">
+        <p>الرصيد المتوقع حسب سجلات النظام: <strong id="reconciliation-expected" class="text-slate-800"></strong></p>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">الرصيد الفعلي بعد الجرد اليدوي (ج.م)</label>
+        <input type="number" id="reconciliation-actual" step="0.01" class="form-input" placeholder="اكتب المبلغ اللي عددته فعليًا" oninput="updateReconciliationDiff()">
+      </div>
+
+      <div id="reconciliation-diff-box" class="hidden p-3 rounded-lg text-sm mb-3 font-semibold"></div>
+
+      <div class="mb-4">
+        <label class="form-label">ملاحظات (اختياري)</label>
+        <textarea id="reconciliation-notes" rows="2" class="form-input" placeholder="أي تفسير للفرق لو موجود..."></textarea>
+      </div>
+
+      <button onclick="saveCashReconciliation()" class="w-full mb-4 px-3 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-semibold">حفظ التسوية</button>
+
+      <div class="border-t border-slate-100 pt-3">
+        <h4 class="text-xs font-bold text-slate-500 mb-2">آخر التسويات المسجّلة</h4>
+        <div id="reconciliation-history-list" class="space-y-2 max-h-56 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="blacklist-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i class="ph ph-shield-warning text-rose-600"></i>
+          <span>القائمة السوداء</span>
+        </h3>
+        <button type="button" onclick="closeModal('blacklist-modal')" class="text-slate-400 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400 mb-4">سجّل أي شخص معروف عنه مشاكل (نصب، مماطلة في مكان تاني...) حتى لو مش عميل عندك لسه. النظام هيتحقق تلقائيًا من الرقم القومي والهاتف عند تسجيل أي عميل جديد.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-3 bg-slate-50 rounded-xl">
+        <input type="text" id="blacklist-name" class="form-input" placeholder="الاسم">
+        <input type="text" id="blacklist-national-id" class="form-input" placeholder="الرقم القومي (اختياري)">
+        <input type="tel" id="blacklist-phone" class="form-input" placeholder="الهاتف (اختياري)">
+        <input type="text" id="blacklist-reason" class="form-input" placeholder="السبب (مثلاً: نصب سابق)">
+      </div>
+      <button onclick="addBlacklistEntry()" class="w-full mb-4 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold">إضافة للقائمة السوداء</button>
+
+      <div id="blacklist-entries-list" class="space-y-2"></div>
+      <div id="blacklist-entries-empty" class="hidden text-center text-sm text-slate-400 p-6">القائمة السوداء فاضية حاليًا.</div>
+    </div>
+  </div>
+
   <div id="client-import-preview-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">

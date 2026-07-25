@@ -11,7 +11,7 @@ window.FirebaseService = {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
     try {
-      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses', 'pendingWithdrawals'];
+      const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses', 'pendingWithdrawals', 'cashReconciliations', 'blacklist'];
       const data = {};
 
       // مهم جداً: كل مجموعة (Collection) بتتحمّل بشكل مستقل تماماً عن الباقي.
@@ -58,7 +58,7 @@ window.FirebaseService = {
   subscribeToUpdates: (onDataUpdate) => {
     if (!window.FirebaseService.isAvailable()) return null;
     const db = window.firebaseDB;
-    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses', 'pendingWithdrawals'];
+    const collections = ['clients', 'inventory', 'contracts', 'installments', 'collectorCustodies', 'treasuryTransactions', 'users', 'auditLogs', 'settings', 'brands', 'suppliers', 'supplierTransactions', 'investors', 'investorSnapshots', 'productCategories', 'products', 'productStockMovements', 'expenses', 'clientFollowUps', 'customerRequests', 'recurringExpenses', 'pendingWithdrawals', 'cashReconciliations', 'blacklist'];
     
     const activeListeners = [];
     
@@ -432,6 +432,19 @@ window.FirebaseService = {
           break;
         case 'updatePendingWithdrawal':
           await db.collection("pendingWithdrawals").doc(payload.id).update(payload);
+          break;
+
+        // Daily Cash Reconciliation (تسوية الخزينة اليومية)
+        case 'addCashReconciliation':
+          await db.collection("cashReconciliations").doc(payload.id).set(payload);
+          break;
+
+        // Blacklist (قائمة سوداء لغير العملاء)
+        case 'addBlacklistEntry':
+          await db.collection("blacklist").doc(payload.id).set(payload);
+          break;
+        case 'deleteBlacklistEntry':
+          await db.collection("blacklist").doc(payload.id).delete();
           break;
         case 'addDeposit': {
           if (payload.transaction) {

@@ -91,6 +91,25 @@ service cloud.firestore {
       allow read, create, update: if isAdmin();
       allow delete: if false;
     }
+    // FEATURE: تسوية الخزينة اليومية - سجل تاريخي، أي مستخدم موقّع (staff
+    // بيعملها كمان مش الأدمن بس) يقدر يسجل، بس مفيش تعديل أو حذف بعد الحفظ
+    // عشان تفضل مصداقيتها كسجل تاريخي زي auditLogs بالظبط.
+    match /cashReconciliations/{docId} {
+      allow read: if isStaffOrAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.expectedAmount is number
+                    && request.resource.data.actualAmount is number;
+      allow update, delete: if false;
+    }
+    // FEATURE: قائمة سوداء لأشخاص لسه مش عملاء - أي مستخدم موقّع يقدر
+    // يضيف/يقرا (عشان يتفحص وقت التسجيل)، الحذف للمشرف/الموظف بس.
+    match /blacklist/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.name is string && request.resource.data.name.size() > 0;
+      allow update: if isStaffOrAdmin();
+      allow delete: if isStaffOrAdmin();
+    }
     match /contracts/{docId} {
       allow read: if isSignedIn();
       allow create, update: if isStaffOrAdmin();

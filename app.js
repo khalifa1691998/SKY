@@ -20,6 +20,8 @@ let db = {
   customerRequests: [], // طلبات عملاء لمنتجات مش متوفرة: { id, clientId, clientName, clientPhone, productDescription, status, notes, createdBy, timestamp }
   recurringExpenses: [], // مصروفات شهرية ثابتة: { id, category, amount, active, lastAppliedMonth (YYYY-MM), createdBy, timestamp }
   pendingWithdrawals: [], // طلبات سحب كبيرة محتاجة موافقة أدمن تاني: { id, type, investorId, investorName, amount, notes, requestedBy, requestedByUserId, status, timestamp }
+  cashReconciliations: [], // تسوية الخزينة اليومية: { id, date, expectedAmount, actualAmount, difference, notes, performedBy, timestamp }
+  blacklist: [], // قائمة سوداء لغير العملاء: { id, name, nationalId, phone, reason, addedBy, timestamp }
   inventory: [],
   brands: [], // ماركات تابعة لصنف معين: { id, name, categoryId } - تُستخدم في تبويب "الأصناف والمنتجات" وتبويب "المخزون" معاً (نظام موحد: صنف ← ماركة ← منتج/موديل)
   suppliers: [],
@@ -136,6 +138,8 @@ const defaultSeedData = {
   customerRequests: [],
   recurringExpenses: [],
   pendingWithdrawals: [],
+  cashReconciliations: [],
+  blacklist: [],
   inventory: [],
   contracts: [],
   installments: [],
@@ -395,6 +399,22 @@ window.formatSupplierOptionLabel = formatSupplierOptionLabel;
 // تسجيل الدخول أصبح يعتمد بالكامل على Firebase Authentication الحقيقي بدل
 // المقارنة اليدوية لكلمة المرور. لا توجد كلمات مرور نصية تُقرأ من قاعدة البيانات بعد الآن.
 let currentUser = null;
+
+// FIX: حماية من الضغط المزدوج بالغلط على أزرار العمليات المهمة (سداد مبكر،
+// استرجاع، ترقية، موافقة سحب...) - نفس فكرة تعطيل زرار الفورم، بس هنا
+// بنستخدم "قفل" بمفتاح مميز لكل عملية عشان الزرار مش جوه form وممكن نفس
+// الدالة تتنفذ لعناصر مختلفة (contractId مختلف) في نفس الوقت من غير ما
+// نمنعها من بعض.
+const _activeActionLocks = new Set();
+async function runWithActionLock(lockKey, fn) {
+  if (_activeActionLocks.has(lockKey)) return;
+  _activeActionLocks.add(lockKey);
+  try {
+    await fn();
+  } finally {
+    _activeActionLocks.delete(lockKey);
+  }
+}
 
 function isAdmin() {
   return currentUser && currentUser.role === 'ADMIN';
@@ -786,7 +806,8 @@ window.exportExcelBackup = function() {
     'عدد الأقساط المتأخرة': overdueInsts,
     'عدد المستخدمين': db.users.length,
     'طلبات عملاء مفتوحة': db.customerRequests.filter(r => r.status === 'pending' || r.status === 'found').length,
-    'طلبات سحب معلّقة': db.pendingWithdrawals.filter(w => w.status === 'pending').length
+    'طلبات سحب معلّقة': db.pendingWithdrawals.filter(w => w.status === 'pending').length,
+    'عدد أسماء القائمة السوداء': db.blacklist.length
   }]);
 
   // 2. العملاء والضامنين
@@ -807,6 +828,12 @@ window.exportExcelBackup = function() {
   addSheet('طلبات العملاء', sortByTimestampDesc([...db.customerRequests]).map(r => ({
     'اسم الطالب': r.clientName, 'الهاتف': r.clientPhone || '', 'المنتج المطلوب': r.productDescription,
     'الحالة': L(requestStatusLabels, r.status), 'ملاحظات': r.notes || '', 'بواسطة': r.createdBy, 'التاريخ': r.timestamp
+  })));
+
+  // 2د. القائمة السوداء
+  addSheet('القائمة السوداء', sortByTimestampDesc([...db.blacklist]).map(b => ({
+    'الاسم': b.name, 'الرقم القومي': b.nationalId || '', 'الهاتف': b.phone || '',
+    'السبب': b.reason || '', 'أضافه': b.addedBy, 'التاريخ': b.timestamp
   })));
 
   // 3. المخزون والأجهزة
@@ -854,6 +881,12 @@ window.exportExcelBackup = function() {
   addSheet('المصروفات الشهرية الثابتة', db.recurringExpenses.map(r => ({
     'الفئة': r.category, 'القيمة الشهرية': r.amount, 'مفعّل؟': r.active !== false ? 'نعم' : 'لا',
     'آخر شهر اتسجل فيه': r.lastAppliedMonth || 'لسه محصلش', 'بواسطة': r.createdBy, 'تاريخ الإنشاء': r.timestamp
+  })));
+
+  // 7د. تسوية الخزينة اليومية
+  addSheet('تسوية الخزينة اليومية', sortByTimestampDesc([...db.cashReconciliations]).map(r => ({
+    'التاريخ': r.date, 'الرصيد المتوقع': r.expectedAmount, 'الرصيد الفعلي': r.actualAmount,
+    'الفرق': r.difference, 'ملاحظات': r.notes || '', 'بواسطة': r.performedBy, 'وقت التسجيل': r.timestamp
   })));
 
   // 8. المستخدمين (بدون كلمة المرور لأسباب أمنية)
@@ -1211,6 +1244,8 @@ async function loadFromServer() {
         db.customerRequests = fbData.customerRequests || [];
         db.recurringExpenses = fbData.recurringExpenses || [];
         db.pendingWithdrawals = fbData.pendingWithdrawals || [];
+        db.cashReconciliations = fbData.cashReconciliations || [];
+        db.blacklist = fbData.blacklist || [];
         db.suppliers = fbData.suppliers || [];
         db.supplierTransactions = fbData.supplierTransactions || [];
         // تنظيف ذاتي: أي ماركة قديمة كانت متخزنة كنص خام (من نظام قديم قبل
@@ -2516,6 +2551,7 @@ window.openCashSaleModalGrouped = function(brand, name) {
 };
 
 window.deleteDeviceGroup = async function(brand, name) {
+  await runWithActionLock(`delete-device-group-${brand}-${name}`, async () => {
   if (!isAdmin()) {
     alert('⛔ حذف المخزون مخصص للمشرف (ADMIN) فقط.');
     return;
@@ -2560,6 +2596,7 @@ window.deleteDeviceGroup = async function(brand, name) {
     renderDashboard();
     showToast(`✅ تم حذف الأجهزة وإرجاع ${refundedAmount} ج.م للخزينة`, 'success');
   }
+  });
 };
 
 window.editDeviceGroup = function(brand, name) {
@@ -2580,6 +2617,7 @@ window.editDeviceGroup = function(brand, name) {
 };
 
 window.saveInventoryEdit = async function() {
+  await runWithActionLock("save-inventory-edit", async () => {
   if (!isAdmin()) return;
   const brand = document.getElementById('edit-inv-brand').value;
   const name = document.getElementById('edit-inv-name').value;
@@ -2604,6 +2642,7 @@ window.saveInventoryEdit = async function() {
   closeModal('edit-inventory-modal');
   renderInventory();
   renderDashboard();
+  });
 };
 
 // ================= DEVICE ACTIONS: تفاصيل القطعة، الصيانة، الإرجاع، الطباعة =================
@@ -2741,6 +2780,7 @@ window.returnDeviceToStockFromClient = async function(deviceId) {
 // إرجاع قطعة تالفة للمورد نهائياً: بتتحذف من المخزون، ويتسجل مبلغ استرداد
 // (Refund) في الخزينة بقيمة سعر التكلفة (بافتراض إن المورد بيرد فلوس القطعة).
 window.returnDeviceToSupplier = async function(deviceId) {
+  await runWithActionLock(`return-to-supplier-${deviceId}`, async () => {
   const dev = db.inventory.find(d => d.id === deviceId);
   if (!dev || dev.status !== 'available') return;
   if (!isAdmin()) {
@@ -2772,6 +2812,7 @@ window.returnDeviceToSupplier = async function(deviceId) {
   renderInventory();
   renderTreasury();
   renderDashboard();
+  });
 };
 
 // طباعة ملصق بسيط للقطعة (باركود بصري + بيانات أساسية) في نافذة جديدة قابلة للطباعة
@@ -2830,6 +2871,7 @@ window.exportInventoryCSV = function() {
 };
 
 window.submitImportInventory = async function() {
+  await runWithActionLock("submit-import-inventory", async () => {
   const text = document.getElementById('import-inventory-textarea').value.trim();
   if (!text) { alert('يرجى لصق البيانات أولاً.'); return; }
 
@@ -2891,6 +2933,7 @@ window.submitImportInventory = async function() {
   renderInventory();
   renderTreasury();
   renderDashboard();
+  });
 };
 
 // --- 3B. SUPPLIERS (الموردين) ---
@@ -4439,6 +4482,7 @@ function renderPendingWithdrawals() {
 }
 
 window.approvePendingWithdrawal = async function(id) {
+  await runWithActionLock(`approve-withdrawal-${id}`, async () => {
   const w = db.pendingWithdrawals.find(x => x.id === id);
   if (!w || w.status !== 'pending') return;
   if (currentUser && w.requestedByUserId === currentUser.id) {
@@ -4473,9 +4517,11 @@ window.approvePendingWithdrawal = async function(id) {
   renderDashboard();
   updateNotificationBell();
   showToast('✅ تم اعتماد السحب وتنفيذه', 'success');
+  });
 };
 
 window.rejectPendingWithdrawal = async function(id) {
+  await runWithActionLock(`reject-withdrawal-${id}`, async () => {
   const w = db.pendingWithdrawals.find(x => x.id === id);
   if (!w || w.status !== 'pending') return;
   if (currentUser && w.requestedByUserId === currentUser.id) {
@@ -4491,6 +4537,7 @@ window.rejectPendingWithdrawal = async function(id) {
   renderPendingWithdrawals();
   updateNotificationBell();
   showToast('تم رفض طلب السحب', 'success');
+  });
 };
 
 function renderInvestors() {
@@ -4689,6 +4736,7 @@ window.openEditInvestorModal = function(investorId) {
 };
 
 window.deleteInvestor = async function(investorId) {
+  await runWithActionLock(`delete-investor-${investorId}`, async () => {
   const inv = db.investors.find(i => i.id === investorId);
   if (!inv) return;
   if (!(await customConfirm(`هل أنت متأكد من حذف المستثمر "${inv.name}" نهائياً؟\n\nملاحظة: حركات رأس المال والسحب السابقة الخاصة به هتفضل موجودة في سجل الخزينة للأرشفة، لكن مش هتتحسب في توزيع الأرباح تاني بعد الحذف.`))) return;
@@ -4697,6 +4745,7 @@ window.deleteInvestor = async function(investorId) {
   logAction('حذف مستثمر', `حذف المستثمر ${inv.name} من سجل رأس المال`);
   await syncWithAppsScript('deleteInvestor', { id: investorId });
   renderInvestors();
+  });
 };
 
 // ================= سجل حركات المستثمر (Ledger) =================
@@ -4922,6 +4971,7 @@ window.printInvestorExitStatement = function(investorId) {
 // يكون عندك مرجع تاريخي ثابت (شهري/ربع سنوي) مش متأثر بتقلبات المخزون
 // والخزينة اليومية اللي بيتأثر بيها الحساب اللحظي.
 window.freezeInvestorProfitSnapshot = async function() {
+  await runWithActionLock("freeze-investor-snapshot", async () => {
   const stats = computeInvestorFinancials();
   if (!(await customConfirm(`هيتم تجميد صافي الربح الحالي (${Math.round(stats.netProfit).toLocaleString()} ج.م) وقفل الفترة المحاسبية الحالية بتاريخ اليوم.\n\nنصيب كل مستثمر لحد دلوقتي هيتثبّت، وأي مستثمر جديد يدخل بعد كده هيشارك بس في الأرباح اللي هتتحقق من بعد تاريخ التجميد ده (مش قبله). تحب تكمل؟`))) return;
 
@@ -4947,6 +4997,7 @@ window.freezeInvestorProfitSnapshot = async function() {
 
   showToast('✅ تم تجميد صورة الأرباح بنجاح.', 'success');
   renderInvestors();
+  });
 };
 
 window.viewSnapshotsHistory = function() {
@@ -4991,11 +5042,13 @@ window.viewSnapshotsHistory = function() {
 };
 
 window.deleteInvestorSnapshot = async function(snapshotId) {
+  await runWithActionLock(`delete-snapshot-${snapshotId}`, async () => {
   if (!(await customConfirm('هل أنت متأكد من حذف هذا السجل التاريخي؟ الإجراء ده لا يمكن التراجع عنه.'))) return;
   db.investorSnapshots = (db.investorSnapshots || []).filter(s => s.id !== snapshotId);
   logAction('حذف تجميد أرباح', `حذف سجل تجميد أرباح تاريخي`);
   await syncWithAppsScript('deleteInvestorSnapshot', { id: snapshotId });
   viewSnapshotsHistory();
+  });
 };
 
 document.getElementById('add-investor-form').addEventListener('submit', async (e) => {
@@ -5241,8 +5294,11 @@ document.getElementById('withdraw-profit-form').addEventListener('submit', async
 });
 
 window.approveCollectorCustody = async function(id) {
+  await runWithActionLock(`approve-custody-${id}`, async () => {
   const custody = db.collectorCustodies.find(c => c.id === id);
-  if (!custody) return;
+  // FIX: نتأكد إن حالتها لسه 'pending' - لو اتاعتمدت خلاص (مثلاً بضغطة
+  // سابقة) منعيدش المعالجة تاني ونضاعف التحصيل بالغلط.
+  if (!custody || custody.status !== 'pending') return;
   
   const inst = db.installments.find(i => i.id === custody.installmentId);
   if (!inst) return;
@@ -5299,15 +5355,18 @@ window.approveCollectorCustody = async function(id) {
   renderCollections();
   
   openWhatsappModal(inst.id, 'receipt', custody.amount);
+  });
 };
 
 window.rejectCollectorCustody = async function(id) {
+  await runWithActionLock(`reject-custody-${id}`, async () => {
   if (await customConfirm('هل أنت متأكد من حذف وإلغاء معاملة التحصيل هذه من عهدة المحصل؟')) {
     db.collectorCustodies = db.collectorCustodies.filter(c => c.id !== id);
     logAction('إلغاء عهدة معلقة', `إلغاء معاملة تحصيل عهدة برقم ${id}`);
     renderTreasury();
     await syncWithAppsScript('deleteCustody', { id });
   }
+  });
 };
 
 // --- 7. REPORTS ---
@@ -5541,6 +5600,7 @@ window.editUser = function(userId) {
 };
 
 window.saveUserEdits = async function() {
+  await runWithActionLock("save-user-edits", async () => {
   if (!isAdmin()) {
     alert('⛔ هذه العملية مخصصة للمشرف (ADMIN) فقط.');
     return;
@@ -5582,6 +5642,7 @@ window.saveUserEdits = async function() {
     console.error('خطأ أثناء حفظ تعديلات المستخدم:', err);
     alert('❌ حصل خطأ غير متوقع أثناء حفظ التعديلات. افتح Console بالمتصفح (F12) وابعتلي رسالة الخطأ اللي ظهرت.');
   }
+  });
 };
 
 // --- 7.5 AUDIT LOG (سجل العمليات - Admin Only) ---
@@ -5795,6 +5856,7 @@ document.getElementById('add-expense-form').addEventListener('submit', async (e)
 });
 
 window.deleteExpense = async function(id) {
+  await runWithActionLock(`delete-expense-${id}`, async () => {
   if (!isAdmin()) return;
   
   const expense = db.expenses.find(e => e.id === id);
@@ -5831,6 +5893,7 @@ window.deleteExpense = async function(id) {
     console.error('Error deleting expense:', err);
     showToast('❌ فشل حذف المصروف', 'error');
   }
+  });
 };
 
 // فتح مودال تعديل مصروف موجود وتعبئته ببياناته الحالية
@@ -7344,6 +7407,20 @@ document.getElementById('add-client-form').addEventListener('submit', async (e) 
   const guarantorJob = document.getElementById('guarantor-job').value;
   const guarantorAddress = document.getElementById('guarantor-address').value;
 
+  // FEATURE: تحذير أقوى لو الرقم القومي أو الهاتف موجود في "القائمة
+  // السوداء" (أشخاص معروف عنهم مشاكل حتى لو مش عملاء عندك أصلاً). ده أهم
+  // وأخطر من تحذير التكرار العادي تحت، فبيتفحص الأول.
+  if (!editId) {
+    const blacklistMatch = db.blacklist.find(b =>
+      (nationalId && b.nationalId && b.nationalId === nationalId) ||
+      (phone && b.phone && b.phone === phone)
+    );
+    if (blacklistMatch) {
+      const proceed = await customConfirm(`🚫 تحذير خطير: الشخص ده موجود في القائمة السوداء!\n\nالاسم المسجّل: "${blacklistMatch.name}"\nالسبب: ${blacklistMatch.reason || 'غير مذكور'}\n\nهل أنت متأكد إنك عايز تكمل التسجيل رغم التحذير ده؟`, '🚫 تحذير: قائمة سوداء');
+      if (!proceed) return;
+    }
+  }
+
   // FEATURE: تحذير لو رقم قومي أو هاتف مطابق لعميل موجود بالفعل (بس عند
   // الإضافة، مش وقت التعديل - عشان تعديل بيانات عميل موجود ميتحسبش تكرار
   // لنفسه). تحذير بس، مش منع، عشان الحالات المشروعة (زي أخوين بنفس الرقم
@@ -7496,6 +7573,7 @@ document.getElementById('deposit-form').addEventListener('submit', async (e) => 
 });
 
 window.deleteClient = async function(id) {
+  await runWithActionLock(`delete-client-${id}`, async () => {
   if (await customConfirm('هل أنت متأكد من حذف هذا العميل نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
     const client = db.clients.find(c => c.id === id);
     db.clients = db.clients.filter(c => c.id !== id);
@@ -7505,9 +7583,11 @@ window.deleteClient = async function(id) {
     // لازم نبعت أمر الحذف الفعلي لقاعدة البيانات، وإلا هيرجع العميل تاني أول ما تحصل أي مزامنة لحظية
     await syncWithAppsScript('deleteClient', { id });
   }
+  });
 };
 
 window.deleteTransaction = async function(id) {
+  await runWithActionLock(`delete-transaction-${id}`, async () => {
   if (!isAdmin()) {
     alert('⛔ حذف الحركات المالية مخصص للمشرف (ADMIN) فقط.');
     return;
@@ -7541,6 +7621,7 @@ window.deleteTransaction = async function(id) {
     await syncWithAppsScript('deleteTransaction', { id });
     showToast('✅ تم حذف الحركة المالية وتصحيح البيانات المرتبطة بنجاح', 'success');
   }
+  });
 };
 
 window.editTransaction = function(id) {
@@ -7558,6 +7639,7 @@ window.editTransaction = function(id) {
 };
 
 window.saveTransactionEdit = async function() {
+  await runWithActionLock("save-transaction-edit", async () => {
   if (!isAdmin()) return;
   const id = document.getElementById('edit-tx-id').value;
   const tx = db.treasuryTransactions.find(t => t.id === id);
@@ -7574,9 +7656,11 @@ window.saveTransactionEdit = async function() {
   renderTreasury();
   renderDashboard();
   await syncWithAppsScript('updateTransaction', { id, amount: tx.amount, notes: tx.notes });
+  });
 };
 
 window.deleteUser = async function(id) {
+  await runWithActionLock(`delete-user-${id}`, async () => {
   if (!isAdmin()) {
     alert('⛔ حذف المستخدمين مخصص للمشرف (ADMIN) فقط.');
     return;
@@ -7599,6 +7683,7 @@ window.deleteUser = async function(id) {
     console.error('خطأ أثناء حذف المستخدم:', err);
     alert('❌ حصل خطأ غير متوقع أثناء الحذف. افتح Console بالمتصفح (F12) وابعتلي رسالة الخطأ اللي ظهرت.');
   }
+  });
 };
 
 window.editContract = function(contractId) {
@@ -7641,6 +7726,7 @@ window.editContract = function(contractId) {
 };
 
 window.saveContractEdit = async function() {
+  await runWithActionLock("save-contract-edit", async () => {
   if (!isAdmin()) return;
   const contractId = document.getElementById('edit-contract-id').value;
   const c = db.contracts.find(x => x.id === contractId);
@@ -7803,10 +7889,12 @@ window.saveContractEdit = async function() {
     console.error('خطأ أثناء حفظ تعديلات العقد:', err);
     alert('❌ حصل خطأ غير متوقع أثناء حفظ التعديلات. افتح Console بالمتصفح (F12) وابعتلي رسالة الخطأ اللي ظهرت.');
   }
+  });
 };
 
 
 window.deleteContract = async function(contractId) {
+  await runWithActionLock(`delete-contract-${contractId}`, async () => {
   if (!isAdmin()) {
     alert('⛔ حذف العقود مخصص للمشرف (ADMIN) فقط.');
     return;
@@ -7872,6 +7960,7 @@ window.deleteContract = async function(contractId) {
     renderDashboard();
     showToast('✅ تم حذف العقد وتصحيح المخزن والخزينة وتنظيف العهد بنجاح', 'success');
   }
+  });
 };
 
 // ================= SELECT MENUS & SEARCH FILTERS =================
@@ -8378,6 +8467,7 @@ document.getElementById('btn-clear-db').addEventListener('click', async () => {
 // في Firebase Authentication بنفس كلمة المرور القديمة، ثم تُحذف كلمة المرور
 // النصية نهائياً من قاعدة البيانات (Firestore) ولا تعود تُخزَّن هناك إطلاقاً.
 window.migrateUsersToFirebaseAuth = async function() {
+  await runWithActionLock("migrate-users", async () => {
   if (!isAdmin()) {
     alert('⛔ هذه العملية مخصصة للمشرف (ADMIN) فقط.');
     return;
@@ -8435,6 +8525,7 @@ window.migrateUsersToFirebaseAuth = async function() {
     resultMsg += `\n\n⚠️ فشل ترحيل الحسابات التالية (غالباً لأن الحساب موجود مسبقاً في Firebase Authentication):\n${failedUsers.join('\n')}`;
   }
   alert(resultMsg);
+  });
 };
 
 document.getElementById('btn-export-json').addEventListener('click', () => {
@@ -8512,6 +8603,7 @@ function renderClientFollowUpsList(clientId) {
 }
 
 window.addClientFollowUp = async function() {
+  await runWithActionLock('add-followup', async () => {
   const clientId = document.getElementById('followup-client-id').value;
   const client = db.clients.find(c => c.id === clientId);
   if (!client) return;
@@ -8539,6 +8631,7 @@ window.addClientFollowUp = async function() {
   document.getElementById('followup-next-date').value = '';
   renderClientFollowUpsList(clientId);
   showToast('✅ تم حفظ ملاحظة المتابعة', 'success');
+  });
 };
 
 window.deleteClientFollowUp = async function(id, clientId) {
@@ -8566,6 +8659,7 @@ window.openAddCustomerRequestModal = function() {
 };
 
 window.saveCustomerRequest = async function() {
+  await runWithActionLock('save-customer-request', async () => {
   const clientName = document.getElementById('request-client-name').value.trim();
   const productDescription = document.getElementById('request-product-description').value.trim();
   if (!clientName || !productDescription) {
@@ -8592,6 +8686,7 @@ window.saveCustomerRequest = async function() {
   renderCustomerRequests();
   updateNotificationBell();
   showToast('✅ تم تسجيل الطلب بنجاح', 'success');
+  });
 };
 
 const REQUEST_STATUS_LABELS = {
@@ -8761,6 +8856,7 @@ function renderRecurringExpensesList() {
 }
 
 window.addRecurringExpenseTemplate = async function() {
+  await runWithActionLock('add-recurring-template', async () => {
   const category = document.getElementById('recurring-expense-category').value.trim();
   const amount = parseFloat(document.getElementById('recurring-expense-amount').value);
   if (!category || isNaN(amount) || amount <= 0) {
@@ -8784,6 +8880,7 @@ window.addRecurringExpenseTemplate = async function() {
   renderRecurringExpensesList();
   checkPendingRecurringExpenses();
   showToast('✅ تم إضافة المصروف الشهري الثابت', 'success');
+  });
 };
 
 window.deleteRecurringExpenseTemplate = async function(id) {
@@ -8801,6 +8898,7 @@ window.deleteRecurringExpenseTemplate = async function(id) {
 // بتعمل بالظبط نفس حركة "إضافة مصروف" العادية (تسجيل في db.expenses + حركة
 // خزينة)، وبعدين تحدّث القالب إنه اتسجل لشهر ده عشان مايتكررش تسجيله غلط.
 window.applyRecurringExpenseNow = async function(templateId) {
+  await runWithActionLock(`apply-recurring-${templateId}`, async () => {
   const template = db.recurringExpenses.find(r => r.id === templateId);
   if (!template) return;
 
@@ -8842,6 +8940,7 @@ window.applyRecurringExpenseNow = async function(templateId) {
   renderTreasury();
   renderDashboard();
   showToast(`✅ تم تسجيل مصروف ${template.category} لشهر ${thisMonth}`, 'success');
+  });
 };
 
 // ================= استيراد عملاء بالجملة من إكسيل (Bulk Client Import) =================
@@ -8985,6 +9084,182 @@ window.confirmClientImport = async function() {
     confirmBtn.disabled = false;
     confirmBtn.textContent = 'تأكيد الاستيراد';
   }
+};
+
+// ================= تسوية الخزينة اليومية (Daily Cash Reconciliation) =================
+window.openCashReconciliationModal = function() {
+  const expected = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
+  document.getElementById('reconciliation-expected').textContent = `${expected.toLocaleString()} ج.م`;
+  document.getElementById('reconciliation-expected').dataset.value = expected;
+  document.getElementById('reconciliation-actual').value = '';
+  document.getElementById('reconciliation-notes').value = '';
+  document.getElementById('reconciliation-diff-box').classList.add('hidden');
+  renderReconciliationHistory();
+  openModal('cash-reconciliation-modal');
+};
+
+window.updateReconciliationDiff = function() {
+  const expected = safeNum(document.getElementById('reconciliation-expected').dataset.value);
+  const actual = document.getElementById('reconciliation-actual').value;
+  const box = document.getElementById('reconciliation-diff-box');
+  if (actual === '') { box.classList.add('hidden'); return; }
+
+  const diff = safeNum(actual) - expected;
+  box.classList.remove('hidden');
+  if (Math.abs(diff) < 0.01) {
+    box.className = 'p-3 rounded-lg text-sm mb-3 font-semibold bg-emerald-50 text-emerald-700';
+    box.textContent = '✅ الرصيد مطابق تمامًا، مفيش أي فرق.';
+  } else if (diff > 0) {
+    box.className = 'p-3 rounded-lg text-sm mb-3 font-semibold bg-sky-50 text-sky-700';
+    box.textContent = `ℹ️ في زيادة قدرها ${diff.toLocaleString()} ج.م عن المتوقع.`;
+  } else {
+    box.className = 'p-3 rounded-lg text-sm mb-3 font-semibold bg-rose-50 text-rose-700';
+    box.textContent = `⚠️ في عجز قدره ${Math.abs(diff).toLocaleString()} ج.م عن المتوقع.`;
+  }
+};
+
+window.saveCashReconciliation = async function() {
+  await runWithActionLock('save-cash-reconciliation', async () => {
+  const expected = safeNum(document.getElementById('reconciliation-expected').dataset.value);
+  const actualRaw = document.getElementById('reconciliation-actual').value;
+  if (actualRaw === '' || isNaN(parseFloat(actualRaw))) {
+    alert('من فضلك اكتب الرصيد الفعلي بعد الجرد.');
+    return;
+  }
+  const actual = safeNum(actualRaw);
+  const difference = actual - expected;
+  const notes = document.getElementById('reconciliation-notes').value.trim();
+
+  const entry = {
+    id: `recon-${Date.now()}`,
+    date: new Date().toISOString().split('T')[0],
+    expectedAmount: expected,
+    actualAmount: actual,
+    difference: difference,
+    notes: notes,
+    performedBy: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.cashReconciliations.unshift(entry);
+  await syncWithAppsScript('addCashReconciliation', entry);
+
+  logAction('تسوية خزينة يومية', `تسوية بفرق ${difference.toLocaleString()} ج.م (متوقع: ${expected.toLocaleString()}, فعلي: ${actual.toLocaleString()})`);
+  renderReconciliationHistory();
+  document.getElementById('reconciliation-actual').value = '';
+  document.getElementById('reconciliation-notes').value = '';
+  document.getElementById('reconciliation-diff-box').classList.add('hidden');
+  showToast('✅ تم حفظ التسوية بنجاح', 'success');
+  });
+};
+
+function renderReconciliationHistory() {
+  const listEl = document.getElementById('reconciliation-history-list');
+  if (!listEl) return;
+
+  const recent = [...db.cashReconciliations].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 10);
+  if (recent.length === 0) {
+    listEl.innerHTML = `<p class="text-xs text-slate-400 text-center p-3">مفيش أي تسويات مسجّلة لسه.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = recent.map(r => {
+    const diffOk = Math.abs(r.difference) < 0.01;
+    const diffColor = diffOk ? 'text-emerald-600' : (r.difference > 0 ? 'text-sky-600' : 'text-rose-600');
+    const diffText = diffOk ? 'مطابق' : `${r.difference > 0 ? '+' : ''}${r.difference.toLocaleString()} ج.م`;
+    return `
+    <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+      <div class="flex justify-between items-center text-xs">
+        <span class="font-semibold text-slate-700">${escapeHTML(r.date)} — ${escapeHTML(r.performedBy)}</span>
+        <span class="font-bold ${diffColor}">${diffText}</span>
+      </div>
+      ${r.notes ? `<p class="text-[11px] text-slate-400 mt-1">${escapeHTML(r.notes)}</p>` : ''}
+    </div>
+  `;
+  }).join('');
+}
+
+// ================= القائمة السوداء (Blacklist) =================
+window.openBlacklistModal = function() {
+  document.getElementById('blacklist-name').value = '';
+  document.getElementById('blacklist-national-id').value = '';
+  document.getElementById('blacklist-phone').value = '';
+  document.getElementById('blacklist-reason').value = '';
+  renderBlacklistEntries();
+  openModal('blacklist-modal');
+};
+
+function renderBlacklistEntries() {
+  const listEl = document.getElementById('blacklist-entries-list');
+  const emptyEl = document.getElementById('blacklist-entries-empty');
+  if (!listEl) return;
+
+  if (db.blacklist.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  listEl.innerHTML = [...db.blacklist].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(b => `
+    <div class="p-3 bg-rose-50 rounded-xl border border-rose-100 flex items-start justify-between gap-2">
+      <div>
+        <p class="font-bold text-sm text-slate-800">${escapeHTML(b.name)}</p>
+        <p class="text-xs text-slate-500">${b.nationalId ? `الرقم القومي: ${escapeHTML(b.nationalId)}` : ''} ${b.phone ? `— هاتف: ${escapeHTML(b.phone)}` : ''}</p>
+        <p class="text-xs text-rose-600 font-semibold mt-1">${escapeHTML(b.reason || 'بدون سبب مذكور')}</p>
+        <p class="text-[10px] text-slate-400 mt-1">أضافه ${escapeHTML(b.addedBy)} — ${escapeHTML(b.timestamp)}</p>
+      </div>
+      <button onclick="deleteBlacklistEntry('${b.id}')" class="text-rose-400 hover:text-rose-600 shrink-0"><i class="ph ph-trash text-sm"></i></button>
+    </div>
+  `).join('');
+}
+
+window.addBlacklistEntry = async function() {
+  await runWithActionLock('add-blacklist-entry', async () => {
+  const name = document.getElementById('blacklist-name').value.trim();
+  const nationalId = document.getElementById('blacklist-national-id').value.trim();
+  const phone = document.getElementById('blacklist-phone').value.trim();
+  const reason = document.getElementById('blacklist-reason').value.trim();
+
+  if (!name) {
+    alert('من فضلك اكتب اسم الشخص على الأقل.');
+    return;
+  }
+  if (!nationalId && !phone) {
+    alert('من فضلك اكتب الرقم القومي أو رقم الهاتف على الأقل، عشان النظام يقدر يتحقق منه لاحقًا.');
+    return;
+  }
+
+  const entry = {
+    id: `bl-${Date.now()}`,
+    name, nationalId, phone, reason,
+    addedBy: currentUser ? currentUser.name : 'مجهول',
+    timestamp: nowTimestamp()
+  };
+  db.blacklist.push(entry);
+  await syncWithAppsScript('addBlacklistEntry', entry);
+
+  logAction('إضافة للقائمة السوداء', `إضافة ${name} للقائمة السوداء - السبب: ${reason || 'غير مذكور'}`);
+  document.getElementById('blacklist-name').value = '';
+  document.getElementById('blacklist-national-id').value = '';
+  document.getElementById('blacklist-phone').value = '';
+  document.getElementById('blacklist-reason').value = '';
+  renderBlacklistEntries();
+  showToast('✅ تم الإضافة للقائمة السوداء', 'success');
+  });
+};
+
+window.deleteBlacklistEntry = async function(id) {
+  if (currentUser && currentUser.role === 'COLLECTOR') {
+    alert('⛔ التعديل في القائمة السوداء مخصص للمشرف/الموظف فقط.');
+    return;
+  }
+  await runWithActionLock(`delete-blacklist-${id}`, async () => {
+  if (!(await customConfirm('هل أنت متأكد من حذف هذا الشخص من القائمة السوداء؟'))) return;
+  db.blacklist = db.blacklist.filter(b => b.id !== id);
+  await syncWithAppsScript('deleteBlacklistEntry', { id });
+  logAction('حذف من القائمة السوداء', `حذف سجل من القائمة السوداء برقم ${id}`);
+  renderBlacklistEntries();
+  });
 };
 
 window.viewClientDetails = function(clientId) {
@@ -9465,6 +9740,7 @@ window.updateReschedulePreview = function(remainingBalance) {
 };
 
 window.confirmReschedule = async function(contractId) {
+  await runWithActionLock(`reschedule-${contractId}`, async () => {
   const contract = db.contracts.find(c => c.id === contractId);
   if (!contract) return;
 
@@ -9535,6 +9811,7 @@ window.confirmReschedule = async function(contractId) {
   renderContracts();
   renderCollections();
   showToast('✅ تم إعادة جدولة الأقساط بنجاح', 'success');
+  });
 };
 
 // ================= سداد مبكر (Early Settlement) =================
@@ -9595,6 +9872,7 @@ window.updateEarlySettlementPreview = function(remainingBalance) {
 };
 
 window.confirmEarlySettlement = async function(contractId, remainingBalance) {
+  await runWithActionLock(`settlement-${contractId}`, async () => {
   const contract = db.contracts.find(c => c.id === contractId);
   if (!contract) return;
 
@@ -9639,6 +9917,7 @@ window.confirmEarlySettlement = async function(contractId, remainingBalance) {
   renderTreasury();
   renderDashboard();
   showToast('✅ تم السداد المبكر وإغلاق العقد بنجاح', 'success');
+  });
 };
 
 // ================= استرجاع الجهاز (تعثر العميل) =================
@@ -9683,6 +9962,7 @@ window.openRepossessModal = function(contractId) {
 };
 
 window.confirmRepossessDevice = async function(contractId) {
+  await runWithActionLock(`repossess-${contractId}`, async () => {
   const contract = db.contracts.find(c => c.id === contractId);
   if (!contract) return;
 
@@ -9711,6 +9991,7 @@ window.confirmRepossessDevice = async function(contractId) {
   renderInventory();
   renderDashboard();
   showToast('✅ تم استرجاع الجهاز وإغلاق العقد', 'success');
+  });
 };
 
 // ================= ترقية العقد (استبدال جهاز طوعي) =================
@@ -9820,6 +10101,7 @@ function updateUpgradePreview(remainingBalance, newDevicePrice) {
 }
 
 window.confirmUpgradeContract = async function(oldContractId, remainingBalance) {
+  await runWithActionLock(`upgrade-${oldContractId}`, async () => {
   const oldContract = db.contracts.find(c => c.id === oldContractId);
   const client = db.clients.find(c => c.id === oldContract.clientId);
   const newDeviceId = document.getElementById('upgrade-device-picked-id').value;
@@ -9924,6 +10206,7 @@ window.confirmUpgradeContract = async function(oldContractId, remainingBalance) 
   renderCollections();
   renderDashboard();
   showToast('✅ تم ترقية العقد بنجاح وفتح عقد جديد', 'success');
+  });
 };
 
 window.switchTab = function(tabName) {
