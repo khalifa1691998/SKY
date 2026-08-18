@@ -42,6 +42,9 @@ let db = {
     offlineMode: false,
     companyName: 'شركة SKY',
     companyLogo: '', // Base64 or URL
+    // IMPROVEMENT #6: تسجيل خروج تلقائي بعد 20 دقيقة خمول بشكل افتراضي؛ الأدمن
+    // يقدر يغيّرها أو يعطّلها (0) من الإعدادات.
+    sessionTimeoutMinutes: 20,
     staffPermissions: {
       'clients': true,
       'client-balances': true,
@@ -55,6 +58,15 @@ let db = {
       'expenses': false,
       'today-reminders': true,
       'reports': true
+    },
+    // IMPROVEMENT #3: صلاحيات دور COLLECTOR الافتراضية - نفس السلوك القديم
+    // بالظبط (كل حاجة false، يعني المحصّل يشوف تبويب "التحصيلات" بس) لحد ما
+    // الأدمن يمنح صلاحيات إضافية بنفسه من الإعدادات.
+    collectorPermissions: {
+      'collection-followups': false,
+      'clients': false,
+      'client-balances': false,
+      'today-reminders': false
     },
     templates: {
       reminder: `مرحباً أ/ {{الاسم}}،
@@ -87,9 +99,27 @@ let db = {
 const STAFF_PERMISSION_TABS = ['clients', 'customer-requests', 'client-balances', 'inventory', 'suppliers', 'products', 'contracts', 'collections', 'collection-followups', 'treasury', 'investors', 'expenses', 'today-reminders', 'reports'];
 const ADMIN_ONLY_TABS = ['users', 'settings', 'audit-log'];
 
+// IMPROVEMENT #3: مجموعة تبويبات إضافية ممكن تُمنح لدور المحصّل (COLLECTOR)
+// بشكل اختياري من الإعدادات، غير تبويب "التحصيلات" اللي متاح له دايماً بشكل
+// ثابت. اخترنا هنا تبويبات مناسبة لطبيعة شغل المحصّل الميداني وبياناتها كلها
+// مقروءة أصلاً لأي مستخدم موقّع في قواعد Firestore (عملاء/عقود/أقساط). عمداً
+// استبعدنا تبويب "التقارير" رغم إنه كان مرشّح، لأنه بيعرض أرقام من مجموعتي
+// treasuryTransactions وexpenses المحميتين بصلاحية STAFF/ADMIN فقط في قواعد
+// الأمان - منحه هنا كان هيدّي شاشة تقارير مالية مكسورة (بيانات ناقصة) للمحصّل
+// بدل ما يفيده، فمستبعد لحد ما تتضاف صلاحية مخصصة له في قواعد Firestore.
+const COLLECTOR_PERMISSION_TABS = ['collection-followups', 'clients', 'client-balances', 'today-reminders'];
+
 function getDefaultStaffPermissions() {
   const perms = {};
   STAFF_PERMISSION_TABS.forEach(t => perms[t] = true);
+  return perms;
+}
+
+// كل التبويبات الإضافية تبدأ false افتراضياً (يعني نفس السلوك القديم بالظبط:
+// المحصّل يشوف "التحصيلات" بس لحد ما الأدمن يمنحه صلاحيات إضافية بنفسه).
+function getDefaultCollectorPermissions() {
+  const perms = {};
+  COLLECTOR_PERMISSION_TABS.forEach(t => perms[t] = false);
   return perms;
 }
 
@@ -99,7 +129,15 @@ function getDefaultStaffPermissions() {
 function isTabAllowedForCurrentUser(tabName) {
   if (!currentUser) return false;
   if (currentUser.role === 'ADMIN') return true;
-  if (currentUser.role === 'COLLECTOR') return tabName === 'collections';
+  if (currentUser.role === 'COLLECTOR') {
+    // FEATURE (تحسين ٣): تبويب "التحصيلات" ثابت ومتاح دايماً للمحصّل، وأي
+    // تبويب تاني بيتحدد حسب صلاحيات collectorPermissions اللي الأدمن حدّدها
+    // من الإعدادات (بدل ما يكون مقفول برمجياً على "التحصيلات" بس زي الأول).
+    if (tabName === 'collections') return true;
+    if (!COLLECTOR_PERMISSION_TABS.includes(tabName)) return false;
+    const perms = (db.settings && db.settings.collectorPermissions) ? db.settings.collectorPermissions : getDefaultCollectorPermissions();
+    return perms[tabName] === true;
+  }
   if (currentUser.role === 'STAFF') {
     if (tabName === 'dashboard') return true;
     if (ADMIN_ONLY_TABS.includes(tabName)) return false;
@@ -153,6 +191,9 @@ const defaultSeedData = {
     offlineMode: false,
     companyName: 'شركة SKY',
     companyLogo: '',
+    // IMPROVEMENT #6: تسجيل خروج تلقائي بعد 20 دقيقة خمول بشكل افتراضي؛ الأدمن
+    // يقدر يغيّرها أو يعطّلها (0) من الإعدادات.
+    sessionTimeoutMinutes: 20,
     staffPermissions: {
       'clients': true,
       'client-balances': true,
@@ -166,6 +207,15 @@ const defaultSeedData = {
       'expenses': false,
       'today-reminders': true,
       'reports': true
+    },
+    // IMPROVEMENT #3: صلاحيات دور COLLECTOR الافتراضية - نفس السلوك القديم
+    // بالظبط (كل حاجة false، يعني المحصّل يشوف تبويب "التحصيلات" بس) لحد ما
+    // الأدمن يمنح صلاحيات إضافية بنفسه من الإعدادات.
+    collectorPermissions: {
+      'collection-followups': false,
+      'clients': false,
+      'client-balances': false,
+      'today-reminders': false
     },
     templates: {
       reminder: `مرحباً أ/ {{الاسم}}،
@@ -269,6 +319,62 @@ window.customConfirm = customConfirm;
 
 // ================= SYSTEM DIALOGS =================
 // بديل موحّد لأي alert / prompt من المتصفح، حتى تبقى كل الرسائل داخل هوية النظام.
+// IMPROVEMENT #5: نافذة تظهر فور اعتماد عقد جديد بنجاح، بتعرض بيانات سريعة
+// عن العقد وتدّي المستخدم اختيار مباشر لطباعة/تحميل العقد الرسمي (اللي فيه
+// أصلاً جدول أقساط كامل بكل مواعيد الاستحقاق) بدل ما يضطر يدوّر عليه لاحقاً.
+function showContractCreatedDialog(contractId) {
+  const contract = db.contracts.find(c => c.id === contractId);
+  if (!contract) return;
+  const client = db.clients.find(c => c.id === contract.clientId);
+
+  document.getElementById('contract-created-dialog')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'contract-created-dialog';
+  overlay.className = 'system-dialog fixed inset-0 z-[10000] flex items-center justify-center p-4';
+  const card = document.createElement('section');
+  card.className = 'system-dialog-card w-full max-w-md rounded-2xl p-5 sm:p-6';
+  card.setAttribute('role', 'alertdialog');
+  card.setAttribute('aria-modal', 'true');
+
+  const iconEl = document.createElement('div');
+  iconEl.className = 'system-dialog-icon';
+  iconEl.style.color = '#059669';
+  iconEl.innerHTML = `<i class="ph ph-check-circle text-2xl"></i>`;
+  const titleEl = document.createElement('h3');
+  titleEl.className = 'system-dialog-title';
+  titleEl.textContent = 'تم اعتماد العقد بنجاح';
+  const messageEl = document.createElement('p');
+  messageEl.className = 'system-dialog-message';
+  messageEl.textContent = `عقد رقم ${contractId.replace('con-', '')} للعميل ${client ? client.name : ''} بقيمة ${contract.totalValue.toLocaleString()} ج.م على ${contract.duration} قسط. تقدر تطبع العقد الرسمي وجدول مواعيد السداد الآن أو لاحقاً من تبويب العقود.`;
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'flex flex-col sm:flex-row gap-2 mt-2';
+
+  const printBtn = document.createElement('button');
+  printBtn.type = 'button';
+  printBtn.className = 'system-dialog-button flex-1';
+  printBtn.style.background = '#4f46e5';
+  printBtn.innerHTML = `<i class="ph ph-printer mr-1"></i> طباعة العقد وجدول الأقساط`;
+  printBtn.addEventListener('click', () => {
+    overlay.remove();
+    window.printFormalContract(contractId);
+  });
+
+  const laterBtn = document.createElement('button');
+  laterBtn.type = 'button';
+  laterBtn.className = 'system-dialog-button flex-1';
+  laterBtn.style.background = '#64748b';
+  laterBtn.textContent = 'لاحقاً';
+  laterBtn.addEventListener('click', () => overlay.remove());
+
+  btnRow.append(printBtn, laterBtn);
+  card.append(iconEl, titleEl, messageEl, btnRow);
+  overlay.appendChild(card);
+  overlay.addEventListener('click', (event) => { if (event.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => printBtn.focus());
+}
+
 function showSystemAlert(message, title) {
   document.getElementById('system-alert-dialog')?.remove();
   const text = String(message || '');
@@ -594,6 +700,7 @@ async function resolveCurrentUserFromAuth(uid, email) {
   currentUser = user;
   hideLoginScreen();
   updateUIForRole();
+  resetIdleTimer(); // IMPROVEMENT #6: نبدأ مراقبة الخمول فور نجاح تسجيل الدخول
   document.getElementById('current-user-display').textContent = `${user.name} (${user.role})`;
   document.getElementById('header-username').textContent = user.name;
   const avatarEl = document.getElementById('sidebar-user-avatar');
@@ -611,6 +718,7 @@ async function resolveCurrentUserFromAuth(uid, email) {
 async function handleUserLogout() {
   currentUser = null;
   firebaseSubscriptionActive = false;
+  stopIdleTimer(); // IMPROVEMENT #6: نوقف مؤقت الخمول لما المستخدم يخرج بنفسه
 
   // FIX: قفل كل الـ 18 onSnapshot listener الفعلية قبل الخروج. قبل كده كان
   // بيتم تصفير الـ flag بس من غير ما تتقفل الـ listeners الحقيقية، فكانت
@@ -627,6 +735,112 @@ async function handleUserLogout() {
   }
   // showLoginScreen() سيتم استدعاؤه تلقائياً عبر حدث firebase-auth-changed (signedIn: false)
 }
+
+// ================= IMPROVEMENT #6: تسجيل خروج تلقائي عند الخمول (Idle Session Timeout) =================
+// النظام بيتعامل مع فلوس وبيانات عملاء حساسة، ومفيش أي حماية قبل كده لو حد
+// سايب الجهاز مسجل دخول وماشي (خصوصاً على أجهزة مشتركة في الفرع). دلوقتي
+// بعد فترة خمول (بدون حركة ماوس/لمس/كتابة) بيظهر تحذير قبل الخروج بدقيقة،
+// ولو مفيش أي تفاعل بيتم تسجيل الخروج تلقائياً. المدة قابلة للتحكم من
+// الإعدادات (db.settings.sessionTimeoutMinutes)، وتسيبها صفر يعطّل الميزة.
+let idleTimerHandle = null;
+let idleWarningTimerHandle = null;
+const IDLE_WARNING_LEAD_MS = 60 * 1000; // نعرض التحذير قبل الخروج الفعلي بدقيقة واحدة
+
+function getSessionTimeoutMs() {
+  const minutes = Number(db.settings && db.settings.sessionTimeoutMinutes);
+  if (!minutes || isNaN(minutes) || minutes <= 0) return 0; // 0 = الميزة متعطلة
+  return minutes * 60 * 1000;
+}
+
+function stopIdleTimer() {
+  clearTimeout(idleTimerHandle);
+  clearTimeout(idleWarningTimerHandle);
+  idleTimerHandle = null;
+  idleWarningTimerHandle = null;
+  document.getElementById('idle-timeout-warning-dialog')?.remove();
+}
+
+function resetIdleTimer() {
+  if (!currentUser) return;
+  clearTimeout(idleTimerHandle);
+  clearTimeout(idleWarningTimerHandle);
+  document.getElementById('idle-timeout-warning-dialog')?.remove();
+
+  const totalMs = getSessionTimeoutMs();
+  if (totalMs <= 0) return; // الميزة متعطلة من الإعدادات
+
+  const warningLead = Math.min(IDLE_WARNING_LEAD_MS, Math.floor(totalMs / 2));
+  idleWarningTimerHandle = setTimeout(showIdleTimeoutWarning, Math.max(0, totalMs - warningLead));
+}
+
+function showIdleTimeoutWarning() {
+  if (!currentUser) return;
+  document.getElementById('idle-timeout-warning-dialog')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'idle-timeout-warning-dialog';
+  overlay.className = 'system-dialog fixed inset-0 z-[10000] flex items-center justify-center p-4';
+  const card = document.createElement('section');
+  card.className = 'system-dialog-card w-full max-w-md rounded-2xl p-5 sm:p-6';
+  card.setAttribute('role', 'alertdialog');
+  card.setAttribute('aria-modal', 'true');
+
+  const iconEl = document.createElement('div');
+  iconEl.className = 'system-dialog-icon';
+  iconEl.style.color = '#f59e0b';
+  iconEl.innerHTML = `<i class="ph ph-clock-countdown text-2xl"></i>`;
+  const titleEl = document.createElement('h3');
+  titleEl.className = 'system-dialog-title';
+  titleEl.textContent = 'هل ما زلت موجوداً؟';
+  const messageEl = document.createElement('p');
+  messageEl.className = 'system-dialog-message';
+  messageEl.id = 'idle-timeout-countdown-text';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'system-dialog-button';
+  button.textContent = 'نعم، أكمل الجلسة';
+  button.style.background = '#0f766e';
+  button.addEventListener('click', () => resetIdleTimer());
+
+  card.append(iconEl, titleEl, messageEl, button);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => button.focus());
+
+  let secondsLeft = Math.ceil(Math.min(IDLE_WARNING_LEAD_MS, getSessionTimeoutMs() / 2) / 1000);
+  const updateCountdown = () => {
+    if (messageEl) messageEl.textContent = `لعدم وجود أي نشاط، هيتم تسجيل خروجك تلقائياً خلال ${secondsLeft} ثانية لأسباب أمنية.`;
+  };
+  updateCountdown();
+  const countdownInterval = setInterval(() => {
+    secondsLeft -= 1;
+    if (!document.getElementById('idle-timeout-warning-dialog')) { clearInterval(countdownInterval); return; }
+    if (secondsLeft <= 0) { clearInterval(countdownInterval); return; }
+    updateCountdown();
+  }, 1000);
+
+  idleTimerHandle = setTimeout(async () => {
+    document.getElementById('idle-timeout-warning-dialog')?.remove();
+    await handleUserLogout();
+    showSystemAlert('تم تسجيل خروجك تلقائياً لعدم النشاط لفترة طويلة، لأسباب أمنية.', 'انتهت الجلسة');
+  }, Math.min(IDLE_WARNING_LEAD_MS, getSessionTimeoutMs() / 2));
+}
+
+// نراقب أي نشاط حقيقي من المستخدم (كتابة/كليك/لمس/سكرول) ونعيد ضبط المؤقت،
+// لكن بـ throttle بسيط (مش أكتر من مرة كل ثانيتين) عشان مانعملش آلاف
+// setTimeout/clearTimeout مع كل حركة ماوس بسيطة.
+let lastIdleResetAt = 0;
+function handleUserActivityForIdleTimer() {
+  if (!currentUser) return;
+  if (document.getElementById('idle-timeout-warning-dialog')) return; // من غير ما نلغي تحذير ظاهر فعلاً
+  const now = Date.now();
+  if (now - lastIdleResetAt < 2000) return;
+  lastIdleResetAt = now;
+  resetIdleTimer();
+}
+['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+  document.addEventListener(evt, handleUserActivityForIdleTimer, { passive: true });
+});
 
 function updateUIForRole() {
   const isCollector = currentUser && currentUser.role === 'COLLECTOR';
@@ -1051,6 +1265,7 @@ window.handleRestoreFileSelected = function(event) {
         };
         db.settings = { ...restoredData.settings, ...currentConnectionSettings };
         if (!db.settings.staffPermissions) db.settings.staffPermissions = getDefaultStaffPermissions();
+        if (!db.settings.collectorPermissions) db.settings.collectorPermissions = getDefaultCollectorPermissions();
       }
 
       applyCompanyBranding();
@@ -1113,6 +1328,83 @@ function sortByTimestampDesc(arr) {
     if (ta === tb) return 0;
     return ta > tb ? -1 : 1;
   });
+}
+
+// ================= IMPROVEMENT #1: الأداء مع البيانات الكبيرة =================
+// (١) Debounce عام لأي خانة بحث: بدل ما نعيد رسم الجدول/القائمة الكاملة مع
+// كل ضغطة حرف (وده كان بيسبب بطء محسوس مع بيانات كبيرة، خصوصاً في تبويب
+// العملاء لأنه كان بيحسب درجة خطورة كل عميل من جديد على كل ضغطة)، دلوقتي
+// بننتظر المستخدم يوقف عن الكتابة لمدة قصيرة (300ms) قبل ما نعيد الرسم فعلياً.
+function debounce(fn, delay = 300) {
+  let timer = null;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// (٢) Pagination عام: بدل ما نرسم كل صفوف/بطاقات القائمة دفعة واحدة (اللي
+// بيبقى تقيل جداً مع مئات/آلاف السجلات)، بنقسّمها لصفحات ونعرض صفحة واحدة
+// بس في كل مرة، مع أزرار "السابق/التالي" بتتحدث تلقائياً تحت أي جدول أو
+// قائمة نستخدمها معاها. الحالة (رقم الصفحة الحالية) بتتخزن هنا بمفتاح مميز
+// لكل تبويب (key) عشان كل تبويب يحتفظ برقم صفحته لوحده.
+const paginationState = {};
+const PAGE_SIZE_DEFAULT = 25;
+
+function paginate(key, allItems, afterElementId, onChangeCallback, pageSize = PAGE_SIZE_DEFAULT) {
+  if (!paginationState[key]) paginationState[key] = 1;
+  const totalItems = allItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  if (paginationState[key] > totalPages) paginationState[key] = totalPages;
+  const page = paginationState[key];
+  const start = (page - 1) * pageSize;
+  const pageItems = allItems.slice(start, start + pageSize);
+  renderPaginationControls(key, page, totalPages, totalItems, afterElementId, onChangeCallback, pageSize);
+  return pageItems;
+}
+
+function renderPaginationControls(key, page, totalPages, totalItems, afterElementId, onChangeCallback, pageSize) {
+  const afterEl = document.getElementById(afterElementId);
+  if (!afterEl) return;
+  let pagerEl = document.getElementById(`pager-${key}`);
+  if (!pagerEl) {
+    pagerEl = document.createElement('div');
+    pagerEl.id = `pager-${key}`;
+    pagerEl.className = 'flex items-center justify-between gap-3 px-4 py-3 flex-wrap border-t border-slate-100';
+    afterEl.insertAdjacentElement('afterend', pagerEl);
+  }
+  window.__paginationCallbacks = window.__paginationCallbacks || {};
+  window.__paginationCallbacks[key] = onChangeCallback;
+
+  if (totalItems === 0) { pagerEl.innerHTML = ''; return; }
+  const from = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(totalItems, page * pageSize);
+
+  if (totalPages <= 1) {
+    pagerEl.innerHTML = `<span class="text-xs text-slate-400">عرض ${from}–${to} من إجمالي ${totalItems.toLocaleString()}</span>`;
+    return;
+  }
+
+  pagerEl.innerHTML = `
+    <span class="text-xs text-slate-500">عرض ${from}–${to} من إجمالي ${totalItems.toLocaleString()} — صفحة ${page} من ${totalPages}</span>
+    <div class="flex items-center gap-1.5">
+      <button ${page <= 1 ? 'disabled' : ''} onclick="window.__paginationGoto('${key}', ${page - 1})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${page <= 1 ? 'opacity-40 cursor-not-allowed border-slate-200 text-slate-400' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}">‹ السابق</button>
+      <button ${page >= totalPages ? 'disabled' : ''} onclick="window.__paginationGoto('${key}', ${page + 1})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${page >= totalPages ? 'opacity-40 cursor-not-allowed border-slate-200 text-slate-400' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}">التالي ›</button>
+    </div>
+  `;
+}
+
+window.__paginationGoto = function (key, page) {
+  paginationState[key] = page;
+  if (window.__paginationCallbacks && window.__paginationCallbacks[key]) {
+    window.__paginationCallbacks[key]();
+  }
+};
+
+// أي فلترة/بحث لازم يرجّع صفحة القائمة لأول صفحة (وإلا ممكن المستخدم يفضل
+// واقف في صفحة رقم 5 مثلاً بعد ما يبحث ويطلع نتيجة صفحة واحدة بس فاضية).
+function resetPage(key) {
+  paginationState[key] = 1;
 }
 
 function logAction(actionType, details) {
@@ -1330,7 +1622,13 @@ function calculateFinesForInstallment(inst, contract) {
   }
   
   if (contract.fineType === 'flat') {
-    return diffDays * contract.fineValue;
+    // FIX (تقرير الفحص - بند ٤.٥): كانت الغرامة الثابتة بتتحسب على كامل
+    // أيام التأخير من تاريخ الاستحقاق (diffDays) شاملة أيام فترة السماح
+    // نفسها، بعكس النوع النسبي (percent) اللي بيحسب فقط الأيام اللي بعد
+    // فترة السماح. دلوقتي النوعين متوافقين: الغرامة تُحسب فقط عن الأيام
+    // الزايدة عن فترة السماح، فمفيش ازدواج في محاسبة أيام السماح نفسها.
+    const overdueDaysAfterGrace = diffDays - contract.graceDays;
+    return parseFloat((overdueDaysAfterGrace * contract.fineValue).toFixed(2));
   } else if (contract.fineType === 'percent') {
     // غرامة شهرية بنسبة مئوية (مش تراكم يومي): أول 29 يوم تأخير (بعد فترة
     // السماح) غرامتهم صفر، يوم 30 بيُحسب أول شهر كامل غرامة، وتفضل ثابتة
@@ -1640,7 +1938,9 @@ function renderDashboard() {
   const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + safeNum(dev.costPrice), 0);
   document.getElementById('kpi-inventory-capital').textContent = `${inventoryCapital.toLocaleString()} ج.م`;
 
-  const totalRemainingContractBalance = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + safeNum(inst.amount), 0);
+  // FIX (تقرير الفحص - بند ٣.١): نفس إصلاح computeInvestorFinancials -
+  // بنخصم أي مبلغ سبق تحصيله جزئياً من القسط قبل عرضه كمتبقٍ متوقع.
+  const totalRemainingContractBalance = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + Math.max(0, safeNum(inst.amount) - safeNum(inst.paidAmount)), 0);
   document.getElementById('kpi-expected-profits').textContent = `${totalRemainingContractBalance.toLocaleString()} ج.م`;
 
   const totalInsts = db.installments.length;
@@ -2075,11 +2375,17 @@ function renderClients() {
 
   if (filtered.length === 0) {
     emptyState.classList.remove('hidden');
+    renderPaginationControls('clients', 1, 1, 0, 'clients-table-wrapper', renderClients);
     return;
   }
   emptyState.classList.add('hidden');
 
-  filtered.forEach(c => {
+  // IMPROVEMENT #1 (الأداء): بدل ما نرسم ونحسب خطورة كل عميل في القاعدة
+  // كاملة، بنقسم النتائج المفلترة لصفحات (25 عميل بالصفحة) ونحسب/نرسم
+  // صفحة واحدة بس في كل مرة. أي بحث بيرجّع الترقيم لأول صفحة تلقائياً.
+  const pageItems = paginate('clients', filtered, 'clients-table-wrapper', renderClients);
+
+  pageItems.forEach(c => {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors';
     const risk = getClientRiskInfo(c.id);
@@ -2218,17 +2524,25 @@ function renderClientBalances() {
     document.getElementById('balance-summary-total').textContent = '0';
     document.getElementById('balance-summary-paid').textContent = '0';
     document.getElementById('balance-summary-remaining').textContent = '0';
+    renderPaginationControls('client-balances', 1, 1, 0, 'client-balances-list', renderClientBalances);
     return;
   }
   emptyState.classList.add('hidden');
 
+  // IMPROVEMENT #1 (الأداء): الإجماليات (فوق الصفحة) بتتحسب على كل العملاء
+  // المفلترين زي ما هو، لكن رسم البطاقات نفسها بيتقسم لصفحات (25 عميل).
   let grandTotal = 0, grandPaid = 0, grandRemaining = 0;
-
   filtered.forEach(client => {
-    const { devices, totals } = computeClientBalance(client.id);
+    const totals = computeClientBalance(client.id).totals;
     grandTotal += totals.totalValue;
     grandPaid += totals.totalPaid;
     grandRemaining += totals.totalRemaining;
+  });
+
+  const pageItems = paginate('client-balances', filtered, 'client-balances-list', renderClientBalances);
+
+  pageItems.forEach(client => {
+    const { devices, totals } = computeClientBalance(client.id);
 
     const progressPct = totals.totalValue > 0 ? Math.round((totals.totalPaid / totals.totalValue) * 100) : 0;
     const isExpanded = expandedBalanceClients.has(client.id);
@@ -2301,7 +2615,7 @@ function renderClientBalances() {
   document.getElementById('balance-summary-remaining').textContent = grandRemaining.toLocaleString();
 }
 
-document.getElementById('balance-search-input').addEventListener('input', renderClientBalances);
+document.getElementById('balance-search-input').addEventListener('input', debouncedSearch('client-balances', renderClientBalances));
 
 // --- 3. INVENTORY & DEVICES ---
 
@@ -2955,7 +3269,15 @@ function computeSupplierBalance(supplierId) {
   const totalCashPurchases = cashPurchases.reduce((s, t) => s + safeNum(t.amount), 0);
   const totalPaid = payments.reduce((s, t) => s + safeNum(t.amount), 0);
   const totalPurchases = totalCreditPurchases + totalCashPurchases;
-  const balance = Math.max(0, totalCreditPurchases - totalPaid);
+  // FIX (تقرير الفحص - بند ٤.١): كان الرصيد بيتقصّ عند صفر (Math.max(0, ...))
+  // فلو دفعنا للمورد أكتر من مشترياتنا الآجلة منه (سلفة/دفعة مقدمة) كان
+  // الفارق بيختفي تماماً. دلوقتي بنحتفظ بالقيمة الحقيقية (ممكن تكون سالبة)
+  // في rawBalance، وbalance بتفضل موجبة زي الأول (للتوافق مع أي كود قديم
+  // بيستخدمها كـ"المستحق للمورد")، وبنضيف advancePayment كحقل واضح منفصل
+  // يوضح أي رصيد دائن لنا عند المورد.
+  const rawBalance = totalCreditPurchases - totalPaid;
+  const balance = Math.max(0, rawBalance);
+  const advancePayment = Math.max(0, -rawBalance);
 
   return {
     transactions: sortByTimestampDesc(txs),
@@ -2963,7 +3285,9 @@ function computeSupplierBalance(supplierId) {
     totalCashPurchases,
     totalPurchases,
     totalPaid,
-    balance
+    balance,
+    rawBalance,
+    advancePayment
   };
 }
 
@@ -2997,17 +3321,25 @@ function renderSuppliers() {
     document.getElementById('supplier-summary-total-purchases').textContent = '0';
     document.getElementById('supplier-summary-paid').textContent = '0';
     document.getElementById('supplier-summary-due').textContent = '0';
+    renderPaginationControls('suppliers', 1, 1, 0, 'suppliers-list', renderSuppliers);
     return;
   }
   emptyState.classList.add('hidden');
 
+  // IMPROVEMENT #1 (الأداء): الإجماليات فوق الصفحة بتتحسب على كل الموردين
+  // المفلترين، ورسم البطاقات بيتقسم لصفحات (25 مورد بالصفحة).
   let grandPurchases = 0, grandPaid = 0, grandDue = 0;
-
   filtered.forEach(supplier => {
+    const b = computeSupplierBalance(supplier.id);
+    grandPurchases += b.totalPurchases;
+    grandPaid += b.totalPaid;
+    grandDue += b.balance;
+  });
+
+  const pageItems = paginate('suppliers', filtered, 'suppliers-list', renderSuppliers);
+
+  pageItems.forEach(supplier => {
     const bal = computeSupplierBalance(supplier.id);
-    grandPurchases += bal.totalPurchases;
-    grandPaid += bal.totalPaid;
-    grandDue += bal.balance;
 
     const isExpanded = expandedSupplierIds.has(supplier.id);
     const typeLabel = SUPPLIER_TYPE_LABELS[supplier.type] || 'آجل';
@@ -3033,6 +3365,7 @@ function renderSuppliers() {
           <div class="bg-slate-100 text-slate-700 py-1.5 px-3 rounded-lg">إجمالي المشتريات: <span class="font-black text-sm">${bal.totalPurchases.toLocaleString()} ج.م</span></div>
           <div class="bg-emerald-50 text-emerald-700 py-1.5 px-3 rounded-lg">المسدد: <span class="font-black text-sm">${bal.totalPaid.toLocaleString()} ج.م</span></div>
           <div class="bg-amber-50 text-amber-700 py-1.5 px-3 rounded-lg">المستحق: <span class="font-black text-sm">${bal.balance.toLocaleString()} ج.م</span></div>
+          ${bal.advancePayment > 0 ? `<div class="bg-indigo-50 text-indigo-700 py-1.5 px-3 rounded-lg" title="مبلغ مدفوع للمورد أكثر من مشترياتنا الآجلة منه - رصيد دائن لنا عنده">رصيد دائن لنا: <span class="font-black text-sm">${bal.advancePayment.toLocaleString()} ج.م</span></div>` : ''}
           <div class="inline-flex gap-1.5">
             ${bal.balance > 0 ? `<button onclick="openSupplierPaymentModal('${supplier.id}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-hand-coins"></i> سداد</button>` : ''}
             <button onclick="printSupplierStatement('${supplier.id}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition-all flex items-center gap-1"><i class="ph ph-printer"></i></button>
@@ -3079,7 +3412,7 @@ function renderSuppliers() {
   document.getElementById('supplier-summary-due').textContent = grandDue.toLocaleString();
 }
 
-document.getElementById('supplier-search-input').addEventListener('input', renderSuppliers);
+document.getElementById('supplier-search-input').addEventListener('input', debouncedSearch('suppliers', renderSuppliers));
 
 window.openAddSupplierModal = function() {
   document.getElementById('supplier-edit-id').value = '';
@@ -3105,6 +3438,12 @@ window.deleteSupplier = async function(supplierId) {
   const bal = computeSupplierBalance(supplierId);
   if (bal.balance > 0) {
     alert(`⛔ لا يمكن حذف هذا المورد لأن له رصيداً مستحقاً قدره ${bal.balance.toLocaleString()} ج.م. برجاء سداد الرصيد أولاً.`);
+    return;
+  }
+  // FIX (تقرير الفحص - بند ٤.١): منع حذف مورد لسه ليه رصيد دائن لنا عنده
+  // (دفعنا له أكتر من مشترياتنا الآجلة) عشان ميضيعش الأثر المحاسبي للمبلغ ده.
+  if (bal.advancePayment > 0) {
+    alert(`⛔ لا يمكن حذف هذا المورد لوجود رصيد دائن لنا عنده قدره ${bal.advancePayment.toLocaleString()} ج.م (دفعنا له أكثر من مشترياتنا الآجلة). برجاء تسوية هذا الرصيد أولاً.`);
     return;
   }
   if (await customConfirm('هل أنت متأكد من حذف هذا المورد نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
@@ -3254,6 +3593,7 @@ window.printSupplierStatement = function(supplierId) {
       <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المشتريات</div><strong>${bal.totalPurchases.toLocaleString()} ج.م</strong></div>
       <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المسدد</div><strong style="color:#059669;">${bal.totalPaid.toLocaleString()} ج.م</strong></div>
       <div><div style="color:#64748b; font-size:0.7rem;">الرصيد المستحق</div><strong style="color:#d97706;">${bal.balance.toLocaleString()} ج.م</strong></div>
+      ${bal.advancePayment > 0 ? `<div><div style="color:#64748b; font-size:0.7rem;">رصيد دائن لنا عنده</div><strong style="color:#4f46e5;">${bal.advancePayment.toLocaleString()} ج.م</strong></div>` : ''}
     </div>
 
     <table class="print-doc-table" style="margin-top:14px;">
@@ -3272,6 +3612,92 @@ window.printSupplierStatement = function(supplierId) {
 
   printHTML(html);
   logAction('طباعة كشف حساب مورد', `طباعة كشف حساب للمورد ${supplier.name}`);
+};
+
+// IMPROVEMENT #7: تقرير إجمالي لكل الموردين مع بعض (بدل ما يكون فيه بس
+// طباعة لواحد لواحد). بيعرض جدول واحد فيه كل مورد: إجمالي المشتريات، إجمالي
+// المسدد، الرصيد المستحق له، وأي رصيد دائن لنا عنده (لو موجود)، مع إجماليات
+// عامة تحت الجدول. زر التصدير لملف Excel (CSV) موجود بجانب زر الطباعة.
+window.printAllSuppliersStatement = function() {
+  if (db.suppliers.length === 0) {
+    showToast('❌ لا يوجد موردين مسجلين لإصدار تقرير عنهم.', 'error');
+    return;
+  }
+  const companyName = db.settings.companyName || 'شركة SKY';
+
+  let grandPurchases = 0, grandPaid = 0, grandDue = 0, grandAdvance = 0;
+  const rows = db.suppliers.map(supplier => {
+    const bal = computeSupplierBalance(supplier.id);
+    grandPurchases += bal.totalPurchases;
+    grandPaid += bal.totalPaid;
+    grandDue += bal.balance;
+    grandAdvance += bal.advancePayment;
+    return `
+      <tr>
+        <td>${escapeHTML(supplier.name)}</td>
+        <td>${escapeHTML(supplier.phone) || '—'}</td>
+        <td>${bal.totalPurchases.toLocaleString()} ج.م</td>
+        <td>${bal.totalPaid.toLocaleString()} ج.م</td>
+        <td style="font-weight:700; ${bal.balance > 0 ? 'color:#d97706;' : ''}">${bal.balance.toLocaleString()} ج.م</td>
+        <td style="${bal.advancePayment > 0 ? 'color:#4f46e5; font-weight:700;' : 'color:#94a3b8;'}">${bal.advancePayment > 0 ? bal.advancePayment.toLocaleString() + ' ج.م' : '—'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const html = `
+    <div class="print-doc-header">
+      <div>
+        <div style="font-weight:800; font-size:1.2rem; color:#5856d6;">${escapeHTML(companyName)}</div>
+        <div style="font-size:0.75rem; color:#64748b;">نظام إدارة الأقساط والخزينة</div>
+      </div>
+      <div style="text-align:left; font-size:0.8rem;">
+        <div><strong>تاريخ الإصدار:</strong> ${new Date().toLocaleString('ar-EG')}</div>
+      </div>
+    </div>
+    <div class="print-doc-title">تقرير إجمالي - كل الموردين (${db.suppliers.length})</div>
+
+    <div style="margin-top:10px; padding:10px 12px; background:#ecfdf5; border-radius:8px; display:flex; justify-content:space-around; text-align:center; font-size:0.85rem; flex-wrap:wrap; gap:8px;">
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي مشتريات كل الموردين</div><strong>${grandPurchases.toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المسدد لهم</div><strong style="color:#059669;">${grandPaid.toLocaleString()} ج.م</strong></div>
+      <div><div style="color:#64748b; font-size:0.7rem;">إجمالي المستحق لهم</div><strong style="color:#d97706;">${grandDue.toLocaleString()} ج.م</strong></div>
+      ${grandAdvance > 0 ? `<div><div style="color:#64748b; font-size:0.7rem;">إجمالي أرصدة دائنة لنا</div><strong style="color:#4f46e5;">${grandAdvance.toLocaleString()} ج.م</strong></div>` : ''}
+    </div>
+
+    <table class="print-doc-table" style="margin-top:14px;">
+      <thead>
+        <tr><th>اسم المورد</th><th>الهاتف</th><th>إجمالي المشتريات</th><th>إجمالي المسدد</th><th>المستحق له</th><th>رصيد دائن لنا</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="print-doc-footer">تم إصدار هذا التقرير إلكترونياً من نظام ${escapeHTML(companyName)} بتاريخ ${new Date().toLocaleString('ar-EG')} — إجمالي ${db.suppliers.length} مورد</div>
+  `;
+
+  printHTML(html);
+  logAction('طباعة تقرير موردين إجمالي', `طباعة تقرير إجمالي لكل الموردين (${db.suppliers.length} مورد)`);
+};
+
+// IMPROVEMENT #7: تصدير نفس بيانات كل الموردين كملف Excel (CSV) قابل للفتح
+// في Excel مباشرة، بنفس فلسفة تصدير باقي التبويبات في النظام (لو موجودة).
+window.exportAllSuppliersCSV = function() {
+  if (db.suppliers.length === 0) {
+    showToast('❌ لا يوجد موردين مسجلين لتصديرهم.', 'error');
+    return;
+  }
+  const headers = ['اسم المورد', 'الهاتف', 'العنوان', 'إجمالي المشتريات', 'إجمالي المسدد', 'المستحق له', 'رصيد دائن لنا'];
+  const rows = db.suppliers.map(supplier => {
+    const bal = computeSupplierBalance(supplier.id);
+    return [supplier.name, supplier.phone || '', supplier.address || '', bal.totalPurchases, bal.totalPaid, bal.balance, bal.advancePayment];
+  });
+  const csvContent = '\uFEFF' + [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `تقرير_الموردين_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  logAction('تصدير تقرير موردين', `تصدير كشف Excel/CSV إجمالي لكل الموردين (${db.suppliers.length} مورد)`);
 };
 
 // --- 3C. GENERAL PRODUCTS & CATEGORIES (الأصناف والمنتجات العامة - إكسسوارات/قطع غيار) ---
@@ -3401,11 +3827,15 @@ function renderProducts() {
 
   if (list.length === 0) {
     if (emptyState) emptyState.classList.remove('hidden');
+    renderPaginationControls('products', 1, 1, 0, 'products-table-wrapper', renderProducts);
     return;
   }
   if (emptyState) emptyState.classList.add('hidden');
 
-  list.forEach(p => {
+  // IMPROVEMENT #1 (الأداء): ترقيم صفحات للأصناف/المنتجات.
+  const pageItems = paginate('products', list, 'products-table-wrapper', renderProducts);
+
+  pageItems.forEach(p => {
     const cat = db.productCategories.find(c => c.id === p.categoryId);
     const qty = computeProductQuantity(p.id);
     const isLow = qty <= (p.minQty || 0);
@@ -3482,7 +3912,7 @@ function renderProducts() {
 }
 
 const productSearchInputEl = document.getElementById('product-search-input');
-if (productSearchInputEl) productSearchInputEl.addEventListener('input', renderProducts);
+if (productSearchInputEl) productSearchInputEl.addEventListener('input', debouncedSearch('products', renderProducts));
 const productLowStockInputEl = document.getElementById('product-filter-lowstock');
 if (productLowStockInputEl) productLowStockInputEl.addEventListener('change', renderProducts);
 
@@ -3864,11 +4294,15 @@ function renderContracts() {
 
   if (filtered.length === 0) {
     emptyState.classList.remove('hidden');
+    renderPaginationControls('contracts', 1, 1, 0, 'contracts-table-wrapper', renderContracts);
     return;
   }
   emptyState.classList.add('hidden');
 
-  filtered.forEach(c => {
+  // IMPROVEMENT #1 (الأداء): ترقيم صفحات للعقود بدل رسمها كلها دفعة واحدة.
+  const pageItems = paginate('contracts', filtered, 'contracts-table-wrapper', renderContracts);
+
+  pageItems.forEach(c => {
     const contractInsts = db.installments.filter(inst => inst.contractId === c.id);
     const paidVal = contractInsts.filter(inst => inst.status === 'paid').reduce((sum, inst) => sum + safeNum(inst.amount), 0);
     const totalInstsAmount = contractInsts.reduce((sum, inst) => sum + safeNum(inst.amount), 0);
@@ -4318,7 +4752,12 @@ function computeCapitalDays(timeline, periodStart, periodEnd) {
 function computeInvestorFinancials() {
   const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
   const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + safeNum(dev.costPrice), 0);
-  const outstandingInstallments = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + safeNum(inst.amount), 0);
+  // FIX (تقرير الفحص - بند ٣.١): كان بيتحسب هنا inst.amount الكامل حتى لو
+  // كان القسط اتحصّل منه جزء (paidAmount) بالفعل ودخل الخزينة فعلياً، وده
+  // كان بيضاعف احتساب نفس المبلغ (مرة في treasuryBalance ومرة تانية هنا)
+  // ويضخّم صافي الربح ونصيب المستثمرين وهمياً. دلوقتي بنحسب المتبقي الفعلي
+  // فقط (المبلغ - أي جزء اتحصّل منه سابقاً)، مع حماية ضد أي قيمة سالبة.
+  const outstandingInstallments = db.installments.filter(inst => inst.status !== 'paid').reduce((sum, inst) => sum + Math.max(0, safeNum(inst.amount) - safeNum(inst.paidAmount)), 0);
   const pendingCustody = db.collectorCustodies.filter(c => c.status === 'pending').reduce((sum, c) => sum + safeAmount(c), 0);
 
   const totalAssets = treasuryBalance + inventoryCapital + outstandingInstallments + pendingCustody;
@@ -5068,6 +5507,20 @@ document.getElementById('add-investor-form').addEventListener('submit', async (e
     showToast('❌ نسبة الشراكة الثابتة لازم تكون رقم بين 0 و 100.', 'error');
     return;
   }
+  // FIX (تقرير الفحص - بند ٤.٢): كان ممكن يتسجل مستثمرين بنسب ثابتة مجموعها
+  // يتجاوز 100% بالغلط، مما يوزّع أكتر من الربح المتاح فعلياً وقت الحساب.
+  // بنتحقق هنا إن مجموع كل النسب الثابتة المخزَّنة فعلاً (القدامى + الجديدة)
+  // ميتجاوزش 100% قبل الحفظ.
+  if (fixedSharePercent !== null) {
+    const existingFixedSum = db.investors.reduce((sum, inv) => {
+      const has = inv.fixedSharePercent !== undefined && inv.fixedSharePercent !== null && inv.fixedSharePercent !== '' && !isNaN(inv.fixedSharePercent);
+      return sum + (has ? Number(inv.fixedSharePercent) : 0);
+    }, 0);
+    if (existingFixedSum + fixedSharePercent > 100.0001) {
+      showToast(`❌ مجموع النسب الثابتة لكل المستثمرين (${(existingFixedSum + fixedSharePercent).toFixed(1)}٪) يتجاوز 100٪. النسب الثابتة الحالية = ${existingFixedSum.toFixed(1)}٪.`, 'error');
+      return;
+    }
+  }
 
   const investorId = `inv-${Date.now()}`;
   const newInvestor = {
@@ -5117,6 +5570,18 @@ document.getElementById('edit-investor-form').addEventListener('submit', async (
   if (fixedSharePercent !== null && (isNaN(fixedSharePercent) || fixedSharePercent < 0 || fixedSharePercent > 100)) {
     showToast('❌ نسبة الشراكة الثابتة لازم تكون رقم بين 0 و 100.', 'error');
     return;
+  }
+  // FIX (تقرير الفحص - بند ٤.٢): نفس تحقق مجموع 100% لكن هنا بنستثني نسبة
+  // المستثمر الحالي القديمة من المجموع قبل ما نضيف نسبته الجديدة.
+  if (fixedSharePercent !== null) {
+    const otherFixedSum = db.investors.filter(i => i.id !== investorId).reduce((sum, i) => {
+      const has = i.fixedSharePercent !== undefined && i.fixedSharePercent !== null && i.fixedSharePercent !== '' && !isNaN(i.fixedSharePercent);
+      return sum + (has ? Number(i.fixedSharePercent) : 0);
+    }, 0);
+    if (otherFixedSum + fixedSharePercent > 100.0001) {
+      showToast(`❌ مجموع النسب الثابتة لكل المستثمرين (${(otherFixedSum + fixedSharePercent).toFixed(1)}٪) يتجاوز 100٪. باقي المستثمرين الثابتين = ${otherFixedSum.toFixed(1)}٪.`, 'error');
+      return;
+    }
   }
 
   inv.name = name;
@@ -5679,11 +6144,16 @@ function renderAuditLog() {
 
   if (filtered.length === 0) {
     emptyState.classList.remove('hidden');
+    renderPaginationControls('audit-log', 1, 1, 0, 'audit-log-table-wrapper', renderAuditLog);
     return;
   }
   emptyState.classList.add('hidden');
 
-  filtered.forEach(log => {
+  // IMPROVEMENT #1 (الأداء): ترقيم صفحات لسجل العمليات (ممكن يوصل لآلاف
+  // السجلات مع الوقت).
+  const pageItems = paginate('audit-log', filtered, 'audit-log-table-wrapper', renderAuditLog);
+
+  pageItems.forEach(log => {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-colors';
     tr.innerHTML = `
@@ -5758,11 +6228,15 @@ function renderExpenses() {
 
   if (filtered.length === 0) {
     emptyState.classList.remove('hidden');
+    renderPaginationControls('expenses', 1, 1, 0, 'expenses-table-wrapper', renderExpenses);
     return;
   }
   emptyState.classList.add('hidden');
 
-  filtered.forEach(e => {
+  // IMPROVEMENT #1 (الأداء): ترقيم صفحات للمصروفات.
+  const pageItems = paginate('expenses', filtered, 'expenses-table-wrapper', renderExpenses);
+
+  pageItems.forEach(e => {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50/50 transition-colors';
     tr.innerHTML = `
@@ -6096,7 +6570,7 @@ window.printAuditLog = function() {
   printHTML(html);
 };
 
-document.getElementById('audit-log-search-input').addEventListener('input', renderAuditLog);
+document.getElementById('audit-log-search-input').addEventListener('input', debouncedSearch('audit-log', renderAuditLog));
 document.getElementById('audit-log-from-date').addEventListener('change', renderAuditLog);
 document.getElementById('audit-log-to-date').addEventListener('change', renderAuditLog);
 
@@ -6113,6 +6587,8 @@ function renderSettings() {
   
   document.getElementById('setting-offline-mode').checked = db.settings.offlineMode;
   document.getElementById('setting-withdrawal-threshold').value = db.settings.withdrawalApprovalThreshold || 0;
+  // IMPROVEMENT #6: تحميل مدة تسجيل الخروج التلقائي عند الخمول
+  document.getElementById('setting-session-timeout').value = db.settings.sessionTimeoutMinutes || 0;
 
   const t = db.settings.templates || defaultSeedData.settings.templates;
   document.getElementById('template-reminder').value = t.reminder;
@@ -6124,6 +6600,13 @@ function renderSettings() {
   STAFF_PERMISSION_TABS.forEach(tabKey => {
     const checkbox = document.getElementById(`perm-${tabKey}`);
     if (checkbox) checkbox.checked = perms[tabKey] !== false;
+  });
+
+  // IMPROVEMENT #3: تحميل صلاحيات دور COLLECTOR الحالية في خانات الاختيار
+  const cperms = db.settings.collectorPermissions || getDefaultCollectorPermissions();
+  COLLECTOR_PERMISSION_TABS.forEach(tabKey => {
+    const checkbox = document.getElementById(`cperm-${tabKey}`);
+    if (checkbox) checkbox.checked = cperms[tabKey] === true;
   });
 }
 
@@ -6967,9 +7450,18 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
   // لو المستخدم كاتب قسط شهري بنفسه في خانة "القسط الشهري المطلوب"، بنستخدم
   // رقمه ده بالظبط في العقد المحفوظ (مش بنعيد حسابه من المتبقي ÷ المدة).
   const targetMonthlyRaw = parseFloat(document.getElementById('contract-target-monthly').value);
-  const monthly = (targetMonthlyManuallySet && !isNaN(targetMonthlyRaw) && targetMonthlyRaw >= 0)
+  let monthly = (targetMonthlyManuallySet && !isNaN(targetMonthlyRaw) && targetMonthlyRaw >= 0)
     ? targetMonthlyRaw
     : parseFloat((remaining / duration).toFixed(2));
+
+  // FIX (تقرير الفحص - بند ٤.٣): لو القسط الشهري المكتوب يدوياً كبير جداً
+  // (أكبر من المتبقي ÷ المدة بحيث القسط الأخير هيبقى صفر أو سالب)، بنرفض
+  // الحفظ ونطلب من المستخدم يصحح الرقم، بدل ما ينتج جدول أقساط غير متوازن.
+  const lastInstallmentPreview = parseFloat((remaining - monthly * (duration - 1)).toFixed(2));
+  if (targetMonthlyManuallySet && lastInstallmentPreview <= 0) {
+    alert(`⚠️ القسط الشهري اللي كتبته (${monthly.toLocaleString()} ج.م) كبير جداً بالنسبة للمبلغ المتبقي (${remaining.toLocaleString()} ج.م) على مدار ${duration} شهر - هيخلي القسط الأخير صفر أو بالسالب. من فضلك اكتب قسط أصغر أو اقفل خيار التحديد اليدوي وخلي النظام يحسبه تلقائياً.`);
+    return;
+  }
 
   const contract = {
     id: contractId,
@@ -7067,6 +7559,11 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
   renderCollections();
   renderTreasury();
   renderDashboard();
+  // IMPROVEMENT #5: العقد الرسمي (printFormalContract) أصلاً فيه جدول أقساط
+  // كامل بكل مواعيد الاستحقاق، لكن قبل كده كان المستخدم لازم يروح تبويب
+  // العقود بعد الحفظ ويدوّر على العقد يدوياً عشان يطبعه. دلوقتي بنعرض عليه
+  // مباشرة بعد الحفظ يطبع العقد وجدول السداد الفعلي أو يأجّلها لوقت تاني.
+  showContractCreatedDialog(contractId);
   } finally {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'اعتماد العقد والبيع'; }
   }
@@ -8337,18 +8834,27 @@ function populateDropdowns() {
   }
 }
 
-document.getElementById('client-search-input').addEventListener('input', renderClients);
-document.getElementById('inventory-search').addEventListener('input', renderInventory);
+// IMPROVEMENT #1 (الأداء): بدل ما نستدعي دوال الرسم على كل ضغطة حرف مباشرة
+// (وده كان بيسبب بطء محسوس في البحث خصوصاً مع قوائم كبيرة)، بنلف كل مستمع
+// بحث بدالة debounce بمهلة 300ms، وبنرجّع رقم صفحة القائمة لأول صفحة مع كل
+// بحث جديد عشان المستخدم ميفضلش واقف في صفحة فاضية.
+function debouncedSearch(paginationKey, renderFn) {
+  return debounce(() => { if (paginationKey) resetPage(paginationKey); renderFn(); }, 300);
+}
+
+document.getElementById('client-search-input').addEventListener('input', debouncedSearch('clients', renderClients));
+document.getElementById('inventory-search').addEventListener('input', debouncedSearch(null, renderInventory));
 ['inventory-filter-status', 'inventory-filter-branch', 'inventory-filter-supplier'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', renderInventory);
 });
 const lowStockFilterEl = document.getElementById('inventory-filter-lowstock');
 if (lowStockFilterEl) lowStockFilterEl.addEventListener('change', renderInventory);
-document.getElementById('contract-search-input').addEventListener('input', renderContracts);
-document.getElementById('collection-search-input').addEventListener('input', renderCollections);
+document.getElementById('contract-search-input').addEventListener('input', debouncedSearch('contracts', renderContracts));
+document.getElementById('collection-search-input').addEventListener('input', debouncedSearch(null, renderCollections));
 document.getElementById('collection-filter-month').addEventListener('change', renderCollections);
 document.getElementById('collection-filter-status').addEventListener('change', renderCollections);
+
 
 document.getElementById('btn-save-settings').addEventListener('click', () => {
   const offline = document.getElementById('setting-offline-mode').checked;
@@ -8358,6 +8864,10 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
 
   db.settings.offlineMode = offline;
   db.settings.withdrawalApprovalThreshold = Math.max(0, parseFloat(document.getElementById('setting-withdrawal-threshold').value) || 0);
+  // IMPROVEMENT #6: حفظ مدة تسجيل الخروج التلقائي عند الخمول، ونطبقها فوراً
+  // على الجلسة الحالية (بدل ما تتفعل بعد Refresh بس).
+  db.settings.sessionTimeoutMinutes = Math.max(0, parseFloat(document.getElementById('setting-session-timeout').value) || 0);
+  resetIdleTimer();
   if (companyName) db.settings.companyName = companyName;
 
   // مهم جداً: لو المستخدم رفع صورة لوجو محلية (ملف)، بيتم تخزين الـ base64 فوراً في
@@ -8384,10 +8894,17 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
     if (checkbox) db.settings.staffPermissions[tabKey] = checkbox.checked;
   });
 
+  // IMPROVEMENT #3: حفظ صلاحيات دور COLLECTOR الدقيقة
+  if (!db.settings.collectorPermissions) db.settings.collectorPermissions = getDefaultCollectorPermissions();
+  COLLECTOR_PERMISSION_TABS.forEach(tabKey => {
+    const checkbox = document.getElementById(`cperm-${tabKey}`);
+    if (checkbox) db.settings.collectorPermissions[tabKey] = checkbox.checked;
+  });
+
   applyCompanyBranding();
   updateSyncStatusUI();
   updateUIForRole();
-  logAction('تعديل إعدادات', `تحديث إعدادات النظام واسم الشركة والتوريد السحابي وصلاحيات الموظفين`);
+  logAction('تعديل إعدادات', `تحديث إعدادات النظام واسم الشركة والتوريد السحابي وصلاحيات الموظفين والمحصلين`);
   alert('تم حفظ إعدادات النظام وهوية الشركة بنجاح!');
   
   syncWithAppsScript('updateSettings', {
@@ -8396,7 +8913,9 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
     companyLogo: db.settings.companyLogo,
     offlineMode: db.settings.offlineMode,
     templates: db.settings.templates,
-    staffPermissions: db.settings.staffPermissions
+    staffPermissions: db.settings.staffPermissions,
+    collectorPermissions: db.settings.collectorPermissions,
+    sessionTimeoutMinutes: db.settings.sessionTimeoutMinutes
   });
 
   if (!offline) {

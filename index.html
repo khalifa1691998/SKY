@@ -595,11 +595,7 @@
 
         <!-- Clients Table Container -->
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div class="table-scroll-wrapper">
-            <table class="w-full text-right border-collapse">
-              <thead>
-                <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
-                  <th class="p-4">اسم العميل</th>
+          <div class="table-scroll-wrapper" id="clients-table-wrapper">
                   <th class="p-4">الرقم القومي</th>
                   <th class="p-4">الهاتف</th>
                   <th class="p-4">الضامن</th>
@@ -838,10 +834,21 @@
             <h3 class="text-xl font-bold text-slate-800">الموردين</h3>
             <p class="text-sm text-slate-500">إدارة بيانات الموردين (كاش وآجل)، متابعة أرصدتهم المستحقة، وتسجيل عمليات السداد.</p>
           </div>
-          <button onclick="openAddSupplierModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-600/20 transition-all duration-200 flex items-center gap-2">
-            <i class="ph ph-truck"></i>
-            <span>إضافة مورد جديد</span>
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- IMPROVEMENT #7: تقرير موردين إجمالي (طباعة + تصدير Excel) -->
+            <button onclick="printAllSuppliersStatement()" class="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-printer"></i>
+              <span>تقرير إجمالي</span>
+            </button>
+            <button onclick="exportAllSuppliersCSV()" class="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-file-xls"></i>
+              <span>تصدير Excel</span>
+            </button>
+            <button onclick="openAddSupplierModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-600/20 transition-all duration-200 flex items-center gap-2">
+              <i class="ph ph-truck"></i>
+              <span>إضافة مورد جديد</span>
+            </button>
+          </div>
         </div>
 
         <!-- Search and summary -->
@@ -936,7 +943,7 @@
 
         <!-- Products Table -->
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div class="table-scroll-wrapper">
+          <div class="table-scroll-wrapper" id="products-table-wrapper">
             <table class="w-full text-right border-collapse">
               <thead>
                 <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
@@ -984,7 +991,7 @@
 
         <!-- Contracts Table -->
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div class="table-scroll-wrapper">
+          <div class="table-scroll-wrapper" id="contracts-table-wrapper">
             <table class="w-full text-right border-collapse">
               <thead>
                 <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
@@ -1480,7 +1487,7 @@
 
         <!-- Expenses Table -->
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div class="table-scroll-wrapper">
+          <div class="table-scroll-wrapper" id="expenses-table-wrapper">
             <table class="w-full text-right border-collapse">
               <thead>
                 <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
@@ -1509,11 +1516,11 @@
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h3 class="text-xl font-bold text-slate-800">تنبيهات الأقساط المستحقة اليوم</h3>
-            <p class="text-sm text-slate-500">عرض الأقساط المستحقة اليوم وإرسال تنبيهات جماعية بضغطة زر واحدة.</p>
+            <p class="text-sm text-slate-500">عرض الأقساط المستحقة اليوم، وفتح طابور إرسال واتساب سريع (رسالة جاهزة لكل عميل، وتدوس إرسال بنفسك جوه واتساب).</p>
           </div>
           <button onclick="sendTodayDueRemindersInBulk()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-600/20 transition-all duration-200 flex items-center gap-2">
             <i class="ph ph-paper-plane"></i>
-            <span>إرسال تنبيهات جماعية الآن</span>
+            <span>فتح طابور الإرسال</span>
           </button>
         </div>
 
@@ -1618,7 +1625,7 @@
 
         <!-- Log Table -->
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div class="table-scroll-wrapper">
+          <div class="table-scroll-wrapper" id="audit-log-table-wrapper">
             <table class="w-full text-right border-collapse">
               <thead>
                 <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-600 text-sm font-semibold">
@@ -1720,6 +1727,17 @@
               <button onclick="migrateUsersToFirebaseAuth()" class="px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-lg text-xs font-semibold transition-all duration-200">
                 <i class="ph ph-arrows-clockwise mr-1"></i> ترحيل المستخدمين القدام إلى Firebase Authentication
               </button>
+
+              <!-- IMPROVEMENT #6: Idle Session Timeout -->
+              <div class="pt-3 border-t border-slate-100">
+                <p class="text-xs text-slate-500 leading-relaxed mb-2">
+                  لو المستخدم سايب الجهاز من غير أي حركة على النظام (ماوس/لمس/كتابة) للمدة دي، هيتم تسجيل خروجه تلقائياً لأسباب أمنية (خصوصاً على أجهزة مشتركة). سيبه صفر لتعطيل الميزة دي.
+                </p>
+                <div class="flex items-center gap-3">
+                  <label class="text-sm font-semibold text-slate-700 whitespace-nowrap">تسجيل خروج تلقائي بعد (دقيقة)</label>
+                  <input type="number" id="setting-session-timeout" min="0" step="1" class="form-input" placeholder="مثلاً: 20">
+                </div>
+              </div>
             </div>
 
             <!-- Large Withdrawal Approval Threshold (Admin only) -->
@@ -1807,6 +1825,48 @@
               <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 text-[11px] text-amber-700 flex items-start gap-2">
                 <i class="ph ph-info mt-0.5"></i>
                 <span>اضغط زرار "حفظ إعدادات النظام" بالأعلى بعد تعديل هذه الصلاحيات حتى يتم حفظها وتطبيقها فوراً على كل مستخدمي STAFF.</span>
+              </div>
+            </div>
+
+            <!-- IMPROVEMENT #3: Granular COLLECTOR Permissions (Admin only) -->
+            <!-- كان دور "المحصّل" مقفول برمجياً على تبويب التحصيلات بس ومفيش أي مرونة.
+                 دلوقتي بقى فيه صلاحيات دقيقة زي بالظبط STAFF، لكن بمجموعة تبويبات
+                 مختارة تناسب طبيعة شغل المحصّل (بدون الخزينة/الموردين/المستثمرين
+                 اللي محتاجة صلاحيات أعلى). تبويب "التحصيلات" نفسه ثابت ومتاح
+                 دايماً للمحصّل ومش قابل للإلغاء. -->
+            <div class="admin-only bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
+              <h4 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2">
+                <i class="ph ph-lock-key-open text-teal-600 mr-1"></i>
+                صلاحيات المحصّلين (دور COLLECTOR)
+              </h4>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                حدد التبويبات الإضافية المسموح لدور "المحصّل" (COLLECTOR) الوصول إليها، بجانب تبويب "التحصيلات" اللي متاح له دايماً وبشكل ثابت.
+              </p>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                <label class="flex items-center gap-2 opacity-60">
+                  <input type="checkbox" checked disabled class="w-4 h-4 text-teal-600 border-gray-300 rounded">
+                  <span>التحصيلات (ثابت)</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="cperm-collection-followups" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>متابعة التحصيل</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="cperm-clients" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>العملاء والضامنين</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="cperm-client-balances" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>أرصدة العملاء</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" id="cperm-today-reminders" class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                  <span>تنبيهات اليوم</span>
+                </label>
+              </div>
+              <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 text-[11px] text-amber-700 flex items-start gap-2">
+                <i class="ph ph-info mt-0.5"></i>
+                <span>اضغط زرار "حفظ إعدادات النظام" بالأعلى بعد تعديل هذه الصلاحيات حتى يتم حفظها وتطبيقها فوراً على كل مستخدمي COLLECTOR.</span>
               </div>
             </div>
           </div>

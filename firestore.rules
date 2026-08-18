@@ -126,7 +126,11 @@ service cloud.firestore {
                     && request.resource.data.status == 'pending'
                     && request.resource.data.amount is number
                     && request.resource.data.amount > 0;
-      allow update, delete: if isStaffOrAdmin();
+      // FIX (تقرير الفحص - بند ٤.٤): كانت أي حساب STAFF (حتى بدون صلاحية
+      // تبويب الخزينة الممنوحة له من الإعدادات) يقدر يعدّل/يحذف عهدة تحصيل
+      // مباشرة، رغم إن اعتماد العهدة فعلياً عملية خزينة. دلوقتي بنشترط
+      // canView('treasury') بالظبط زي treasuryTransactions، فيتفق الاثنين.
+      allow update, delete: if canView('treasury');
     }
 
     // ================= Staff-or-admin data (permission-gated tabs) =================
