@@ -1146,8 +1146,8 @@ window.exportExcelBackup = function() {
   // 9ج. حركات الموردين (كشف حساب تفصيلي)
   addSheet('حركات الموردين', sortByTimestampDesc(db.supplierTransactions).map(t => ({
     'التاريخ': t.timestamp, 'المورد': t.supplierName,
-    'نوع الحركة': t.type === 'purchase' ? 'شراء بضاعة' : 'سداد دفعة',
-    'طريقة الدفع': t.type === 'purchase' ? (t.method === 'credit' ? 'آجل' : 'كاش') : 'سداد نقدي',
+    'نوع الحركة': t.type === 'purchase' ? 'شراء بضاعة' : (t.type === 'return' ? 'مرتجع للمورد' : 'سداد دفعة'),
+    'طريقة الدفع': (t.type === 'purchase' || t.type === 'return') ? (t.method === 'credit' ? 'آجل' : 'كاش') : 'سداد نقدي',
     'المبلغ': t.amount, 'ملاحظات': t.notes || ''
   })));
 
@@ -1889,7 +1889,11 @@ function renderDashboard() {
   const totalExpenses = Math.abs(filteredTx.filter(tx => tx.type === 'expense' || tx.type === 'inventory_purchase' || tx.type === 'product_purchase' || tx.type === 'supplier_payment' || tx.type === 'in').reduce((sum, tx) => sum + safeAmount(tx), 0));
   document.getElementById('kpi-total-expenses').textContent = `${totalExpenses.toLocaleString()} ج.م`;
 
-  // حساب صافي الربح الحقيقي = إجمالي التحصيلات - إجمالي المصروفات والمشتريات
+  // حساب صافي التدفق النقدي للفترة = إجمالي التحصيلات - إجمالي المصروفات والمشتريات
+  // ملحوظة: ده مقياس تدفق نقدي (Cash Flow) مش "ربح" بالمعنى المحاسبي، لأنه
+  // بيحسب قيمة شراء المخزون كاملة كمصروف فوري بدل ما يفرق بين تكلفة البضاعة
+  // المباعة والمخزون اللي لسه موجود - شوف كارت "الربح المُحقَّق" تحت للرقم
+  // الصحيح محاسبياً (نفس رقم تبويب المستثمرين بالظبط).
   const netProfit = activeCollections - totalExpenses;
   const netProfitEl = document.getElementById('kpi-net-profit');
   if (netProfitEl) {
@@ -1902,6 +1906,17 @@ function renderDashboard() {
       netProfitEl.classList.remove('text-rose-600');
       netProfitEl.classList.add('text-emerald-700');
     }
+  }
+
+  // FEATURE: كارت "الربح المُحقَّق" الجديد - بيستخدم بالظبط نفس دالة تبويب
+  // المستثمرين (computeRealizedSalesProfit) عشان يبقى فيه رقم "ربح" واحد
+  // متطابق في كل شاشات النظام، بدل رقمين مختلفين بنفس الاسم يلخبطوا صاحب
+  // النظام. ده رقم تراكمي (كل الوقت)، مش متأثر بفلتر الفترة فوق.
+  const realizedProfitEl = document.getElementById('kpi-realized-profit');
+  if (realizedProfitEl) {
+    const realized = computeRealizedSalesProfit();
+    realizedProfitEl.textContent = `${Math.round(realized.netRealizedProfit).toLocaleString()} ج.م`;
+    realizedProfitEl.classList.toggle('text-rose-600', realized.netRealizedProfit < 0);
   }
 
   const totalSuppliersDue = db.suppliers.reduce((sum, s) => sum + computeSupplierBalance(s.id).balance, 0);
@@ -2877,9 +2892,17 @@ window.deleteDeviceGroup = async function(brand, name) {
   const devicesToDelete = db.inventory.filter(d => d.brand === brand && d.name === name && d.status === 'available');
   if (devicesToDelete.length === 0) return;
 
-  if (await customConfirm(`⚠️ هل أنت متأكد من حذف عدد ${devicesToDelete.length} قطعة متاحة من (${brand} ${name})؟\n\nسيتم إرجاع مبالغ الشراء "الكاش" للخزينة تلقائياً.`)) {
+  if (await customConfirm(`⚠️ هل أنت متأكد من حذف عدد ${devicesToDelete.length} قطعة متاحة من (${brand} ${name})؟\n\nسيتم إرجاع مبالغ الشراء "الكاش" للخزينة تلقائياً، وتصحيح رصيد الموردين المرتبطين بالقطع دي تلقائياً كمان.`)) {
     let refundedAmount = 0;
     let refundedCount = 0;
+    // FIX: زي بالظبط مشكلة "إرجاع للمورد" اللي اتصلحت قبل كده - حذف جهاز من
+    // هنا كان بيمسحه من المخزون بس من غير ما يلمس سجل المورد (supplierTransactions)
+    // خالص. لو الجهاز كان مشترى بالآجل، كانت الشركة تفضل "مديونة" للمورد
+    // بقيمة جهاز اتمسح ومبقاش موجود أصلاً. ولو كان كاش، الخزينة كانت بترجع
+    // صح، لكن "إجمالي المشتريات" المعروض للمورد كان يفضل مبالغ فيه. دلوقتي
+    // بنسجل حركة "مرتجع" في سجل كل مورد مرتبط بالقطع المحذوفة دي بنفس نوع
+    // الشراء الأصلي بالظبط.
+    const supplierReturnsBySupplier = {};
 
     devicesToDelete.forEach(dev => {
       // لو القطعة مشتراة كاش، نرجع تمنها للخزينة
@@ -2900,18 +2923,48 @@ window.deleteDeviceGroup = async function(brand, name) {
         db.treasuryTransactions.push(refundTx);
         syncWithAppsScript('addTreasuryTransaction', refundTx);
       }
+
+      // تصحيح سجل المورد (بغض النظر عن كاش أو آجل)
+      const originalPurchaseTx = db.supplierTransactions.find(t => t.relatedDeviceId === dev.id && t.type === 'purchase');
+      const supplierId = originalPurchaseTx ? originalPurchaseTx.supplierId : dev.supplierId;
+      const method = originalPurchaseTx ? originalPurchaseTx.method : (dev.purchaseMethod || 'credit');
+      const supplierName = originalPurchaseTx ? originalPurchaseTx.supplierName : dev.supplier;
+      if (supplierId) {
+        const returnTx = {
+          id: `sptx-ret-${Date.now()}-${dev.id}`,
+          supplierId,
+          supplierName,
+          type: 'return',
+          method,
+          amount: safeNum(dev.costPrice),
+          timestamp: nowTimestamp(),
+          date: nowTimestamp().split(' ')[0],
+          notes: `مرتجع تلقائي بسبب حذف الجهاز من المخزون: ${dev.brand} ${dev.name} (SN: ${dev.serial})`,
+          relatedDeviceId: dev.id
+        };
+        db.supplierTransactions.unshift(returnTx);
+        if (!supplierReturnsBySupplier[supplierId]) supplierReturnsBySupplier[supplierId] = [];
+        supplierReturnsBySupplier[supplierId].push(returnTx);
+      }
     });
+
+    for (const supId of Object.keys(supplierReturnsBySupplier)) {
+      for (const returnTx of supplierReturnsBySupplier[supId]) {
+        await syncWithAppsScript('addSupplierTransaction', { transaction: returnTx });
+      }
+    }
 
     db.inventory = db.inventory.filter(d => !devicesToDelete.some(td => td.id === d.id));
     
-    logAction('حذف كمية أجهزة', `حذف ${devicesToDelete.length} قطعة من ${brand} ${name} وإرجاع ${refundedAmount} ج.م للخزينة`);
+    logAction('حذف كمية أجهزة', `حذف ${devicesToDelete.length} قطعة من ${brand} ${name} وإرجاع ${refundedAmount} ج.م للخزينة وتصحيح أرصدة الموردين المرتبطين`);
     
     await syncWithAppsScript('deleteDeviceGroup', { brand, name });
     
     renderInventory();
     renderTreasury();
+    renderSuppliers();
     renderDashboard();
-    showToast(`✅ تم حذف الأجهزة وإرجاع ${refundedAmount} ج.م للخزينة`, 'success');
+    showToast(`✅ تم حذف الأجهزة، إرجاع ${refundedAmount} ج.م للخزينة، وتصحيح أرصدة الموردين`, 'success');
   }
   });
 };
@@ -3075,6 +3128,21 @@ window.returnDeviceToStockFromClient = async function(deviceId) {
     alert('⛔ استرجاع القطع من العملاء مخصص للمشرف (ADMIN) فقط.');
     return;
   }
+
+  // FIX: كان الزرار ده بيرجّع الجهاز للمخزون من غير ما يلمس العقد أو
+  // الأقساط أو الخزينة خالص، وساب العقد "يتيم" لسه شغال في التحصيلات
+  // والتقارير وكأن العميل لسه عليه أقساط لجهاز مش عنده أصلاً. دلوقتي لو
+  // الجهاز ده مباع بالتقسيط وله عقد نشط، بنستخدم بالظبط نفس المسار الصحيح
+  // الموجود في تبويب العقود (استرجاع الجهاز - تعثر) اللي بيقفل العقد صح
+  // ويلغي الأقساط المتبقية ويحتفظ بالمحصّل فعلاً. الجهاز المباع كاش (مفيش
+  // عقد له أصلاً) لسه بيمشي بالمسار البسيط القديم زي ما هو.
+  const linkedContract = db.contracts.find(c => c.deviceId === deviceId && c.status !== 'defaulted' && c.status !== 'settled_early' && c.status !== 'upgraded');
+  if (linkedContract) {
+    closeModal('device-actions-modal');
+    window.openRepossessModal(linkedContract.id);
+    return;
+  }
+
   const confirmed = await customConfirm(
     `هل أنت متأكد من استرجاع هذه القطعة (${dev.brand} ${dev.name}) للمخزن؟\nملحوظة: هذا الإجراء لن يعدّل تلقائياً أي عقد أو رصيد خزينة مرتبط — يجب مراجعة وتسوية العقد/التحصيلات يدوياً بعدها.`,
     'استرجاع من العميل'
@@ -3095,7 +3163,14 @@ window.returnDeviceToStockFromClient = async function(deviceId) {
 };
 
 // إرجاع قطعة تالفة للمورد نهائياً: بتتحذف من المخزون، ويتسجل مبلغ استرداد
-// (Refund) في الخزينة بقيمة سعر التكلفة (بافتراض إن المورد بيرد فلوس القطعة).
+// (Refund) في الخزينة لو المورد رد فلوس القطعة نقداً.
+// FIX: قبل كده كانت الدالة دي بتحذف الجهاز من المخزون بس، وميظهرش أي أثر
+// خالص في رصيد المورد (computeSupplierBalance) - لأن ده بيعتمد بالكامل على
+// سجل db.supplierTransactions المنفصل عن المخزون. يعني لو الجهاز كان
+// مشترى بالآجل ولسه ما اتدفعش، وترجّعه للمورد كعيب مصنعي، كانت الشركة
+// تفضل "مديونة" للمورد بقيمة جهاز مبقاش موجود ولا هيتباع أصلاً. دلوقتي
+// بنسجّل حركة "مرتجع" رسمية في سجل المورد نفسه (مربوطة بنفس نوع الشراء
+// الأصلي: آجل أو كاش) عشان الرصيد يتصحح صح في كل تقارير الموردين.
 window.returnDeviceToSupplier = async function(deviceId) {
   await runWithActionLock(`return-to-supplier-${deviceId}`, async () => {
   const dev = db.inventory.find(d => d.id === deviceId);
@@ -3104,29 +3179,58 @@ window.returnDeviceToSupplier = async function(deviceId) {
     alert('⛔ إرجاع القطع للموردين مخصص للمشرف (ADMIN) فقط.');
     return;
   }
+
+  // بنحاول نلاقي حركة الشراء الأصلية لنفس الجهاز عشان نعرف بالظبط كان آجل
+  // ولا كاش، ومين المورد (supplierId) بالضبط. لو مفيش (بيانات قديمة من قبل
+  // إضافة relatedDeviceId)، بنرجع لبيانات الجهاز نفسه كحل احتياطي.
+  const originalPurchaseTx = db.supplierTransactions.find(t => t.relatedDeviceId === deviceId && t.type === 'purchase');
+  const supplierId = originalPurchaseTx ? originalPurchaseTx.supplierId : dev.supplierId;
+  const method = originalPurchaseTx ? originalPurchaseTx.method : (dev.purchaseMethod || 'credit');
+  const supplierName = originalPurchaseTx ? originalPurchaseTx.supplierName : dev.supplier;
+
   const reason = (await customPrompt('سبب إرجاع القطعة للمورد (مثال: عيب مصنعي):', '', 'إرجاع قطعة للمورد')) || '';
-  const refund = await customConfirm(`هل استرد المورد قيمة القطعة (${dev.costPrice.toLocaleString()} ج.م) نقداً في الخزينة؟`, 'استرداد قيمة القطعة');
+  const refund = await customConfirm(`هل استرد المورد قيمة القطعة (${dev.costPrice.toLocaleString()} ج.م) نقداً في الخزينة؟\n\n${method === 'credit' ? 'ملحوظة: القطعة دي كانت مشتراة بالآجل، فلو لسه ما دفعتهاش أصلاً، اختار "لا" - الرصيد المستحق للمورد هينقص تلقائياً بقيمتها بدل ما تاخد نقدية.' : ''}`, 'استرداد قيمة القطعة');
+
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   if (refund) {
-    const now = new Date();
-    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const refundTx = {
       id: `tx-ref-${Date.now()}`,
       timestamp,
       type: 'deposit',
       amount: dev.costPrice,
-      notes: `استرداد قيمة قطعة تالفة من المورد ${dev.supplier}: ${dev.brand} ${dev.name} (SN: ${dev.serial}) — ${reason}`
+      notes: `استرداد قيمة قطعة تالفة من المورد ${supplierName}: ${dev.brand} ${dev.name} (SN: ${dev.serial}) — ${reason}`
     };
     db.treasuryTransactions.unshift(refundTx);
     await syncWithAppsScript('addDeposit', { transaction: refundTx });
   }
 
+  // الحركة الأساسية اللي كانت ناقصة: تسجيل المرتجع في سجل المورد نفسه.
+  if (supplierId) {
+    const returnTx = {
+      id: `sptx-ret-${Date.now()}`,
+      supplierId,
+      supplierName,
+      type: 'return',
+      method,
+      amount: safeNum(dev.costPrice),
+      timestamp,
+      date: timestamp.split(' ')[0],
+      notes: `مرتجع قطعة تالفة/معيبة: ${dev.brand} ${dev.name} (SN: ${dev.serial}) — ${reason}${refund ? ' (تم استرداد القيمة نقداً)' : ''}`,
+      relatedDeviceId: deviceId
+    };
+    db.supplierTransactions.unshift(returnTx);
+    await syncWithAppsScript('addSupplierTransaction', { transaction: returnTx });
+  }
+
   db.inventory = db.inventory.filter(d => d.id !== deviceId);
-  logAction('إرجاع جهاز للمورد', `${dev.brand} ${dev.name} (SN: ${dev.serial}) للمورد ${dev.supplier} — ${reason}${refund ? ' (تم استرداد القيمة)' : ''}`);
+  logAction('إرجاع جهاز للمورد', `${dev.brand} ${dev.name} (SN: ${dev.serial}) للمورد ${supplierName} — ${reason}${refund ? ' (تم استرداد القيمة)' : ''}`);
   await syncWithAppsScript('deleteDevice', { id: deviceId });
 
   closeModal('device-actions-modal');
   renderInventory();
+  renderSuppliers();
   renderTreasury();
   renderDashboard();
   });
@@ -3264,9 +3368,15 @@ function computeSupplierBalance(supplierId) {
   const creditPurchases = txs.filter(t => t.type === 'purchase' && t.method === 'credit');
   const cashPurchases = txs.filter(t => t.type === 'purchase' && t.method === 'cash');
   const payments = txs.filter(t => t.type === 'payment');
+  // FEATURE: مرتجع للمورد (قطعة تالفة/معيبة بترجع له). بنخصمها من نفس نوع
+  // الشراء الأصلي (آجل/كاش) اللي اترجعت منه، عشان الرصيد المستحق للمورد
+  // ينزل صح لو كانت آجلة ولسه ما اتدفعتش، أو يظهر كـ"رصيد دائن لنا" لو
+  // طلع إننا كنا دافعين قيمتها فعلاً قبل كده.
+  const creditReturns = txs.filter(t => t.type === 'return' && t.method === 'credit');
+  const cashReturns = txs.filter(t => t.type === 'return' && t.method === 'cash');
 
-  const totalCreditPurchases = creditPurchases.reduce((s, t) => s + safeNum(t.amount), 0);
-  const totalCashPurchases = cashPurchases.reduce((s, t) => s + safeNum(t.amount), 0);
+  const totalCreditPurchases = creditPurchases.reduce((s, t) => s + safeNum(t.amount), 0) - creditReturns.reduce((s, t) => s + safeNum(t.amount), 0);
+  const totalCashPurchases = cashPurchases.reduce((s, t) => s + safeNum(t.amount), 0) - cashReturns.reduce((s, t) => s + safeNum(t.amount), 0);
   const totalPaid = payments.reduce((s, t) => s + safeNum(t.amount), 0);
   const totalPurchases = totalCreditPurchases + totalCashPurchases;
   // FIX (تقرير الفحص - بند ٤.١): كان الرصيد بيتقصّ عند صفر (Math.max(0, ...))
@@ -3392,10 +3502,10 @@ function renderSuppliers() {
               ${bal.transactions.map(t => `
                 <tr>
                   <td class="p-2.5 font-mono text-slate-500">${escapeHTML(t.timestamp)}</td>
-                  <td class="p-2.5 font-bold">${t.type === 'purchase' ? 'شراء بضاعة' : 'سداد دفعة'}</td>
+                  <td class="p-2.5 font-bold">${t.type === 'purchase' ? 'شراء بضاعة' : (t.type === 'return' ? 'مرتجع للمورد' : 'سداد دفعة')}</td>
                   <td class="p-2.5">${escapeHTML(t.notes) || '-'}</td>
-                  <td class="p-2.5">${t.type === 'purchase' ? (t.method === 'credit' ? '<span class="badge badge-warning">آجل</span>' : '<span class="badge badge-success">كاش</span>') : '<span class="badge badge-info">سداد نقدي</span>'}</td>
-                  <td class="p-2.5 font-mono font-bold ${t.type === 'payment' ? 'text-emerald-600' : (t.method === 'credit' ? 'text-amber-600' : 'text-slate-600')}">${t.amount.toLocaleString()} ج.م</td>
+                  <td class="p-2.5">${(t.type === 'purchase' || t.type === 'return') ? (t.method === 'credit' ? '<span class="badge badge-warning">آجل</span>' : '<span class="badge badge-success">كاش</span>') : '<span class="badge badge-info">سداد نقدي</span>'}</td>
+                  <td class="p-2.5 font-mono font-bold ${t.type === 'payment' || t.type === 'return' ? 'text-emerald-600' : (t.method === 'credit' ? 'text-amber-600' : 'text-slate-600')}">${t.type === 'return' ? '-' : ''}${t.amount.toLocaleString()} ج.م</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -3566,10 +3676,10 @@ window.printSupplierStatement = function(supplierId) {
   const rows = bal.transactions.map(t => `
     <tr>
       <td>${escapeHTML(t.timestamp)}</td>
-      <td>${t.type === 'purchase' ? 'شراء بضاعة' : 'سداد دفعة'}</td>
+      <td>${t.type === 'purchase' ? 'شراء بضاعة' : (t.type === 'return' ? 'مرتجع للمورد' : 'سداد دفعة')}</td>
       <td>${escapeHTML(t.notes) || '-'}</td>
-      <td>${t.type === 'purchase' ? (t.method === 'credit' ? 'آجل' : 'كاش') : 'سداد نقدي'}</td>
-      <td>${t.amount.toLocaleString()} ج.م</td>
+      <td>${(t.type === 'purchase' || t.type === 'return') ? (t.method === 'credit' ? 'آجل' : 'كاش') : 'سداد نقدي'}</td>
+      <td>${t.type === 'return' ? '-' : ''}${t.amount.toLocaleString()} ج.م</td>
     </tr>
   `).join('');
 
@@ -4251,6 +4361,10 @@ document.getElementById('stock-out-form').addEventListener('submit', async (e) =
     treasuryTx = {
       id: `tx-psale-${Date.now()}`,
       timestamp, type: 'product_sale', amount: totalSale,
+      // FEATURE: بنسجل تكلفة البضاعة المباعة (COGS) وقت البيع نفسه، بنفس
+      // فلسفة بيع الأجهزة كاش، عشان حساب "الربح المُحقَّق فقط" يبقى دقيق.
+      costPrice: safeNum(p.costPrice) * quantity,
+      productId: p.id,
       notes: `بيع ${quantity} ${p.unit || 'قطعة'} من "${p.name}" كاش`
     };
     db.treasuryTransactions.unshift(treasuryTx);
@@ -4749,6 +4863,83 @@ function computeCapitalDays(timeline, periodStart, periodEnd) {
   return capitalDays;
 }
 
+// ================= FEATURE: صافي الربح "المُحقَّق" فقط (بدون أي شيء وهمي) =================
+// طلب صريح من صاحب النظام: الربح المعروض للمستثمرين لازم يطلع بس من عمليات
+// بيع فعلية حصلت، مش من فرق بين "كل أصول الشركة" و"رأس المال" (الطريقة
+// القديمة). المشكلة في الطريقة القديمة كانت بتظهر في حالتين:
+//  ١. شراء جهاز بالآجل من مورد كان بيزوّد "أصول الشركة" (المخزون) فوراً من
+//     غير أي التزام يقابله (لسه ما اتدفعش للمورد)، فيظهر وكأنه ربح.
+//  ٢. الأقساط اللي لسه ما اتحصلتش كانت بتتحسب بالكامل كأصل/ربح متحقق، رغم
+//     إن الفلوس لسه معلقة عند العميل ومحصلتش فعلياً.
+//
+// الحل: الربح دلوقتي بيتحسب بس من:
+//  (أ) بيع كاش فوري (أجهزة أو منتجات عامة): الربح = سعر البيع − تكلفة
+//      الشراء، ويتحسب بالكامل فور البيع لأن الفلوس اتقبضت كاملة في اللحظة دي.
+//  (ب) بيع بالتقسيط: بنحسب "هامش الربح %" للعقد ككل = (قيمة العقد الكلية −
+//      تكلفة الجهاز) ÷ قيمة العقد الكلية، وبعدين الربح المُحقَّق = هامش
+//      الربح % × إجمالي المبلغ اللي اتحصّل فعلياً من العميل لحد النهاردة
+//      (المقدّم + أي قسط اتسدد كامل أو جزئي) - مش قيمة العقد كاملة. يعني كل
+//      ما العميل يسدد أكتر، الربح المُحقَّق يزيد تدريجياً معاه، بدل ما يظهر
+//      دفعة واحدة يوم توقيع العقد وهو لسه محصلش حاجة.
+// وفي الآخر بننزل من إجمالي الربح ده كل المصروفات التشغيلية الفعلية.
+function findDeviceCostPriceById(deviceId) {
+  if (!deviceId) return 0;
+  const dev = db.inventory.find(d => d.id === deviceId);
+  return dev ? safeNum(dev.costPrice) : 0;
+}
+
+// بيانات قديمة اتسجلت قبل ما نبدأ نحفظ costPrice مباشرة على حركة البيع
+// نفسها - كحل احتياطي بس، بنحاول نستخرج السيريال من نص الملاحظات (SN: ...)
+// ونطابقه بجهاز في المخزون عشان نجيب تكلفته. لو فشلنا، التكلفة بتتحسب صفر
+// (يعني هامش الربح المحسوب لعمليات قديمة زي دي ممكن يكون أعلى شوية من
+// الحقيقي، وده أفضل بكتير من الوضع القديم اللي كان بيدّي أرقام وهمية أصلاً).
+function resolveLegacyCashSaleCostPrice(tx) {
+  const match = (tx.notes || '').match(/SN:\s*([^)]+)\)/);
+  if (!match) return 0;
+  const serial = match[1].trim();
+  const dev = db.inventory.find(d => d.serial === serial);
+  return dev ? safeNum(dev.costPrice) : 0;
+}
+
+function computeRealizedSalesProfit() {
+  // (أ.١) بيع أجهزة كاش فوري
+  let cashDeviceSalesProfit = 0;
+  db.treasuryTransactions.filter(tx => tx.type === 'cash_sale').forEach(tx => {
+    const costPrice = tx.costPrice !== undefined ? safeNum(tx.costPrice) : resolveLegacyCashSaleCostPrice(tx);
+    cashDeviceSalesProfit += (safeAmount(tx) - costPrice);
+  });
+
+  // (أ.٢) بيع منتجات/إكسسوارات عامة كاش
+  let productSalesProfit = 0;
+  db.treasuryTransactions.filter(tx => tx.type === 'product_sale').forEach(tx => {
+    const costPrice = tx.costPrice !== undefined ? safeNum(tx.costPrice) : 0;
+    productSalesProfit += (safeAmount(tx) - costPrice);
+  });
+
+  // (ب) بيع بالتقسيط - هامش الربح × نسبة المُحصَّل فعلياً من كل عقد
+  let installmentsProfit = 0;
+  db.contracts.forEach(contract => {
+    const totalValue = safeNum(contract.totalValue);
+    if (totalValue <= 0) return;
+    const costPrice = contract.costPrice !== undefined ? safeNum(contract.costPrice) : findDeviceCostPriceById(contract.deviceId);
+    const marginPercent = Math.max(0, totalValue - costPrice) / totalValue;
+    const collected = computeContractBalance(contract).totalPaid;
+    installmentsProfit += collected * marginPercent;
+  });
+
+  const totalSalesProfit = cashDeviceSalesProfit + productSalesProfit + installmentsProfit;
+  const totalOperatingExpenses = (db.expenses || []).reduce((sum, e) => sum + safeNum(e.amount), 0);
+
+  return {
+    cashDeviceSalesProfit,
+    productSalesProfit,
+    installmentsProfit,
+    totalSalesProfit,
+    totalOperatingExpenses,
+    netRealizedProfit: totalSalesProfit - totalOperatingExpenses
+  };
+}
+
 function computeInvestorFinancials() {
   const treasuryBalance = db.treasuryTransactions.reduce((sum, tx) => sum + safeAmount(tx), 0);
   const inventoryCapital = db.inventory.filter(dev => dev.status === 'available' || dev.status === 'maintenance').reduce((sum, dev) => sum + safeNum(dev.costPrice), 0);
@@ -4766,7 +4957,13 @@ function computeInvestorFinancials() {
   const totalCapital = investors.reduce((sum, inv) => sum + safeNum(inv.capitalAmount), 0);
   const totalWithdrawn = investors.reduce((sum, inv) => sum + safeNum(inv.totalWithdrawn), 0);
 
-  const netProfit = totalAssets - totalCapital + totalWithdrawn;
+  // FEATURE: الربح دلوقتي = ربح مُحقَّق فقط من مبيعات فعلية (كاش + نسبة
+  // المُحصَّل من التقسيط) ناقص المصروفات التشغيلية - راجع تعليق
+  // computeRealizedSalesProfit فوق لتفاصيل المنطق الكامل. totalAssets لسه
+  // بيتحسب وبيترجع (يُستخدم بس في تقرير خروج/تصفية مستثمر لتوزيع نوع
+  // الأصول، مش في حساب الربح نفسه).
+  const realizedProfit = computeRealizedSalesProfit();
+  const netProfit = realizedProfit.netRealizedProfit;
 
   // ---- تحديد الفترة المفتوحة الحالية (من آخر تجميد أو من أول انضمام) ----
   const snapshots = (db.investorSnapshots || []).slice().sort((a, b) => (parseDateSafe(a.timestamp) || 0) - (parseDateSafe(b.timestamp) || 0));
@@ -4824,6 +5021,7 @@ function computeInvestorFinancials() {
   return {
     treasuryBalance, inventoryCapital, outstandingInstallments, pendingCustody,
     totalAssets, totalCapital, totalWithdrawn, netProfit, sumFixedPercent,
+    realizedProfit,
     periodStart, periodEnd, periodProfit, lastSnapshot,
     investors: investorsWithShares
   };
@@ -4998,11 +5196,31 @@ function renderInvestors() {
   const netProfitEl = document.getElementById('investors-net-profit');
   netProfitEl.className = stats.netProfit >= 0 ? 'text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-emerald-400 truncate' : 'text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-rose-400 truncate';
 
+  // FEATURE: تعبئة لوحة "من أين جاء هذا الربح؟" بالأرقام الفعلية
+  if (stats.realizedProfit) {
+    const rp = stats.realizedProfit;
+    document.getElementById('profit-breakdown-cash-device').textContent = `${Math.round(rp.cashDeviceSalesProfit).toLocaleString()} ج.م`;
+    document.getElementById('profit-breakdown-product').textContent = `${Math.round(rp.productSalesProfit).toLocaleString()} ج.م`;
+    document.getElementById('profit-breakdown-installments').textContent = `${Math.round(rp.installmentsProfit).toLocaleString()} ج.م`;
+    document.getElementById('profit-breakdown-expenses').textContent = `-${Math.round(rp.totalOperatingExpenses).toLocaleString()} ج.م`;
+  }
+
   // أزرار إدارة المستثمرين (إضافة/تجميد الأرباح) للأدمن فقط - أي موظف عنده
   // صلاحية عرض هذا التبويب هيقدر يشوف البيانات ويطبع كشوف الحساب، لكن مش
   // هيقدر يضيف مستثمر جديد أو يجمّد الأرباح أو يعدّل رأس المال.
   const adminToolbar = document.getElementById('investors-admin-toolbar');
   if (adminToolbar) adminToolbar.classList.toggle('hidden', !admin);
+
+  // FEATURE: تحذير لمرة واحدة للأدمن لو فيه تجميدات قديمة اتعملت بالطريقة
+  // المحاسبية القديمة (أصول الشركة) قبل التحويل لطريقة "الربح المُحقَّق من
+  // مبيعات فعلية بس". لازم الأدمن يراجع ويعمل تجميد جديد عشان "ربح الفترة
+  // الحالية" ميطلعش رقم غريب (لأنه هيقارن Netprofit بالطريقة الجديدة بآخر
+  // Netprofit كان محسوب بالطريقة القديمة).
+  const migrationBanner = document.getElementById('profit-method-migration-banner');
+  if (migrationBanner) {
+    const hasLegacySnapshot = (db.investorSnapshots || []).some(s => s.computationMethod !== 'realized-sales-v1');
+    migrationBanner.classList.toggle('hidden', !hasLegacySnapshot || !admin);
+  }
 
   tbody.innerHTML = '';
   const emptyState = document.getElementById('investors-empty-state');
@@ -5421,6 +5639,11 @@ window.freezeInvestorProfitSnapshot = async function() {
   const snapshot = {
     id: snapshotId,
     timestamp: nowTimestamp(),
+    // FEATURE: علامة على طريقة حساب الربح المستخدمة وقت التجميد ده، عشان
+    // نقدر نميّز التجميدات القديمة (بالطريقة القديمة القائمة على أصول
+    // الشركة) عن الجديدة (القائمة على مبيعات فعلية فقط)، ونحذّر الأدمن لو
+    // فيه خليط بين الاتنين (شوف renderInvestors تحت).
+    computationMethod: 'realized-sales-v1',
     totalAssets: stats.totalAssets,
     totalCapital: stats.totalCapital,
     totalWithdrawn: stats.totalWithdrawn,
@@ -7256,6 +7479,11 @@ document.getElementById('cash-sale-form').addEventListener('submit', async (e) =
     timestamp: timestamp,
     type: 'cash_sale',
     amount: sellingPrice,
+    // FEATURE: بنسجل تكلفة الجهاز وقت البيع نفسه (مش بنعتمد على costPrice
+    // الحالي في المخزون وقت الحساب لاحقاً، عشان لو اتعدلت التكلفة بعدين ميتغيرش
+    // هامش ربح عملية بيعت بالفعل من زمان). ده أساس حساب "الربح المُحقَّق فقط".
+    costPrice: safeNum(dev.costPrice),
+    deviceId: dev.id,
     notes: `بيع كاش فوري للجهاز ${dev.brand} ${dev.name} (SN: ${dev.serial}) للعميل ${clientName} (هاتف: ${clientPhone})`
   };
   db.treasuryTransactions.unshift(cashSaleTx);
@@ -7481,6 +7709,10 @@ document.getElementById('add-contract-form').addEventListener('submit', async (e
     monthlyInstallment: monthly,
     duration: duration,
     graceDays: graceDays,
+    // FEATURE: بنسجل تكلفة الجهاز وقت توقيع العقد نفسه (مش هنعتمد على تكلفة
+    // المخزون الحالية وقت الحساب لاحقاً)، عشان نقدر نحسب هامش الربح الحقيقي
+    // للعقد ده بدقة تاريخية ثابتة، حتى لو اتغيرت أسعار توريد لاحقة.
+    costPrice: safeNum(dev.costPrice),
     fineType: fineType,
     fineValue: fineValue,
     collectorId: collector?.id || 'usr-1',
@@ -8074,10 +8306,26 @@ document.getElementById('deposit-form').addEventListener('submit', async (e) => 
 
 window.deleteClient = async function(id) {
   await runWithActionLock(`delete-client-${id}`, async () => {
+  const client = db.clients.find(c => c.id === id);
+  if (!client) return;
+
+  // FIX: قبل كده كان ممكن تحذف عميل عنده عقد نشط لسه فيه أقساط مستحقة، فتفضل
+  // العقود والأقساط دي "يتيمة" (من غير عميل) في النظام - بيكسر عرض تبويبات
+  // العقود والتحصيلات وأرصدة العملاء لأي حد يفتحها بعد كده. دلوقتي بنمنع
+  // الحذف لو لسه عنده عقد نشط (غير مسدد بالكامل/معلّق/مترقّي) وبنوجّه
+  // المستخدم يقفل العقد الأول (تسديد، أو استرجاع الجهاز لو متعثر).
+  const activeContracts = db.contracts.filter(c =>
+    c.clientId === id && c.status !== 'settled_early' && c.status !== 'defaulted' && c.status !== 'upgraded'
+  ).filter(c => computeContractBalance(c).totalRemaining > 0.01);
+
+  if (activeContracts.length > 0) {
+    alert(`⛔ لا يمكن حذف العميل "${client.name}" لأن له ${activeContracts.length} عقد نشط لسه فيه أقساط مستحقة (${activeContracts.reduce((s, c) => s + computeContractBalance(c).totalRemaining, 0).toLocaleString()} ج.م). لازم أولاً تقفل العقد/العقود دي (تسديد كامل، أو "استرجاع الجهاز" من تبويب العقود لو العميل متعثر) قبل حذف العميل.`);
+    return;
+  }
+
   if (await customConfirm('هل أنت متأكد من حذف هذا العميل نهائياً من النظام؟ لا يمكن الرجوع عن هذا الخيار.')) {
-    const client = db.clients.find(c => c.id === id);
     db.clients = db.clients.filter(c => c.id !== id);
-    if (client) logAction('حذف عميل', `حذف العميل ${client.name} من السجلات`);
+    logAction('حذف عميل', `حذف العميل ${client.name} من السجلات`);
     renderClients();
     populateDropdowns();
     // لازم نبعت أمر الحذف الفعلي لقاعدة البيانات، وإلا هيرجع العميل تاني أول ما تحصل أي مزامنة لحظية
@@ -10593,6 +10841,7 @@ window.confirmRepossessDevice = async function(contractId) {
   renderContracts();
   renderCollections();
   renderInventory();
+  renderClientBalances();
   renderDashboard();
   showToast('✅ تم استرجاع الجهاز وإغلاق العقد', 'success');
   });
@@ -10750,6 +10999,11 @@ window.confirmUpgradeContract = async function(oldContractId, remainingBalance) 
     deviceId: newDevice.id,
     deviceInfo: `${newDevice.brand} ${newDevice.name}`,
     cashPrice: newDevice.sellingPrice,
+    // FIX: كان العقد الجديد الناتج من "ترقية جهاز" مش بيسجّل costPrice
+    // مباشرة زي باقي العقود (كان بيعتمد على استرجاعها لاحقاً من المخزون
+    // كحل احتياطي، وده هش لو تكلفة الجهاز اتعدّلت بعدين). دلوقتي بيتسجل
+    // زي أي عقد عادي وقت الإنشاء نفسه.
+    costPrice: safeNum(newDevice.costPrice),
     interestType: 'none',
     interestValue: 0,
     interestAmount: 0,
@@ -10953,6 +11207,30 @@ document.getElementById('login-submit-btn').addEventListener('click', performLog
 document.getElementById('login-password-input').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') performLogin();
 });
+// FEATURE: كان زرار Enter شغال بس لو المستخدم واقف في خانة كلمة المرور.
+// دلوقتي شغال من خانة اسم المستخدم كمان (بدل ما يضطر يدوس Tab الأول).
+document.getElementById('login-username-input').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') performLogin();
+});
+
+// FEATURE: زرار "عين" لإظهار/إخفاء كلمة المرور في شاشة الدخول، لتقليل
+// أخطاء الكتابة خصوصاً على الموبايل.
+window.togglePasswordVisibility = function (inputId, toggleBtnId) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(toggleBtnId);
+  if (!input || !btn) return;
+  const icon = btn.querySelector('i');
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  if (icon) {
+    icon.classList.toggle('ph-eye', !isHidden);
+    icon.classList.toggle('ph-eye-slash', isHidden);
+  }
+  input.focus();
+  // نرجع المؤشر لآخر الكلمة بدل ما يقفز لأول الخانة بعد تغيير النوع
+  const len = input.value.length;
+  input.setSelectionRange(len, len);
+};
 
 // ================= INITIALIZATION =================
 initDatabase();

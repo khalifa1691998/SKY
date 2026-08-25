@@ -130,7 +130,11 @@
             <span class="absolute inset-y-0 right-3 flex items-center text-slate-400">
               <i class="ph ph-lock"></i>
             </span>
-            <input type="password" id="login-password-input" class="w-full py-3 pr-10 pl-4 bg-slate-950/40 border border-slate-700/50 rounded-xl text-white text-sm focus:outline-none focus:border-teal-500 transition-all" placeholder="أدخل كلمة المرور">
+            <input type="password" id="login-password-input" class="w-full py-3 pr-10 pl-10 bg-slate-950/40 border border-slate-700/50 rounded-xl text-white text-sm focus:outline-none focus:border-teal-500 transition-all" placeholder="أدخل كلمة المرور">
+            <!-- FEATURE: زرار عين لإظهار/إخفاء كلمة المرور -->
+            <button type="button" id="login-password-toggle" onclick="togglePasswordVisibility('login-password-input', 'login-password-toggle')" tabindex="-1" class="absolute inset-y-0 left-3 flex items-center text-slate-400 hover:text-teal-400 transition-colors">
+              <i class="ph ph-eye"></i>
+            </button>
           </div>
         </div>
 
@@ -475,19 +479,44 @@
             </div>
           </div>
 
-          <!-- 7. Real Net Profit (New) -->
-          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 relative border-2 border-emerald-400/30 bg-emerald-50/10 overflow-hidden transition-all duration-200 hover:-translate-y-1">
+          <!-- 7. Cash Flow (renamed from misleading "Real Net Profit") -->
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 relative border-2 border-sky-400/30 bg-sky-50/10 overflow-hidden transition-all duration-200 hover:-translate-y-1">
             <div class="flex justify-between items-start gap-1">
               <div class="min-w-0">
-                <p class="text-[10px] sm:text-xs font-bold text-emerald-600 truncate uppercase">صافي الربح الحقيقي</p>
-                <h3 class="text-sm sm:text-lg lg:text-xl xl:text-2xl font-black text-emerald-700 mt-1 sm:mt-2 truncate" id="kpi-net-profit">0.00 ج.م</h3>
+                <!-- FIX: كان اسمها "صافي الربح الحقيقي" رغم إنها بتحسب فرق
+                     تدفق نقدي بس (تحصيلات - مشتريات ومصروفات) من غير خصم
+                     تكلفة البضاعة المباعة (COGS)، فكانت بتدّي رقم مختلف
+                     تماماً (وأحياناً سالب بشكل مضلل في شهور الشراء الكبيرة)
+                     عن رقم "الربح المُحقَّق" الحقيقي في تبويب المستثمرين. الاسم
+                     دلوقتي بيوصف اللي بتحسبه فعلاً بدقة. -->
+                <p class="text-[10px] sm:text-xs font-bold text-sky-600 truncate uppercase">صافي التدفق النقدي (للفترة المحددة)</p>
+                <h3 class="text-sm sm:text-lg lg:text-xl xl:text-2xl font-black text-sky-700 mt-1 sm:mt-2 truncate" id="kpi-net-profit">0.00 ج.م</h3>
               </div>
-              <div class="p-1.5 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl shrink-0 shadow-lg shadow-emerald-500/30">
+              <div class="p-1.5 sm:p-3 bg-sky-500 text-white rounded-lg sm:rounded-xl shrink-0 shadow-lg shadow-sky-500/30">
                 <i class="ph ph-bank text-sm sm:text-xl"></i>
               </div>
             </div>
+            <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-sky-600 font-bold truncate">
+              <span>فلوس دخلت وخرجت فعلياً - مش نفس "الربح المُحقَّق" (تكلفة البضاعة لسه متخصومتش)</span>
+            </div>
+          </div>
+
+          <!-- 7ب. FEATURE: كارت جديد بيعرض بالظبط نفس رقم "الربح المُحقَّق"
+               الموجود في تبويب المستثمرين (بعد خصم تكلفة البضاعة المباعة
+               فعلياً)، عشان يبقى فيه رقم "ربح" واحد موثوق في كل الشاشات،
+               بدل رقمين مختلفين بنفس الاسم يلخبطوا صاحب النظام. -->
+          <div class="glass-card rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5 relative border-2 border-emerald-400/30 bg-emerald-50/10 overflow-hidden transition-all duration-200 hover:-translate-y-1">
+            <div class="flex justify-between items-start gap-1">
+              <div class="min-w-0">
+                <p class="text-[10px] sm:text-xs font-bold text-emerald-600 truncate uppercase">الربح المُحقَّق (إجمالي كل الوقت)</p>
+                <h3 class="text-sm sm:text-lg lg:text-xl xl:text-2xl font-black text-emerald-700 mt-1 sm:mt-2 truncate" id="kpi-realized-profit">0.00 ج.م</h3>
+              </div>
+              <div class="p-1.5 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl shrink-0 shadow-lg shadow-emerald-500/30">
+                <i class="ph ph-seal-check text-sm sm:text-xl"></i>
+              </div>
+            </div>
             <div class="mt-1.5 sm:mt-4 text-[10px] sm:text-xs text-emerald-600 font-bold truncate">
-              <span>بعد خصم المصروفات والمشتريات</span>
+              <span>من مبيعات فعلية بس، ناقص المصروفات - نفس رقم تبويب المستثمرين بالظبط</span>
             </div>
           </div>
 
@@ -1236,6 +1265,14 @@
           <div id="pending-withdrawals-list" class="space-y-2"></div>
         </div>
 
+        <!-- FEATURE: تحذير مرة واحدة للأدمن بعد تحديث طريقة حساب الربح -->
+        <div id="profit-method-migration-banner" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-2">
+          <h4 class="text-sm font-bold text-rose-700 flex items-center gap-2"><i class="ph ph-warning-circle"></i> تنبيه: طريقة حساب الربح اتغيّرت</h4>
+          <p class="text-xs text-rose-600 leading-relaxed">
+            الربح دلوقتي بيتحسب من مبيعات فعلية بس (كاش + نسبة المُحصَّل من التقسيط) بدل الطريقة القديمة اللي كانت بتحسبه من فرق أصول الشركة. عندك تجميدات (Snapshots) قديمة اتعملت بالطريقة القديمة، فـ"ربح الفترة الحالية" ممكن يطلع رقم مش دقيق لحد ما تعمل تجميد جديد من زرار "تجميد الأرباح الحالية" تحت عشان تثبّت نقطة بداية جديدة بالطريقة الصحيحة. راجع أرقام كل مستثمر بعناية قبل أي سحب أرباح جديد.
+          </p>
+        </div>
+
         <!-- Summary KPI Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-6">
           <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
@@ -1247,7 +1284,7 @@
             <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-sky-400 truncate" id="investors-total-assets">0 ج.م</h4>
           </div>
           <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
-            <p class="text-[10px] sm:text-xs text-slate-400 font-semibold truncate">صافي الربح التراكمي</p>
+            <p class="text-[10px] sm:text-xs text-slate-400 font-semibold truncate">صافي الربح المُحقَّق (من مبيعات فعلية)</p>
             <h4 class="text-base sm:text-3xl font-extrabold mt-1.5 sm:mt-3 text-emerald-400 truncate" id="investors-net-profit">0 ج.م</h4>
           </div>
           <div class="bg-slate-900 text-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-20 sm:h-32">
@@ -1256,9 +1293,46 @@
           </div>
         </div>
 
+        <!-- FEATURE: تفاصيل مصدر الربح - شفافية كاملة إن الربح المعروض جاي
+             من مبيعات فعلية بس (كاش + نسبة المُحصَّل من التقسيط) ناقص
+             المصروفات، مش من قيمة أصول نظرية. -->
+        <button type="button" onclick="document.getElementById('profit-breakdown-panel').classList.toggle('hidden')" class="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1.5">
+          <i class="ph ph-magnifying-glass"></i>
+          <span>من أين جاء هذا الربح؟ (عرض التفاصيل)</span>
+        </button>
+        <div id="profit-breakdown-panel" class="hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
+          <h4 class="font-bold text-slate-700 text-sm mb-3">مصدر صافي الربح المُحقَّق</h4>
+          <p class="text-xs text-slate-500 leading-relaxed mb-4">
+            الربح هنا محسوب من عمليات بيع فعلية بس: ربح البيع الكاش (فوري بالكامل)، وربح البيع بالتقسيط (بنسبة اللي اتحصّل فعلياً من العميل لحد النهاردة، مش قيمة العقد كاملة). مخزون لسه ما اتباعش أو مشتريات آجلة من الموردين ما بتظهرش هنا كربح خالص لحد ما تتباع فعلياً.
+          </p>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div class="bg-emerald-50 rounded-xl p-3">
+              <p class="text-[11px] text-emerald-700 font-semibold mb-1">ربح البيع الكاش (أجهزة)</p>
+              <p class="font-bold text-emerald-700" id="profit-breakdown-cash-device">0 ج.م</p>
+            </div>
+            <div class="bg-emerald-50 rounded-xl p-3">
+              <p class="text-[11px] text-emerald-700 font-semibold mb-1">ربح بيع المنتجات كاش</p>
+              <p class="font-bold text-emerald-700" id="profit-breakdown-product">0 ج.م</p>
+            </div>
+            <div class="bg-sky-50 rounded-xl p-3">
+              <p class="text-[11px] text-sky-700 font-semibold mb-1">ربح مُحقَّق من التقسيط (حسب المُحصَّل)</p>
+              <p class="font-bold text-sky-700" id="profit-breakdown-installments">0 ج.م</p>
+            </div>
+            <div class="bg-rose-50 rounded-xl p-3">
+              <p class="text-[11px] text-rose-700 font-semibold mb-1">ناقص: المصروفات التشغيلية</p>
+              <p class="font-bold text-rose-700" id="profit-breakdown-expenses">0 ج.م</p>
+            </div>
+          </div>
+        </div>
+
         <div class="bg-teal-50 border border-teal-100 rounded-xl p-4 text-xs text-teal-800 flex items-start gap-2">
           <i class="ph ph-info mt-0.5"></i>
-          <span>صافي الربح = (رصيد الخزينة + قيمة المخزون المتاح + الأقساط المتبقية على العملاء + عهد المحصلين المعلقة) ناقص إجمالي رأس المال، زائد الأرباح اللي اتسحبت فعلاً قبل كده. <strong>نصيب كل مستثمر بيتحسب بالوقت</strong>: يشارك بس في الأرباح اللي اتحققت من بعد تاريخ انضمامه (أو من بعد آخر "تجميد أرباح")، مش في الأرباح القديمة قبل ما يدخل. استخدم "تجميد الأرباح الحالية" دورياً (شهري/ربع سنوي) عشان تقفل الحسابات وتضمن إن أي مستثمر جديد يشارك بس فيما بعد دخوله. أي حركات إيداع قديمة قبل إضافة هذه الميزة ومسجلة كـ"إيداع عام" في الخزينة مش هتُحتسب تلقائياً كرأس مال مستثمر — لازم تتأكد إن رأس مال كل مستثمر مُدخل هنا بالظبط.</span>
+          <!-- FIX: النص ده كان بيوصف الطريقة القديمة (فرق أصول الشركة) اللي
+               اتلغت واتستبدلت بطريقة "الربح المُحقَّق من مبيعات فعلية فقط" -
+               النص القديم بقى غلط تماماً وبيوصف حساب مش موجود في الكود
+               النهاردة، وده كان هيلخبط أي حد يقراه. اتحدّث ليوصف الطريقة
+               الفعلية المستخدمة دلوقتي. -->
+          <span>صافي الربح المُحقَّق = (ربح البيع الكاش + ربح البيع بالتقسيط بنسبة المُحصَّل فعلياً من كل عميل) ناقص إجمالي المصروفات التشغيلية. مخزون لسه ما اتباعش أو مشتريات آجلة من الموردين ما بتتحسبش كربح لحد ما تتباع فعلياً - اضغط "من أين جاء هذا الربح؟" فوق لتفاصيل المصدر. <strong>نصيب كل مستثمر بيتحسب بالوقت</strong>: يشارك بس في الأرباح اللي اتحققت من بعد تاريخ انضمامه (أو من بعد آخر "تجميد أرباح")، مش في الأرباح القديمة قبل ما يدخل. استخدم "تجميد الأرباح الحالية" دورياً (شهري/ربع سنوي) عشان تقفل الحسابات وتضمن إن أي مستثمر جديد يشارك بس فيما بعد دخوله. أي حركات إيداع قديمة قبل إضافة هذه الميزة ومسجلة كـ"إيداع عام" في الخزينة مش هتُحتسب تلقائياً كرأس مال مستثمر — لازم تتأكد إن رأس مال كل مستثمر مُدخل هنا بالظبط.</span>
         </div>
 
         <!-- Capital Distribution Chart -->
