@@ -2819,12 +2819,35 @@
           <i class="ph ph-x text-lg"></i>
         </button>
       </div>
+      <!-- FIX: قبل كده كان اسم المورد بيتكتب كنص حر جوه كل سطر، والاستيراد
+           كله كان بيتسجل كـ"شراء كاش" دايماً في الخزينة من غير ما يتسجل
+           خالص في سجل حساب المورد (supplierTransactions) - يعني أي أجهزة
+           متضافة من هنا كانت "غير مرئية" تماماً لرصيد المورد من الأول، حتى
+           قبل ما تتحذف. دلوقتي بنختار المورد وطريقة الدفع مرة واحدة لكل
+           الدفعة (زي بالظبط شاشة "إضافة جهاز" الفردية)، فكل قطعة بتتسجل
+           صح في سجل المورد من لحظة الإضافة. -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="form-label">التاجر / المورد المشتري منه الدفعة كلها</label>
+          <select id="import-inventory-supplier" required class="form-input">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <div>
+          <label class="form-label">طريقة الدفع لهذه الفاتورة</label>
+          <select id="import-inventory-payment-method" class="form-input">
+            <option value="cash">كاش فوري (يخصم من الخزينة الآن)</option>
+            <option value="credit">آجل (يُسجَّل كمستحق للمورد)</option>
+          </select>
+        </div>
+      </div>
+      <p class="text-[10px] text-slate-400 -mt-2 mb-2">لو مفيش مورد مسجل، اقفل النافذة دي وسجّله الأول من تبويب "الموردين". لو الدفعة دي من أكتر من مورد مختلف أو بطريقة دفع مختلفة، افصلهم في استيراد مستقل لكل مورد/طريقة دفع.</p>
       <p class="text-xs text-slate-500 mb-2">
         الصق سطر لكل قطعة بالترتيب التالي مفصولاً بفاصلة: <br>
-        <code class="bg-slate-50 px-1.5 py-0.5 rounded text-[11px]">الماركة, الموديل, السيريال, سعر التكلفة, سعر البيع, المورد, الفرع(اختياري)</code>
+        <code class="bg-slate-50 px-1.5 py-0.5 rounded text-[11px]">الماركة, الموديل, السيريال, سعر التكلفة, سعر البيع, الفرع(اختياري)</code>
       </p>
-      <textarea id="import-inventory-textarea" rows="8" class="form-input font-mono text-xs" placeholder="Samsung, A05, SN-1001, 4000, 4800, تاجر الجملة, الفرع الرئيسي
-Samsung, A05, SN-1002, 4000, 4800, تاجر الجملة, الفرع الرئيسي"></textarea>
+      <textarea id="import-inventory-textarea" rows="8" class="form-input font-mono text-xs" placeholder="Samsung, A05, SN-1001, 4000, 4800, الفرع الرئيسي
+Samsung, A05, SN-1002, 4000, 4800, الفرع الرئيسي"></textarea>
       <div class="flex justify-end gap-2 pt-4">
         <button type="button" onclick="closeModal('import-inventory-modal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm">إلغاء</button>
         <button type="button" onclick="submitImportInventory()" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-md">استيراد الآن</button>

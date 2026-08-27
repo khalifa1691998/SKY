@@ -2770,6 +2770,11 @@ function renderInventory() {
       return age !== null && age > max ? age : max;
     }, 0);
 
+    // FEATURE: زرار "مرتجع" سريع جنب كل قطعة متاحة مباشرة (بدل ما يكون
+    // مخبّى جوه نافذة تفاصيل القطعة)، عشان لو اشتريت 5 قطع أو أكتر من مورد
+    // وعايز ترجّع وحدة منهم بسرعة، مش محتاج تفتح النافذة الأول. الزرار
+    // بينادي بالظبط نفس دالة returnDeviceToSupplier اللي بتخصم من المخزون
+    // ومن رصيد المورد مع بعض بشكل صحيح ومترابط.
     const serialBadges = group.devices.map(d => {
       let bg = 'bg-slate-100 text-slate-600';
       let title = 'متاح';
@@ -2783,7 +2788,10 @@ function renderInventory() {
         bg = 'bg-purple-50 text-purple-700 border border-purple-100';
         title = 'تحت الصيانة';
       }
-      return `<span onclick="openDeviceActionsModal('${d.id}')" class="inline-block cursor-pointer text-[10px] font-mono px-1.5 py-0.5 rounded ${bg} m-0.5 hover:ring-1 hover:ring-slate-300" title="${escapeHTML(title)} — اضغط لعرض تفاصيل القطعة">${escapeHTML(d.serial)}</span>`;
+      const returnBtn = (d.status === 'available' && userIsAdmin)
+        ? `<button onclick="event.stopPropagation(); returnDeviceToSupplier('${d.id}')" title="إرجاع هذه القطعة للمورد" class="inline-flex items-center justify-center w-4 h-4 -mr-1 align-middle text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-full"><i class="ph ph-arrow-u-up-left text-[10px]"></i></button>`
+        : '';
+      return `<span class="inline-flex items-center m-0.5">${returnBtn}<span onclick="openDeviceActionsModal('${d.id}')" class="inline-block cursor-pointer text-[10px] font-mono px-1.5 py-0.5 rounded ${bg} hover:ring-1 hover:ring-slate-300" title="${escapeHTML(title)} — اضغط لعرض تفاصيل القطعة">${escapeHTML(d.serial)}</span></span>`;
     }).join(' ');
 
     const stockBadge = isOutOfStock
@@ -2926,7 +2934,10 @@ window.deleteDeviceGroup = async function(brand, name) {
 
       // تصحيح سجل المورد (بغض النظر عن كاش أو آجل)
       const originalPurchaseTx = db.supplierTransactions.find(t => t.relatedDeviceId === dev.id && t.type === 'purchase');
-      const supplierId = originalPurchaseTx ? originalPurchaseTx.supplierId : dev.supplierId;
+      // FIX (توافق مع بيانات قديمة): أجهزة اتضافت قبل إصلاح الاستيراد
+      // الجماعي مفيهاش supplierId خالص - بنحاول كحل أخير نلاقي المورد
+      // بمطابقة الاسم النصي المخزَّن على الجهاز.
+      const supplierId = originalPurchaseTx ? originalPurchaseTx.supplierId : (dev.supplierId || (db.suppliers.find(s => s.name === dev.supplier) || {}).id);
       const method = originalPurchaseTx ? originalPurchaseTx.method : (dev.purchaseMethod || 'credit');
       const supplierName = originalPurchaseTx ? originalPurchaseTx.supplierName : dev.supplier;
       if (supplierId) {
@@ -3184,7 +3195,10 @@ window.returnDeviceToSupplier = async function(deviceId) {
   // ولا كاش، ومين المورد (supplierId) بالضبط. لو مفيش (بيانات قديمة من قبل
   // إضافة relatedDeviceId)، بنرجع لبيانات الجهاز نفسه كحل احتياطي.
   const originalPurchaseTx = db.supplierTransactions.find(t => t.relatedDeviceId === deviceId && t.type === 'purchase');
-  const supplierId = originalPurchaseTx ? originalPurchaseTx.supplierId : dev.supplierId;
+  // FIX (توافق مع بيانات قديمة): أجهزة اتضافت قبل إصلاح الاستيراد الجماعي
+  // مفيهاش supplierId خالص - بنحاول كحل أخير نلاقي المورد بمطابقة الاسم
+  // النصي المخزَّن على الجهاز.
+  const supplierId = originalPurchaseTx ? originalPurchaseTx.supplierId : (dev.supplierId || (db.suppliers.find(s => s.name === dev.supplier) || {}).id);
   const method = originalPurchaseTx ? originalPurchaseTx.method : (dev.purchaseMethod || 'credit');
   const supplierName = originalPurchaseTx ? originalPurchaseTx.supplierName : dev.supplier;
 
@@ -3296,6 +3310,21 @@ window.submitImportInventory = async function() {
   const text = document.getElementById('import-inventory-textarea').value.trim();
   if (!text) { alert('يرجى لصق البيانات أولاً.'); return; }
 
+  // FIX: كان الاستيراد الجماعي بيسجّل كل الأجهزة كـ"شراء كاش" في الخزينة
+  // مباشرة، من غير ما يسجّل أي حركة في سجل حساب المورد (supplierTransactions)
+  // خالص - يعني الأجهزة دي كانت "غير مرئية" تماماً لرصيد المورد من لحظة
+  // إضافتها (مش بس وقت حذفها). دلوقتي بنطلب اختيار المورد وطريقة الدفع
+  // مرة واحدة للدفعة كلها (زي شاشة "إضافة جهاز" الفردية بالظبط)، ونسجّل
+  // حركة شراء مرتبطة بالمورد لكل قطعة، ونخصم من الخزينة فقط لو "كاش".
+  const supplierId = document.getElementById('import-inventory-supplier').value;
+  const paymentMethod = document.getElementById('import-inventory-payment-method').value;
+  const supplierObj = db.suppliers.find(s => s.id === supplierId);
+  if (!supplierObj) {
+    alert('⚠️ برجاء اختيار المورد المشتري منه الدفعة كلها أولاً.');
+    return;
+  }
+  const supplierName = supplierObj.name;
+
   const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '');
   const now = new Date();
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -3305,10 +3334,10 @@ window.submitImportInventory = async function() {
   const syncPromises = [];
 
   lines.forEach((line, idx) => {
-    // الصيغة المتوقعة لكل سطر: الماركة,الموديل,السيريال,سعر التكلفة,سعر البيع,المورد,الفرع(اختياري)
+    // الصيغة المتوقعة لكل سطر: الماركة,الموديل,السيريال,سعر التكلفة,سعر البيع,الفرع(اختياري)
     const parts = line.split(',').map(p => p.trim());
     if (parts.length < 5) { skipped.push(`سطر ${idx + 1}: بيانات ناقصة`); return; }
-    const [brand, name, serial, costStr, priceStr, supplier = '', branch = 'الفرع الرئيسي'] = parts;
+    const [brand, name, serial, costStr, priceStr, branch = 'الفرع الرئيسي'] = parts;
     const costPrice = parseFloat(costStr);
     const sellingPrice = parseFloat(priceStr);
 
@@ -3323,29 +3352,50 @@ window.submitImportInventory = async function() {
 
     const newDevice = {
       id: `dev-${Date.now()}-${idx}`,
-      brand, name, serial, costPrice, sellingPrice, supplier,
+      brand, name, serial, costPrice, sellingPrice,
+      supplier: supplierName, supplierId, purchaseMethod: paymentMethod,
       status: 'available', soldTo: '', condition: 'new', warrantyMonths: 0,
       branch, minQty: 3, notes: '', addedDate: todayDate, history: []
     };
-    addDeviceHistory(newDevice, 'استيراد دفعة', `تمت إضافة القطعة عبر الاستيراد الجماعي`);
+    addDeviceHistory(newDevice, 'استيراد دفعة', `تمت إضافة القطعة عبر الاستيراد الجماعي من المورد ${supplierName} (${paymentMethod === 'credit' ? 'آجل' : 'كاش'})`);
     db.inventory.push(newDevice);
 
-    const purchaseTx = {
-      id: `tx-pur-imp-${Date.now()}-${idx}`,
-      timestamp, type: 'inventory_purchase', amount: -costPrice,
-      notes: `شراء قطعة ${brand} ${name} (SN: ${serial}) عبر الاستيراد الجماعي من ${supplier}`
+    let purchaseTx = null;
+    if (paymentMethod === 'cash') {
+      purchaseTx = {
+        id: `tx-pur-imp-${Date.now()}-${idx}`,
+        timestamp, type: 'inventory_purchase', amount: -costPrice,
+        notes: `شراء قطعة ${brand} ${name} (SN: ${serial}) عبر الاستيراد الجماعي من ${supplierName}`
+      };
+      db.treasuryTransactions.unshift(purchaseTx);
+    }
+
+    // الحركة الأساسية اللي كانت ناقصة بالكامل: تسجيل الشراء في سجل المورد.
+    const supplierTx = {
+      id: `sptx-imp-${Date.now()}-${idx}`,
+      supplierId,
+      supplierName,
+      type: 'purchase',
+      method: paymentMethod,
+      amount: costPrice,
+      timestamp,
+      date: todayDate,
+      notes: `شراء قطعة ${brand} ${name} (SN: ${serial}) عبر الاستيراد الجماعي`,
+      relatedDeviceId: newDevice.id
     };
-    db.treasuryTransactions.unshift(purchaseTx);
+    db.supplierTransactions.unshift(supplierTx);
+
     syncPromises.push(syncWithAppsScript('addDevice', { newDevice, timestamp, transaction: purchaseTx }));
+    syncPromises.push(syncWithAppsScript('addSupplierTransaction', { transaction: supplierTx }));
     added++;
   });
 
   if (added > 0) {
-    logAction('استيراد مخزون جماعي', `تمت إضافة ${added} قطعة عبر الاستيراد الجماعي`);
+    logAction('استيراد مخزون جماعي', `تمت إضافة ${added} قطعة عبر الاستيراد الجماعي من المورد ${supplierName} (${paymentMethod === 'credit' ? 'آجل' : 'كاش'})`);
   }
   if (syncPromises.length > 0) await Promise.all(syncPromises);
 
-  let resultMsg = `تم استيراد ${added} قطعة بنجاح.`;
+  let resultMsg = `تم استيراد ${added} قطعة بنجاح من المورد ${supplierName}.`;
   if (skipped.length > 0) resultMsg += `\n\nتم تجاهل ${skipped.length} سطر:\n${skipped.join('\n')}`;
   alert(resultMsg);
 
@@ -3353,6 +3403,7 @@ window.submitImportInventory = async function() {
   closeModal('import-inventory-modal');
   renderInventory();
   renderTreasury();
+  renderSuppliers();
   renderDashboard();
   });
 };
@@ -3436,6 +3487,8 @@ function renderSuppliers() {
   }
   emptyState.classList.add('hidden');
 
+  const userIsAdminForSupplierView = isAdmin();
+
   // IMPROVEMENT #1 (الأداء): الإجماليات فوق الصفحة بتتحسب على كل الموردين
   // المفلترين، ورسم البطاقات بيتقسم لصفحات (25 مورد بالصفحة).
   let grandPurchases = 0, grandPaid = 0, grandDue = 0;
@@ -3485,7 +3538,30 @@ function renderSuppliers() {
         </div>
       </div>
 
-      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 space-y-2">
+      <div class="${isExpanded ? '' : 'hidden'} border-t border-slate-100 p-4 space-y-4">
+        ${(() => {
+          // FEATURE: قايمة الأجهزة المتاحة حالياً من المورد ده، مع زرار
+          // "مرتجع" جنب كل جهاز مباشرة من صفحة المورد نفسها - بدل ما تضطر
+          // تروح تبويب المخزون وتدوّر عليه هناك. بيستخدم بالظبط نفس دالة
+          // returnDeviceToSupplier اللي بتخصم من المخزون ومن رصيد المورد
+          // مع بعض بشكل صحيح ومترابط.
+          const supplierDevices = db.inventory.filter(d => d.status === 'available' && (d.supplierId === supplier.id || (!d.supplierId && d.supplier === supplier.name)));
+          if (supplierDevices.length === 0) return '';
+          return `
+          <div>
+            <h5 class="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5"><i class="ph ph-package"></i> الأجهزة المتاحة حالياً من هذا المورد (${supplierDevices.length})</h5>
+            <div class="flex flex-wrap gap-2">
+              ${supplierDevices.map(d => `
+                <div class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg pl-1 pr-2.5 py-1 text-xs">
+                  <span class="font-semibold text-slate-700">${escapeHTML(d.brand)} ${escapeHTML(d.name)}</span>
+                  <span class="font-mono text-slate-400">${escapeHTML(d.serial)}</span>
+                  ${userIsAdminForSupplierView ? `<button onclick="returnDeviceToSupplier('${d.id}')" title="إرجاع هذه القطعة للمورد" class="p-1 text-rose-500 hover:bg-rose-100 rounded-md"><i class="ph ph-arrow-u-up-left"></i></button>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          `;
+        })()}
         ${bal.transactions.length === 0 ? '<p class="text-xs text-slate-400 text-center py-4">لا توجد حركات مسجلة لهذا المورد بعد.</p>' : `
         <div class="overflow-x-auto">
           <table class="w-full text-right border-collapse text-xs">
@@ -9022,6 +9098,23 @@ function populateDropdowns() {
         supplierSelect.appendChild(opt);
       });
       if ([...supplierSelect.options].some(o => o.value === prevVal)) supplierSelect.value = prevVal;
+    }
+
+    // FIX: نفس تعبئة قائمة الموردين لخانة "استيراد دفعة كبيرة" الجديدة.
+    const importSupplierSelect = document.getElementById('import-inventory-supplier');
+    if (importSupplierSelect) {
+      const prevVal = importSupplierSelect.value;
+      importSupplierSelect.innerHTML = '';
+      if (db.suppliers.length === 0) {
+        importSupplierSelect.innerHTML = '<option value="">لا يوجد موردين مسجلين - أضف مورد أولاً</option>';
+      }
+      db.suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = formatSupplierOptionLabel(s);
+        importSupplierSelect.appendChild(opt);
+      });
+      if ([...importSupplierSelect.options].some(o => o.value === prevVal)) importSupplierSelect.value = prevVal;
     }
 
     // قائمة الأصناف داخل نموذج إضافة/تعديل منتج
