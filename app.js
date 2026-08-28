@@ -276,7 +276,14 @@ function generateSeededInstallments() {
 // بديل لصندوق confirm() الافتراضي بالمتصفح (اللي بيظهر بشكل نافذة منفصلة
 // وبيكتب اسم الدومين "khalifa1691998.github.io says" - بيحسس المستخدم إنه
 // جزء من المتصفح مش من الموقع). المودال ده مصمم بنفس هوية الموقع بالكامل.
-function customConfirm(message, title) {
+// FIX: بتقبل دلوقتي تسميات مخصصة لزرار التأكيد/الإلغاء (okLabel, cancelLabel)
+// اختيارية - لو مافيش، بترجع للتسميات الافتراضية "تأكيد"/"إلغاء" زي ما كانت
+// دايماً، فمفيش أي تأثير على الاستخدامات التانية للدالة دي في باقي النظام.
+// السبب: أسئلة يس/نو حقيقية (زي "هل استلمت فلوس نقداً؟") بأزرار عامة زي
+// "تأكيد" كانت بتتفهم غلط كـ"وافق على إكمال العملية" مش "أيوه استلمت فلوس"،
+// وده سبب فعلياً تسجيل استرداد نقدي وهمي في مرتجعات الموردين (بند ٤.١ من
+// تقرير المراجعة).
+function customConfirm(message, title, okLabel, cancelLabel) {
   return new Promise((resolve) => {
     const modal = document.getElementById('custom-confirm-modal');
     const msgEl = document.getElementById('custom-confirm-message');
@@ -292,6 +299,8 @@ function customConfirm(message, title) {
 
     msgEl.textContent = message;
     titleEl.textContent = title || 'تأكيد العملية';
+    okBtn.textContent = okLabel || 'تأكيد';
+    cancelBtn.textContent = cancelLabel || 'إلغاء';
     modal.classList.remove('hidden');
 
     function cleanup(result) {
@@ -299,6 +308,10 @@ function customConfirm(message, title) {
       okBtn.removeEventListener('click', onOk);
       cancelBtn.removeEventListener('click', onCancel);
       document.removeEventListener('keydown', onKeydown, true);
+      // نرجع تسميات الأزرار للوضع الافتراضي عشان أي استخدام تاني عادي
+      // للدالة بعد كده ميفضلش وارث تسميات مخصصة من نداء سابق.
+      okBtn.textContent = 'تأكيد';
+      cancelBtn.textContent = 'إلغاء';
       resolve(result);
     }
     function onOk() { cleanup(true); }
@@ -3203,7 +3216,32 @@ window.returnDeviceToSupplier = async function(deviceId) {
   const supplierName = originalPurchaseTx ? originalPurchaseTx.supplierName : dev.supplier;
 
   const reason = (await customPrompt('سبب إرجاع القطعة للمورد (مثال: عيب مصنعي):', '', 'إرجاع قطعة للمورد')) || '';
-  const refund = await customConfirm(`هل استرد المورد قيمة القطعة (${dev.costPrice.toLocaleString()} ج.م) نقداً في الخزينة؟\n\n${method === 'credit' ? 'ملحوظة: القطعة دي كانت مشتراة بالآجل، فلو لسه ما دفعتهاش أصلاً، اختار "لا" - الرصيد المستحق للمورد هينقص تلقائياً بقيمتها بدل ما تاخد نقدية.' : ''}`, 'استرداد قيمة القطعة');
+
+  // FIX: السؤال عن استرداد نقدي كان بيظهر دايماً (حتى للمشتريات الآجلة
+  // اللي أصلاً لسه ما اتدفعتش)، وكان بيستخدم زرار "تأكيد/إلغاء" العامين
+  // لسؤال يس/نو حقيقي - فكان سهل جداً إنك تدوس "تأكيد" قصدك بس "أيوه كمّل
+  // عملية الإرجاع" فيسجل النظام غلط إنك استلمت فلوس نقدية لحد ما اتفق عليه.
+  // دلوقتي: (أ) لو الشراء كان بالآجل، مفيش أي سؤال عن نقدية خالص - منطقياً
+  // مفيش حاجة اتدفعت أصلاً عشان تتسترد، فبنكتفي بتقليل المستحق للمورد
+  // تلقائياً. (ب) لو كان كاش، بنسأل بأزرار واضحة المعنى تماماً ("نعم
+  // استلمت المبلغ نقداً" / "لا لم أستلم شيء") بدل "تأكيد/إلغاء" العامة.
+  let refund = false;
+  if (method === 'cash') {
+    refund = await customConfirm(
+      `القطعة دي كانت مشتراة كاش بمبلغ ${dev.costPrice.toLocaleString()} ج.م. هل استلمت هذا المبلغ نقداً من المورد فعلاً الآن؟`,
+      'استرداد قيمة القطعة نقداً',
+      'نعم، استلمت المبلغ نقداً',
+      'لا، لم أستلم شيء'
+    );
+  }
+
+  const confirmed = await customConfirm(
+    `تأكيد إرجاع الجهاز "${dev.brand} ${dev.name}" (SN: ${dev.serial}) للمورد ${supplierName}.\n\n${method === 'credit' ? `سيتم تخفيض المبلغ المستحق لهذا المورد بقيمة ${dev.costPrice.toLocaleString()} ج.م تلقائياً (لأن القطعة كانت آجلة ولم تُدفع بعد).` : (refund ? `تم تسجيل استرداد ${dev.costPrice.toLocaleString()} ج.م نقداً في الخزينة.` : 'لن يتم تسجيل أي حركة نقدية في الخزينة.')}`,
+    'تأكيد نهائي',
+    'نعم، تأكيد الإرجاع',
+    'رجوع'
+  );
+  if (!confirmed) return;
 
   const now = new Date();
   const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
